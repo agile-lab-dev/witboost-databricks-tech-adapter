@@ -1,0 +1,39 @@
+dataProduct:
+  id: urn:dmb:dp:healthcare:vaccinations:0
+  name: Vaccinations
+  fullyQualifiedName: Vaccinations
+  description: DP about vaccinations
+  kind: dataproduct
+  domain: healthcare
+  version: 0.1.0
+  environment: development
+  dataProductOwner: user:name.surname_email.com
+  dataProductOwnerDisplayName: Name Surname
+  email: name.surname@email.com
+  ownerGroup: name.surname_email.com
+  devGroup: group:dev
+  informationSLA: 2BD
+  maturity: Tactical
+  billing: {}
+  tags: []
+  specific: {}
+  domainId: urn:dmb:dmn:healthcare
+  useCaseTemplateId: urn:dmb:utm:dataproduct-template:0.0.0
+  infrastructureTemplateId: urn:dmb:itm:dataproduct-provisioner:1
+  components:
+    - kind: wrong
+      id: urn:dmb:cmp:healthcare:vaccinations:0:storage
+      name: CDP Private HDFS Storage Area
+      fullyQualifiedName: CDP Private HDFS Storage Area
+      description: CDP Private HDFS Storage Area for vaccinations data
+      owners:
+        - group:dev
+      infrastructureTemplateId: urn:dmb:itm:cdp-private-hdfs-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:cdp-private-hdfs-storage-template:0.0.0
+      dependsOn: []
+      platform: CDP Private
+      technology: HDFS
+      storageType: Files
+      tags: []
+      specific: {}
+componentIdToProvision: urn:dmb:cmp:healthcare:vaccinations:0:storage

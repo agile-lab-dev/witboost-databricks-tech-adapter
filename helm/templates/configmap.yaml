@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+  {{- include "databricks-specific-provisioner.labels" . | nindent 4 }}
+name: {{ template "databricks-specific-provisioner.fullname" . }}-config
+data:
+  application.yml: |
+  {{- if .Values.configOverride -}}
+  {{- .Values.configOverride | nindent 4 }}
+  {{- else -}}
+  {{- .Files.Get "files/application.yml" | nindent 4 }}
+  {{ end }}

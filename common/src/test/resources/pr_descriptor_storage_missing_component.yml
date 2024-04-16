@@ -1,0 +1,24 @@
+dataProduct:
+  id: urn:dmb:dp:healthcare:vaccinations:0
+  name: Vaccinations
+  fullyQualifiedName: Vaccinations
+  description: DP about vaccinations
+  kind: dataproduct
+  domain: healthcare
+  version: 0.1.0
+  environment: development
+  dataProductOwner: user:name.surname_email.com
+  dataProductOwnerDisplayName: Name Surname
+  email: name.surname@email.com
+  ownerGroup: name.surname_email.com
+  devGroup: group:dev
+  informationSLA: 2BD
+  maturity: Tactical
+  billing: {}
+  tags: []
+  specific: {}
+  domainId: urn:dmb:dmn:healthcare
+  useCaseTemplateId: urn:dmb:utm:dataproduct-template:0.0.0
+  infrastructureTemplateId: urn:dmb:itm:dataproduct-provisioner:1
+  components: []
+componentIdToProvision: urn:dmb:cmp:healthcare:vaccinations:0:storage

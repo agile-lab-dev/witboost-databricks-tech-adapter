@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ template "databricks-specific-provisioner.name" . }}
+{{- include "databricks-specific-provisioner.labels" . | nindent 4 }}
+  name: {{ template "databricks-specific-provisioner.fullname" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "databricks-specific-provisioner.name" . }}
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: {{ template "databricks-specific-provisioner.name" . }}
+{{- include "databricks-specific-provisioner.labels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- if .Values.dockerRegistrySecretName }}
+      imagePullSecrets:
+        - name: {{ .Values.dockerRegistrySecretName }}
+      {{- end}}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ template "databricks-specific-provisioner.fullname" . }}-config
+            defaultMode: 420
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.image.registry }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8888
+              protocol: TCP
+          {{- if .Values.securityContext }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe: {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe }}
+          livenessProbe: {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.resources }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SPRING_CONFIG_LOCATION
+              value: file:/opt/docker/etc/configs/application.yml
+            - name: OTEL_JAVAAGENT_ENABLED
+              value: {{ quote .Values.otel.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.otel.collectorUrl }}
+            - name: OTEL_METRICS_EXPORTER
+              value: {{ .Values.otel.metricExporter }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.otel.serviceName }}
+            - name: OTEL_TRACES_EXPORTER
+              value: {{ .Values.otel.tracesExporter }}
+            {{- if .Values.extraEnvVars }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /opt/docker/etc/configs

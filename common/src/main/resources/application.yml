@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: databricks-specific-provisioner
+
+server:
+  port: 8888
+
+springdoc:
+  swagger-ui:
+    path: /docs
