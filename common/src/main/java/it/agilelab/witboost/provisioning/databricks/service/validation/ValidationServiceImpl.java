@@ -9,6 +9,7 @@ import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.Component;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.parser.Parser;
@@ -26,8 +27,13 @@ public class ValidationServiceImpl implements ValidationService {
 
     private final String WORKLOAD_KIND = "workload";
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
-    private final Map<String, Class<? extends Specific>> kindToSpecificClass =
-            Map.of(STORAGE_KIND, Specific.class, OUTPUTPORT_KIND, Specific.class, WORKLOAD_KIND, Specific.class);
+    private final Map<String, Class<? extends Specific>> kindToSpecificClass = Map.of(
+            STORAGE_KIND,
+            Specific.class,
+            OUTPUTPORT_KIND,
+            Specific.class,
+            WORKLOAD_KIND,
+            DatabricksWorkloadSpecific.class);
 
     @Override
     public Either<FailedOperation, ProvisionRequest<? extends Specific>> validate(
