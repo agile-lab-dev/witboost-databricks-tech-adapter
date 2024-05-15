@@ -12,26 +12,26 @@ public class AzureDatabricksManagerBeanTest {
     public void testGetObject() {
 
         AzureDatabricksManager mockedManager = mock(AzureDatabricksManager.class);
-        AzureDatabricksManagerBeanBean managerBean = new AzureDatabricksManagerBeanBean();
+        AzureDatabricksManagerBean managerBean = new AzureDatabricksManagerBean();
         managerBean.setAzureDatabricksManager(mockedManager);
         assertSame(mockedManager, managerBean.getObject());
     }
 
     @Test
     public void testGetObjectType() {
-        AzureDatabricksManagerBeanBean managerBean = new AzureDatabricksManagerBeanBean();
+        AzureDatabricksManagerBean managerBean = new AzureDatabricksManagerBean();
         assertEquals(AzureDatabricksManager.class, managerBean.getObjectType());
     }
 
     @Test
     public void testIsSingleton() {
-        AzureDatabricksManagerBeanBean managerBean = new AzureDatabricksManagerBeanBean();
+        AzureDatabricksManagerBean managerBean = new AzureDatabricksManagerBean();
         assertTrue(managerBean.isSingleton());
     }
 
     @Test
     public void testSetAzureDatabricksManager() {
-        AzureDatabricksManagerBeanBean managerBean = new AzureDatabricksManagerBeanBean();
+        AzureDatabricksManagerBean managerBean = new AzureDatabricksManagerBean();
         AzureDatabricksManager mockedManager = mock(AzureDatabricksManager.class);
         managerBean.setAzureDatabricksManager(mockedManager);
         assertSame(mockedManager, managerBean.getObject());

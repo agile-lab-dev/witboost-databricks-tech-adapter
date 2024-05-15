@@ -27,13 +27,8 @@ public class ValidationServiceImpl implements ValidationService {
 
     private final String WORKLOAD_KIND = "workload";
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
-    private final Map<String, Class<? extends Specific>> kindToSpecificClass = Map.of(
-            STORAGE_KIND,
-            Specific.class,
-            OUTPUTPORT_KIND,
-            Specific.class,
-            WORKLOAD_KIND,
-            DatabricksWorkloadSpecific.class);
+    private final Map<String, Class<? extends Specific>> kindToSpecificClass =
+            Map.of(WORKLOAD_KIND, DatabricksWorkloadSpecific.class);
 
     @Override
     public Either<FailedOperation, ProvisionRequest<? extends Specific>> validate(
@@ -78,32 +73,13 @@ public class ValidationServiceImpl implements ValidationService {
         var componentKindToProvision = optionalComponentKindToProvision.get();
         Component<? extends Specific> componentToProvision;
         switch (componentKindToProvision) {
-            case STORAGE_KIND:
-                var storageClass = kindToSpecificClass.get(STORAGE_KIND);
-                logger.info("Parsing Storage Area Component");
-                var eitherStorageToProvision = Parser.parseComponent(componentToProvisionAsJson, storageClass);
-                if (eitherStorageToProvision.isLeft()) return left(eitherStorageToProvision.getLeft());
-                componentToProvision = eitherStorageToProvision.get();
-                var storageAreaValidation = StorageAreaValidation.validate(componentToProvision);
-                if (storageAreaValidation.isLeft()) return left(storageAreaValidation.getLeft());
-                break;
-            case OUTPUTPORT_KIND:
-                var outputPortClass = kindToSpecificClass.get(OUTPUTPORT_KIND);
-                logger.info("Parsing Output Port Component");
-                var eitherOutputPortToProvision = Parser.parseComponent(componentToProvisionAsJson, outputPortClass);
-                if (eitherOutputPortToProvision.isLeft()) return left(eitherOutputPortToProvision.getLeft());
-                componentToProvision = eitherOutputPortToProvision.get();
-                var outputPortValidation =
-                        OutputPortValidation.validate(descriptor.getDataProduct(), componentToProvision);
-                if (outputPortValidation.isLeft()) return left(outputPortValidation.getLeft());
-                break;
             case WORKLOAD_KIND:
                 var workloadClass = kindToSpecificClass.get(WORKLOAD_KIND);
                 logger.info("Parsing Workload Component");
                 var eitherWorkloadToProvision = Parser.parseComponent(componentToProvisionAsJson, workloadClass);
                 if (eitherWorkloadToProvision.isLeft()) return left(eitherWorkloadToProvision.getLeft());
                 componentToProvision = eitherWorkloadToProvision.get();
-                var workloadValidation = WorkloadValidation.validate(descriptor.getDataProduct(), componentToProvision);
+                var workloadValidation = WorkloadValidation.validate(componentToProvision);
                 if (workloadValidation.isLeft()) return left(workloadValidation.getLeft());
                 break;
             default:

@@ -67,8 +67,8 @@ dataProduct:
       infrastructureTemplateId: urn:dmb:itm:aws-workload-dbt-transformation-provisioner:0
       useCaseTemplateId: urn:dmb:utm:aws-workload-dbt-transformation-template:0.0.0
       dependsOn: [ ]
-      platform: AWS
-      technology: dbt
+      platform: Azure
+      technology: databricks
       workloadType: batch
       connectionType: DataPipeline
       tags: [ ]

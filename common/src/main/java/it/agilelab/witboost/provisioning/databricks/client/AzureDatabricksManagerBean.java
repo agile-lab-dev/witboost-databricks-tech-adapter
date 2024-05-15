@@ -11,7 +11,7 @@ import org.springframework.beans.factory.FactoryBean;
  * Factory bean for creating AzureDatabricksManager instances.
  * This bean authenticates with Azure using default credentials and provides access to Azure Databricks resources.
  */
-public class AzureDatabricksManagerBeanBean implements FactoryBean<AzureDatabricksManager> {
+public class AzureDatabricksManagerBean implements FactoryBean<AzureDatabricksManager> {
 
     private AzureDatabricksManager azureDatabricksManager;
 

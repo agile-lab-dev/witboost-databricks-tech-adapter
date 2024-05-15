@@ -17,11 +17,7 @@ import lombok.ToString;
         include = JsonTypeInfo.As.EXISTING_PROPERTY,
         property = "kind",
         visible = true)
-@JsonSubTypes({
-    @JsonSubTypes.Type(value = OutputPort.class, name = "outputport"),
-    @JsonSubTypes.Type(value = StorageArea.class, name = "storage"),
-    @JsonSubTypes.Type(value = Workload.class, name = "workload")
-})
+@JsonSubTypes({@JsonSubTypes.Type(value = Workload.class, name = "workload")})
 public abstract class Component<T> {
 
     private String id;

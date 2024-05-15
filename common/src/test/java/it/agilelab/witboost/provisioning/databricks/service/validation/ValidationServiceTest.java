@@ -1,12 +1,11 @@
 package it.agilelab.witboost.provisioning.databricks.service.validation;
 
-import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
-import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.util.ResourceUtils;
 import java.io.IOException;
-import java.util.Collections;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -15,42 +14,14 @@ public class ValidationServiceTest {
     private final ValidationService service = new ValidationServiceImpl();
 
     @Test
-    public void testValidateOutputPortFailureToImplement() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_outputport.yml");
-        ProvisioningRequest provisioningRequest =
-                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
-        var failedOperation = new FailedOperation(Collections.singletonList(
-                new Problem("Implement the validation for output port based on your requirements!")));
-
-        var actualResult = service.validate(provisioningRequest);
-
-        Assertions.assertEquals(failedOperation, actualResult.getLeft());
-    }
-
-    @Test
-    public void testValidateStorageFailureToImplement() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_storage.yml");
-        ProvisioningRequest provisioningRequest =
-                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
-        var failedOperation = new FailedOperation(Collections.singletonList(
-                new Problem("Implement the validation for storage area based on your requirements!")));
-
-        var actualResult = service.validate(provisioningRequest);
-
-        Assertions.assertEquals(failedOperation, actualResult.getLeft());
-    }
-
-    @Test
-    public void testValidateWorkloadFailureToImplement() throws IOException {
+    public void testValidateWorkloadOk() throws IOException {
         String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_workload.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
-        var failedOperation = new FailedOperation(Collections.singletonList(
-                new Problem("Implement the validation for workload based on your requirements!")));
 
-        var actualResult = service.validate(provisioningRequest);
+        var actualRes = service.validate(provisioningRequest);
 
-        Assertions.assertEquals(failedOperation, actualResult.getLeft());
+        assertTrue(actualRes.isRight());
     }
 
     @Test
