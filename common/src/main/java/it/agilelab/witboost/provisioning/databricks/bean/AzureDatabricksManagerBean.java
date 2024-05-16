@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.client;
+package it.agilelab.witboost.provisioning.databricks.bean;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.management.AzureEnvironment;
@@ -32,11 +32,6 @@ public class AzureDatabricksManagerBean implements FactoryBean<AzureDatabricksMa
     @Override
     public Class<?> getObjectType() {
         return AzureDatabricksManager.class;
-    }
-
-    @Override
-    public boolean isSingleton() {
-        return true;
     }
 
     public void setAzureDatabricksManager(AzureDatabricksManager azureDatabricksManager) {

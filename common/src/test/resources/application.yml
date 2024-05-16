@@ -1,0 +1,11 @@
+azure.permissions:
+    resourceId: /subscriptions/xxxx/resourceGroups/databricks-rg/providers/Microsoft.Databricks/workspaces/testWorkspace
+    roleAssignmentName: xxx-6180-42a0-ab88-20f7382dd24c
+    roleDefinitionId: /providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c
+    principalId: xxx
+    principalType: User
+
+azure.auth:
+    clientId: ${AZURE_CLIENT_ID}
+    tenantId: ${AZURE_TENANT_ID}
+    clientSecret: ${AZURE_CLIENT_SECRET}

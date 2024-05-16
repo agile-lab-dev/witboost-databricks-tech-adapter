@@ -26,7 +26,8 @@ public class WorkloadValidation {
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }
 
-        logger.info("Checking specific section of component {} is of type StorageSpecific", component.getId());
+        logger.info(
+                "Checking specific section of component {} is of type DatabricksWorkloadSpecific", component.getId());
         if (!(component.getSpecific() instanceof DatabricksWorkloadSpecific)) {
             String errorMessage = String.format(
                     "The specific section of the component %s is not of type DatabricksWorkloadSpecific",
