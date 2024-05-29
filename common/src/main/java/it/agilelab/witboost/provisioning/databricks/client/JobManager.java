@@ -12,7 +12,6 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import java.util.*;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import lombok.Getter;
 import lombok.Setter;
@@ -43,7 +42,7 @@ public class JobManager {
             String taskKey) {
 
         try {
-            logger.log(Level.INFO, "Attempting to create the job. Please wait...");
+            logger.info("Attempting to create the job. Please wait...");
 
             // Parameters for the notebook
             Map<String, String> map = Map.of("", "");
@@ -62,11 +61,10 @@ public class JobManager {
                     .jobs()
                     .create(new CreateJob().setName(jobName).setTasks(tasks));
 
-            logger.log(
-                    Level.INFO, "View  the job at " + workspaceClient.config().getHost() + "/#job/" + j.getJobId());
+            logger.info("View  the job at " + workspaceClient.config().getHost() + "/#job/" + j.getJobId());
             return right(j.getJobId());
         } catch (Exception e) {
-            logger.log(Level.SEVERE, e.getMessage());
+            logger.severe(e.getMessage());
             return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
         }
     }
@@ -142,7 +140,7 @@ public class JobManager {
             return right(j.getJobId());
 
         } catch (Exception e) {
-            logger.log(Level.SEVERE, e.getMessage());
+            logger.severe(e.getMessage());
             return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
         }
     }
@@ -157,11 +155,9 @@ public class JobManager {
     public Either<FailedOperation, Job> exportJob(WorkspaceClient workspaceClient, Long jobId) {
         try {
             Job job = workspaceClient.jobs().get(jobId);
-
-            System.out.println(job.toString());
             return right(job);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, e.getMessage());
+            logger.severe(e.getMessage());
             return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
         }
     }

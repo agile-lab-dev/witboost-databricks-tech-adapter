@@ -4,12 +4,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 
+@SpringBootTest
+@Import(TestConfig.class)
 class AzureMapperTest {
 
     private AzureClient client;

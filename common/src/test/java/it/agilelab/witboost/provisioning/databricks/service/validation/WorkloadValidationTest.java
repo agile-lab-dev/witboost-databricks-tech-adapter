@@ -6,8 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkloadSpecific;
-import java.util.Optional;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.*;
 import org.junit.jupiter.api.Test;
 
 public class WorkloadValidationTest {
@@ -18,16 +17,25 @@ public class WorkloadValidationTest {
         workloadSpecific.setWorkspace("");
         workloadSpecific.setJobName("testJob");
         workloadSpecific.setDescription("description");
-        workloadSpecific.setGitReference("master");
-        workloadSpecific.setGitReferenceType("branch");
-        workloadSpecific.setGitPath("https://git-url.com");
-        workloadSpecific.setGitRepo("databricks/notebook");
-        workloadSpecific.setEnableScheduling(true);
-        workloadSpecific.setCronExpression(Optional.of("* * * * *"));
-        workloadSpecific.setJavaTimezoneId(Optional.of("UTC"));
-        workloadSpecific.setClusterSparkVersion("13.3.x-scala2.12");
-        workloadSpecific.setNodeTypeId("Standard_DS3_v2");
-        workloadSpecific.setNumWorkers(2);
+
+        GitSpecific gitSpecific = new GitSpecific();
+        gitSpecific.setGitReference("master");
+        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        gitSpecific.setGitPath("https://git-url.com");
+        gitSpecific.setGitRepoUrl("databricks/notebook");
+        workloadSpecific.setGit(gitSpecific);
+
+        SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
+        schedulingSpecific.setEnableScheduling(true);
+        schedulingSpecific.setCronExpression("* * * * *");
+        schedulingSpecific.setJavaTimezoneId("UTC");
+        workloadSpecific.setScheduling(schedulingSpecific);
+
+        ClusterSpecific clusterSpecific = new ClusterSpecific();
+        clusterSpecific.setClusterSparkVersion("13.3.x-scala2.12");
+        clusterSpecific.setNodeTypeId("Standard_DS3_v2");
+        clusterSpecific.setNumWorkers(2L);
+        workloadSpecific.setCluster(clusterSpecific);
 
         Workload<DatabricksWorkloadSpecific> workload = new Workload<>();
         workload.setId("my_workload_id");

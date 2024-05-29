@@ -1,10 +1,10 @@
 package it.agilelab.witboost.provisioning.databricks.controller;
 
-import it.agilelab.witboost.provisioning.databricks.api.ApiServiceImpl;
 import it.agilelab.witboost.provisioning.databricks.openapi.controller.V1ApiDelegate;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ValidationResult;
+import it.agilelab.witboost.provisioning.databricks.service.provision.ProvisionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -18,24 +18,24 @@ import org.springframework.stereotype.Service;
 @Service
 public class SpecificProvisionerController implements V1ApiDelegate {
 
-    private final ApiServiceImpl apiService;
+    private final ProvisionService provisionService;
 
-    public SpecificProvisionerController(ApiServiceImpl apiService) {
-        this.apiService = apiService;
+    public SpecificProvisionerController(ProvisionService provisionService) {
+        this.provisionService = provisionService;
     }
 
     @Override
     public ResponseEntity<ProvisioningStatus> provision(ProvisioningRequest provisioningRequest) {
-        return ResponseEntity.ok(apiService.provision(provisioningRequest));
+        return ResponseEntity.ok(provisionService.provision(provisioningRequest));
     }
 
     @Override
     public ResponseEntity<ProvisioningStatus> unprovision(ProvisioningRequest provisioningRequest) {
-        return ResponseEntity.ok(apiService.unprovision(provisioningRequest));
+        return ResponseEntity.ok(provisionService.unprovision(provisioningRequest));
     }
 
     @Override
     public ResponseEntity<ValidationResult> validate(ProvisioningRequest provisioningRequest) {
-        return ResponseEntity.ok(apiService.validate(provisioningRequest));
+        return ResponseEntity.ok(provisionService.validate(provisioningRequest));
     }
 }

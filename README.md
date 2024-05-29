@@ -164,6 +164,27 @@ By default, the server binds to port `8888` on localhost. After it's up and runn
 
 SwaggerUI is configured and hosted on the path `/docs`. You can access it [here](http://127.0.0.1:8888/docs)
 
+
+## Configuring
+
+Application configuration is handled using the features provided by Spring Boot. You can find the default settings in the `application.yml`. Customize it and use the `spring.config.location` system property or the other options provided by the framework according to your needs.
+
+### Azure configuration
+The file has two configuration sections for Azure:
+- The **azure.auth** section indicates the data required for authentication for the creation and management of Databricks Workspace.
+As sensitive information, they are all managed with environment variables.
+Please refer to [azure_databricks_config.md](docs%2Fazure_databricks_config.md) for further explanations on variables.
+- The **azure.permission** section is used to manage the Azure permissions to be associated with the new workspace created during provisioning.
+  It is necessary to provide the subscriptionId and the resourceGroup with which the new workspace will be associated.
+  The `roleDefinitionId` field refers to the permissions you wish to assign to the data product owner and developer group. It is suggested to leave the value pre-set (contributor). To change the value follow the [official Azure documentation](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/general).
+  The provisioner uses a service principal to authenticate against Microsoft Graph API. ClientId, tenantId and clientSecret of the service principal are required.The following permissions are required for the service principal:
+  - `User.Read.All`
+  - `GroupMember.Read.All`
+    All the informations except roleDefinitionId are managed with environment variables.
+
+
+
+
 ## Deploying
 
 This microservice is meant to be deployed to a Kubernetes cluster with the included Helm chart and the scripts that can be found in the `helm` subdirectory. You can find more details [here](helm/README.md).

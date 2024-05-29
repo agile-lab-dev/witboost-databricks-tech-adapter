@@ -1,8 +1,10 @@
 package it.agilelab.witboost.provisioning.databricks.permissions;
 
 import static io.vavr.control.Either.left;
+import static io.vavr.control.Either.right;
 
 import com.azure.core.http.rest.Response;
+import com.azure.core.management.exception.ManagementException;
 import com.azure.core.util.Context;
 import com.azure.resourcemanager.AzureResourceManager;
 import com.azure.resourcemanager.authorization.fluent.models.RoleAssignmentInner;
@@ -12,11 +14,18 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import java.util.Collections;
-import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class AzurePermissionsManager {
     private static final Logger logger = Logger.getLogger(AzurePermissionsManager.class.getName());
+
+    @Autowired
+    AzureResourceManager azureResourceManager;
+
+    public AzurePermissionsManager(AzureResourceManager azureResourceManager) {
+        this.azureResourceManager = azureResourceManager;
+    }
 
     /**
      * Assigns permissions to a resource in Azure.
@@ -28,8 +37,7 @@ public class AzurePermissionsManager {
      * @param principalType         The type of the principal (e.g., User, Group).
      * @return                      Either a success or a failure indication.
      */
-    Either<FailedOperation, Void> assignPermissions(
-            AzureResourceManager azureResourceManager,
+    public Either<FailedOperation, Void> assignPermissions(
             String resourceId,
             String roleAssignmentName,
             String roleDefinitionId,
@@ -52,14 +60,25 @@ public class AzurePermissionsManager {
                                     .withPrincipalType(principalType),
                             Context.NONE);
 
-            if (response.getStatusCode() == 201) return Either.right(null);
+            if (response.getStatusCode() == 201) return right(null);
             else
                 return left(new FailedOperation(Collections.singletonList(new Problem(String.format(
                         "Error assigning permissions to the resource %s. Azure response status code: %d",
                         resourceId, response.getStatusCode())))));
 
+        } catch (ManagementException e) {
+            String message = e.getMessage();
+            if (e.getMessage()
+                    .equalsIgnoreCase(
+                            "Status code 409, \"{\"error\":{\"code\":\"RoleAssignmentExists\",\"message\":\"The role assignment already exists.\"}}\"")) {
+                logger.info("Role assignment already exists. Creation skipped");
+                return right(null);
+            }
+            logger.severe(e.getMessage());
+            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+
         } catch (Exception e) {
-            logger.log(Level.SEVERE, e.getMessage());
+            logger.severe(e.getMessage());
             return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
         }
     }

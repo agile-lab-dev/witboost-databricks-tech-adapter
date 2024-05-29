@@ -6,13 +6,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Data
 @ConfigurationProperties(prefix = "azure.permissions")
 public class AzurePermissionsConfig {
-    private String resourceId;
 
-    private String roleAssignmentName;
+    private String auth_clientId;
+
+    private String auth_tenantId;
+
+    private String auth_clientSecret;
 
     private String roleDefinitionId;
 
-    private String principalId;
+    private String subscriptionId;
 
-    private String principalType;
+    private String resourceGroup;
 }

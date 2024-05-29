@@ -8,3 +8,24 @@ server:
 springdoc:
   swagger-ui:
     path: /docs
+
+azure.auth:
+  clientId: ${AZURE_CLIENT_ID}
+  tenantId: ${AZURE_TENANT_ID}
+  clientSecret: ${AZURE_CLIENT_SECRET}
+
+
+azure.permissions:
+  auth_clientId: ${PERMISSIONS_AZURE_CLIENT_ID}
+  auth_tenantId: ${PERMISSIONS_AZURE_TENANT_ID}
+  auth_clientSecret: ${PERMISSIONS_AZURE_CLIENT_SECRET}
+  roleDefinitionId: /providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7
+  subscriptionId: ${AZURE_SUBSCRIPTION_ID}
+  resourceGroup: ${AZURE_RESOURCE_GROUP_NAME}
+
+databricks.auth:
+  accountId: ${DATABRICKS_ACCOUNT_ID}
+
+git:
+  username: ${GIT_USERNAME}
+  token: ${GIT_TOKEN}

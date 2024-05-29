@@ -10,13 +10,18 @@ import com.microsoft.graph.models.User;
 import com.microsoft.graph.serviceclient.GraphServiceClient;
 import com.microsoft.kiota.ApiException;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 
+@SpringBootTest
+@Import(TestConfig.class)
 class AzureGraphClientTest {
 
     private GraphServiceClient graphServiceClient;

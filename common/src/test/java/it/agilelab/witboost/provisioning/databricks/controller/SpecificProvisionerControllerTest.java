@@ -2,11 +2,11 @@ package it.agilelab.witboost.provisioning.databricks.controller;
 
 import static org.mockito.Mockito.when;
 
-import it.agilelab.witboost.provisioning.databricks.api.ApiServiceImpl;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.common.SpecificProvisionerValidationException;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
+import it.agilelab.witboost.provisioning.databricks.service.provision.ProvisionService;
 import java.util.Collections;
 import java.util.Objects;
 import org.junit.jupiter.api.Assertions;
@@ -15,7 +15,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -26,13 +25,10 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class SpecificProvisionerControllerTest {
 
     @Mock
-    private ApiServiceImpl service;
+    private ProvisionService service;
 
     @InjectMocks
     private SpecificProvisionerController specificProvisionerController;
-
-    @Autowired
-    public SpecificProvisionerControllerTest() {}
 
     @Test
     void testValidateOk() {

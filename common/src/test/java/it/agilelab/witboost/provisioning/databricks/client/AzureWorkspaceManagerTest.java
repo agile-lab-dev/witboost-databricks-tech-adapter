@@ -7,13 +7,18 @@ import com.azure.resourcemanager.databricks.AzureDatabricksManager;
 import com.azure.resourcemanager.databricks.implementation.WorkspaceImpl;
 import com.azure.resourcemanager.databricks.implementation.WorkspacesImpl;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 
+@SpringBootTest
+@Import(TestConfig.class)
 public class AzureWorkspaceManagerTest {
 
     AzureDatabricksManager mockManager;
@@ -59,9 +64,6 @@ public class AzureWorkspaceManagerTest {
         String existingResourceGroupName = "existingResourceGroup";
         String managedResourceGroupId = "managedResourceGroup";
         SkuType skuType = SkuType.TRIAL;
-
-        String errorMessage = "Failed to create workspace";
-        RuntimeException exception = new RuntimeException(errorMessage);
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(mockManager.workspaces()).thenReturn(mockWorkspaces);

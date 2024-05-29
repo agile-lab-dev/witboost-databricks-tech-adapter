@@ -8,13 +8,18 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.compute.RuntimeEngine;
 import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 
+@SpringBootTest
+@Import(TestConfig.class)
 @ExtendWith(MockitoExtension.class)
 public class JobManagerTest {
 
