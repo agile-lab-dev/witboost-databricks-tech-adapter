@@ -29,21 +29,10 @@ public class SchedulingSpecificTest {
     }
 
     @Test
-    public void testEnableSchedulingNotNull() {
-        schedulingSpecific.setEnableScheduling(null);
-        Set<ConstraintViolation<SchedulingSpecific>> violations = validator.validate(schedulingSpecific);
-        assertEquals(1, violations.size());
-        assertEquals(
-                "enableScheduling",
-                violations.iterator().next().getPropertyPath().toString());
-    }
-
-    @Test
     public void testDefaultValues() {
         assertNotNull(schedulingSpecific);
         assertNull(schedulingSpecific.getCronExpression());
         assertNull(schedulingSpecific.getJavaTimezoneId());
-        assertNull(schedulingSpecific.getEnableScheduling());
     }
 
     @Test
@@ -57,16 +46,11 @@ public class SchedulingSpecificTest {
         String timezoneId = "Europe/Rome";
         schedulingSpecific.setJavaTimezoneId(timezoneId);
         assertEquals(timezoneId, schedulingSpecific.getJavaTimezoneId());
-
-        // Test for enableScheduling
-        schedulingSpecific.setEnableScheduling(true);
-        assertEquals(true, schedulingSpecific.getEnableScheduling());
     }
 
     @Test
     public void testEnableSchedulingNotNullWithValidValue() {
         // Test with a valid value to ensure no violations are found
-        schedulingSpecific.setEnableScheduling(true);
         Set<ConstraintViolation<SchedulingSpecific>> violations = validator.validate(schedulingSpecific);
         assertEquals(0, violations.size());
     }

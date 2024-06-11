@@ -3,15 +3,17 @@ package it.agilelab.witboost.provisioning.databricks.client;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.azure.core.http.rest.PagedIterable;
 import com.azure.resourcemanager.databricks.AzureDatabricksManager;
 import com.azure.resourcemanager.databricks.implementation.WorkspaceImpl;
 import com.azure.resourcemanager.databricks.implementation.WorkspacesImpl;
+import com.azure.resourcemanager.databricks.models.Workspace;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import java.util.Collections;
+import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -114,6 +116,79 @@ public class AzureWorkspaceManagerTest {
         Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createWorkspace(
                 workspaceName, region, existingResourceGroupName, managedResourceGroupId, skuType);
 
+        assertEquals(Either.left(new FailedOperation(Collections.singletonList(new Problem(errorMessage)))), result);
+    }
+
+    @Test
+    void testGetWorkspace_Success() {
+
+        String workspaceName = "testWorkspace";
+        String managedResourceGroupId = "managedResourceGroup";
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(mockManager.workspaces()).thenReturn(mockWorkspaces);
+
+        Workspace mockWorkspace = mock(Workspace.class);
+        when(mockWorkspace.name()).thenReturn(workspaceName);
+        when(mockWorkspace.managedResourceGroupId()).thenReturn(managedResourceGroupId);
+        when(mockWorkspace.workspaceUrl()).thenReturn("workspaceUrl");
+        when(mockWorkspace.id()).thenReturn("id");
+
+        PagedIterable<Workspace> mockPagedIterable = mock(PagedIterable.class);
+        when(mockWorkspaces.list()).thenReturn(mockPagedIterable);
+
+        List<Workspace> workspaceList = Collections.singletonList(mockWorkspace);
+        Iterator<Workspace> workspaceIterator = workspaceList.iterator();
+        when(mockPagedIterable.iterator()).thenReturn(workspaceIterator);
+        when(mockPagedIterable.spliterator()).thenReturn(Spliterators.spliteratorUnknownSize(workspaceIterator, 0));
+
+        when(mockWorkspaces.list()).thenReturn(mockPagedIterable);
+
+        Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> result =
+                workspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
+
+        assertTrue(result.isRight());
+        System.out.println(result);
+        assertTrue(result.get().isPresent());
+        DatabricksWorkspaceInfo info = result.get().get();
+        assertEquals(workspaceName, info.getName());
+        assertEquals("workspaceUrl", info.getUrl());
+        assertEquals("id", info.getAzureResourceId());
+    }
+
+    @Test
+    void testGetWorkspace_NotFound() {
+        String workspaceName = "testWorkspace";
+        String managedResourceGroupId = "managedResourceGroup";
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(mockManager.workspaces()).thenReturn(mockWorkspaces);
+
+        PagedIterable<Workspace> mockPagedIterable = mock(PagedIterable.class);
+        when(mockWorkspaces.list()).thenReturn(mockPagedIterable);
+        when(mockPagedIterable.iterator()).thenReturn(Collections.emptyIterator());
+
+        Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> result =
+                workspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
+
+        assertTrue(result.isRight());
+        assertFalse(result.get().isPresent());
+    }
+
+    @Test
+    void testGetWorkspace_Failure() {
+        String workspaceName = "testWorkspace";
+        String managedResourceGroupId = "managedResourceGroup";
+        String errorMessage = "Failed to get workspace";
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(mockManager.workspaces()).thenReturn(mockWorkspaces);
+        when(mockWorkspaces.list()).thenThrow(new RuntimeException(errorMessage));
+
+        Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> result =
+                workspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
+
+        assertTrue(result.isLeft());
         assertEquals(Either.left(new FailedOperation(Collections.singletonList(new Problem(errorMessage)))), result);
     }
 }

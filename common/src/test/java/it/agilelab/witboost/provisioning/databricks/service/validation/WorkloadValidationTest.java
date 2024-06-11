@@ -26,7 +26,6 @@ public class WorkloadValidationTest {
         workloadSpecific.setGit(gitSpecific);
 
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
-        schedulingSpecific.setEnableScheduling(true);
         schedulingSpecific.setCronExpression("* * * * *");
         schedulingSpecific.setJavaTimezoneId("UTC");
         workloadSpecific.setScheduling(schedulingSpecific);

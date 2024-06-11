@@ -93,8 +93,7 @@ public class ProvisionServiceTest {
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
 
-        when(workloadHandler.createNewWorkspaceWithPermissions(provisionRequest))
-                .thenReturn(right("workloadId"));
+        when(workloadHandler.provisionWorkload(provisionRequest)).thenReturn(right("workloadId"));
 
         var info = Map.of("path", "workloadId");
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "")
@@ -106,19 +105,43 @@ public class ProvisionServiceTest {
     }
 
     @Test
-    public void testProvisionWorkspaceFailHandler() {
+    public void testUnprovisionValidationError() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> workload = new Workload<>();
-        workload.setKind("workload");
-        var provisionRequest = new ProvisionRequest<>(null, workload, false);
-        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
-        String expectedDesc = "Error on Ranger";
-        var failedOperation = new FailedOperation(Collections.singletonList(new Problem(expectedDesc)));
-        when(workloadHandler.createNewWorkspaceWithPermissions(provisionRequest))
-                .thenReturn(left(failedOperation));
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("error")));
+        when(validationService.validate(provisioningRequest)).thenReturn(left(failedOperation));
 
         var ex = assertThrows(
-                SpecificProvisionerValidationException.class, () -> provisionService.provision(provisioningRequest));
+                SpecificProvisionerValidationException.class, () -> provisionService.unprovision(provisioningRequest));
         assertEquals(failedOperation, ex.getFailedOperation());
+    }
+
+    @Test
+    public void testUnprovisionUnsupportedKind() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> Workload = new Workload<>();
+        Workload.setKind("unsupported");
+        when(validationService.validate(provisioningRequest))
+                .thenReturn(right(new ProvisionRequest<>(null, Workload, false)));
+        String expectedDesc = "The kind 'unsupported' of the component is not supported by this Specific Provisioner";
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem(expectedDesc)));
+
+        var ex = assertThrows(
+                SpecificProvisionerValidationException.class, () -> provisionService.unprovision(provisioningRequest));
+        assertEquals(failedOperation, ex.getFailedOperation());
+    }
+
+    @Test
+    public void testUnprovisionWorkloadOk() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> Workload = new Workload<>();
+        Workload.setKind("workload");
+        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+        when(workloadHandler.unprovisionWorkload(provisionRequest)).thenReturn(right(null));
+        var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "");
+
+        var actualRes = provisionService.unprovision(provisioningRequest);
+
+        assertEquals(expectedRes, actualRes);
     }
 }

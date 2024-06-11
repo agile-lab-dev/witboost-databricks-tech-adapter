@@ -27,6 +27,7 @@ public class DatabricksWorkspaceClientBeanTest {
     public void setUp() {
         // Mocking dependencies
         String workspaceHost = "https://example.databricks.com";
+        String workspaceName = "example";
         DatabricksAuthConfig databricksAuthConfig = mock(DatabricksAuthConfig.class);
         AzureAuthConfig azureAuthConfig = mock(AzureAuthConfig.class);
         GitCredentialsConfig gitCredentialsConfig = mock(GitCredentialsConfig.class);
@@ -40,7 +41,7 @@ public class DatabricksWorkspaceClientBeanTest {
 
         // Creating instance of DatabricksWorkspaceClientBean
         clientBean = new DatabricksWorkspaceClientBean(
-                workspaceHost, databricksAuthConfig, azureAuthConfig, gitCredentialsConfig);
+                workspaceHost, workspaceName, databricksAuthConfig, azureAuthConfig, gitCredentialsConfig);
         clientBean.setWorkspaceClient(mockedClient);
     }
 

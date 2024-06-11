@@ -44,7 +44,6 @@ public class DatabricksWorkloadSpecificTest {
         workloadSpecific3.setGit(gitSpecific3);
 
         SchedulingSpecific schedulingSpecific3 = new SchedulingSpecific();
-        schedulingSpecific3.setEnableScheduling(true);
         schedulingSpecific3.setCronExpression("0 0 12 * * ?");
         schedulingSpecific3.setJavaTimezoneId("Europe/Rome");
         workloadSpecific3.setScheduling(schedulingSpecific3);
@@ -69,7 +68,6 @@ public class DatabricksWorkloadSpecificTest {
         workloadSpecific.setGit(gitSpecific);
 
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
-        schedulingSpecific.setEnableScheduling(true);
         schedulingSpecific.setCronExpression("0 0 12 * * ?");
         schedulingSpecific.setJavaTimezoneId("Europe/Rome");
         workloadSpecific.setScheduling(schedulingSpecific);
@@ -108,15 +106,6 @@ public class DatabricksWorkloadSpecificTest {
     }
 
     @Test
-    public void testSchedulingNotNull() {
-        workloadSpecific1.setScheduling(null);
-        Set<ConstraintViolation<DatabricksWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
-        assertEquals(1, violations.size());
-        assertEquals(
-                "scheduling", violations.iterator().next().getPropertyPath().toString());
-    }
-
-    @Test
     public void testClusterNotNull() {
         workloadSpecific1.setCluster(null);
         Set<ConstraintViolation<DatabricksWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
@@ -149,7 +138,6 @@ public class DatabricksWorkloadSpecificTest {
         assertEquals("https://github.com/repo.git", gitSpecific.getGitRepoUrl());
 
         SchedulingSpecific schedulingSpecific = workloadSpecific1.getScheduling();
-        assertEquals(true, schedulingSpecific.getEnableScheduling());
         assertEquals("0 0 12 * * ?", schedulingSpecific.getCronExpression());
         assertEquals("Europe/Rome", schedulingSpecific.getJavaTimezoneId());
 

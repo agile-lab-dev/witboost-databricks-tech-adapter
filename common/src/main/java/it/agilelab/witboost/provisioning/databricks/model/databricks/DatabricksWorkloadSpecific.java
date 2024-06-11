@@ -25,8 +25,6 @@ public class DatabricksWorkloadSpecific extends Specific {
     @NotNull
     private GitSpecific git;
 
-    @Valid
-    @NotNull
     private SchedulingSpecific scheduling;
 
     @Valid

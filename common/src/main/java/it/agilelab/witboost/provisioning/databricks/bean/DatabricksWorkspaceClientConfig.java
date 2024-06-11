@@ -15,6 +15,10 @@ public class DatabricksWorkspaceClientConfig {
             AzureAuthConfig azureAuthConfig,
             GitCredentialsConfig gitCredentialsConfig) {
         return new DatabricksWorkspaceClientBean(
-                null, databricksAuthConfig, azureAuthConfig, gitCredentialsConfig); // workspaceHost will be set later
+                null,
+                null,
+                databricksAuthConfig,
+                azureAuthConfig,
+                gitCredentialsConfig); // workspaceHost will be set later
     }
 }

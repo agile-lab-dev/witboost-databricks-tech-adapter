@@ -5,16 +5,16 @@ import static io.vavr.control.Either.right;
 
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.compute.AzureAttributes;
-import com.databricks.sdk.service.compute.AzureAvailability;
-import com.databricks.sdk.service.compute.RuntimeEngine;
 import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.ClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.GitReferenceType;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.SchedulingSpecific;
 import java.util.*;
 import java.util.logging.Logger;
-import lombok.Getter;
-import lombok.Setter;
 
 /**
  * Class to manage Databricks jobs.
@@ -22,33 +22,35 @@ import lombok.Setter;
 public class JobManager {
     static Logger logger = Logger.getLogger(JobManager.class.getName());
 
+    private WorkspaceClient workspaceClient;
+    private String workspaceName;
+
+    public JobManager(WorkspaceClient workspaceClient, String workspaceName) {
+        this.workspaceClient = workspaceClient;
+        this.workspaceName = workspaceName;
+    }
+
     /**
-     * Creates a Databricks job.
+     * Creates a Databricks job using an existing cluster.
      *
-     * @param workspaceClient   The WorkspaceClient instance.
      * @param jobName           The name of the job to be created.
      * @param description       The description of the job.
      * @param existingClusterId The ID of the existing cluster to run the job on.
      * @param notebookPath      The path to the notebook to be executed by the job.
      * @param taskKey           The task key.
-     * @return                  Either a Long representing the job ID if successful, or a FailedOperation.
+     * @return Either a Long representing the job ID if successful, or a FailedOperation.
      */
     public Either<FailedOperation, Long> createJobWithExistingCluster(
-            WorkspaceClient workspaceClient,
-            String jobName,
-            String description,
-            String existingClusterId,
-            String notebookPath,
-            String taskKey) {
+            String jobName, String description, String existingClusterId, String notebookPath, String taskKey) {
 
         try {
-            logger.info("Attempting to create the job. Please wait...");
+            logger.info(String.format("Creating job with name %s in %s", jobName, workspaceName));
 
             // Parameters for the notebook
             Map<String, String> map = Map.of("", "");
 
             // Creating a collection of tasks (only one task in this case)
-            Collection<Task> tasks = Arrays.asList(new Task()
+            Collection<Task> tasks = Collections.singletonList(new Task()
                     .setDescription(description)
                     .setExistingClusterId(existingClusterId)
                     .setNotebookTask(new NotebookTask()
@@ -61,7 +63,8 @@ public class JobManager {
                     .jobs()
                     .create(new CreateJob().setName(jobName).setTasks(tasks));
 
-            logger.info("View  the job at " + workspaceClient.config().getHost() + "/#job/" + j.getJobId());
+            logger.info(String.format(
+                    "Created new job in %s with name: %s and ID: %d.", workspaceName, jobName, j.getJobId()));
             return right(j.getJobId());
         } catch (Exception e) {
             logger.severe(e.getMessage());
@@ -72,70 +75,60 @@ public class JobManager {
     /**
      * Creates a Databricks job with a new dedicated cluster.
      *
-     * @param workspaceClient   The WorkspaceClient instance.
-     * @param jobName           The name of the job to be created.
-     * @param description       The description of the job.
-     * @param taskKey           The task key.
-     * @param newClusterParams  The parameters for creating a new cluster.
-     * @param scheduleParams    The parameters for scheduling the job.
-     * @param gitSource         The parameters for accessing the Git repository.
-     * @param notebookPath      The relative path to the notebook to be executed by the job.
-     * @return                  Either a Long representing the job ID if successful, or a FailedOperation.
+     * @param jobName            The name of the job to be created.
+     * @param description        The description of the job.
+     * @param taskKey            The task key.
+     * @param clusterSpecific    The parameters for creating a new cluster.
+     * @param schedulingSpecific The parameters for scheduling the job.
+     * @param gitSpecific        The parameters including the git details for the task.
+     * @return Either a Long representing the job ID if successful, or a FailedOperation.
      */
     public Either<FailedOperation, Long> createJobWithNewCluster(
-            WorkspaceClient workspaceClient,
             String jobName,
             String description,
             String taskKey,
-            NewClusterParams newClusterParams,
-            ScheduleParams scheduleParams,
-            GitJobSource gitSource,
-            String notebookPath) {
+            ClusterSpecific clusterSpecific,
+            SchedulingSpecific schedulingSpecific,
+            GitSpecific gitSpecific) {
 
         try {
+
+            logger.info(String.format("Creating job with name %s in %s", jobName, workspaceName));
 
             // Parameters for the notebook
             Map<String, String> map = Map.of("", "");
 
             // Creating a collection of tasks (only one task in this case)
-            Collection<Task> tasks = Arrays.asList(new Task()
+            Collection<Task> tasks = Collections.singletonList(new Task()
                     .setDescription(description)
                     .setNotebookTask(new NotebookTask()
                             .setBaseParameters(map)
-                            .setNotebookPath(notebookPath)
+                            .setNotebookPath(gitSpecific.getGitPath())
                             .setSource(Source.GIT))
                     .setTaskKey(taskKey)
-                    .setNewCluster(new com.databricks.sdk.service.compute.ClusterSpec()
-                            .setSparkVersion(newClusterParams.getSparkVersion())
-                            .setNodeTypeId(newClusterParams.getNodeTypeId())
-                            .setNumWorkers(newClusterParams.getNumWorkers())
-                            .setAzureAttributes(new AzureAttributes()
-                                    .setFirstOnDemand(newClusterParams.getFirstOnDemand())
-                                    .setAvailability(AzureAvailability.valueOf(newClusterParams.getAvailability()))
-                                    .setSpotBidMaxPrice(newClusterParams.getSpotBidMaxPrice()))
-                            .setDriverNodeTypeId(newClusterParams.getDriverNodeTypeId())
-                            .setSparkConf(newClusterParams.getSparkConf())
-                            .setSparkEnvVars(newClusterParams.getSparkEnvVars())
-                            .setRuntimeEngine(newClusterParams.getRuntimeEngine())));
+                    .setNewCluster(getClusterSpecFromSpecific(clusterSpecific)));
 
-            GitSource gitLabSource =
-                    new GitSource().setGitUrl(gitSource.getGitUrl()).setGitProvider(GitProvider.GIT_LAB);
+            GitSource gitLabSource = getGitSourceFromSpecific(gitSpecific);
 
-            if (gitSource.getGitReferenceType().equals(GitReferenceType.BRANCH))
-                gitSource.setGitBranch(gitSource.getGitBranch());
-            else if (gitSource.getGitReferenceType().equals(GitReferenceType.TAG)) {
-                gitSource.setGitTag(gitSource.getGitTag());
-            }
+            Collection<JobParameterDefinition> jobParameterDefinitions = new ArrayList<>();
 
-            CreateResponse j = workspaceClient
-                    .jobs()
-                    .create(new CreateJob()
-                            .setName(jobName)
-                            .setTasks(tasks)
-                            .setSchedule(new CronSchedule()
-                                    .setTimezoneId(scheduleParams.getTimeZoneId())
-                                    .setQuartzCronExpression(scheduleParams.getCronExpression()))
-                            .setGitSource(gitLabSource));
+            // Create job with scheduling if enabled
+            CreateJob createJob = new CreateJob()
+                    .setName(jobName)
+                    .setTasks(tasks)
+                    .setParameters(jobParameterDefinitions)
+                    .setGitSource(gitLabSource);
+
+            if (schedulingSpecific != null)
+                createJob.setSchedule(new CronSchedule()
+                        .setTimezoneId(schedulingSpecific.getJavaTimezoneId())
+                        .setQuartzCronExpression(schedulingSpecific.getCronExpression()));
+
+            // Create the job with the specified parameters
+            CreateResponse j = workspaceClient.jobs().create(createJob);
+
+            logger.info(String.format(
+                    "Created new job in %s with name: %s and ID: %d.", workspaceName, jobName, j.getJobId()));
 
             return right(j.getJobId());
 
@@ -145,14 +138,40 @@ public class JobManager {
         }
     }
 
+    private GitSource getGitSourceFromSpecific(GitSpecific gitSpecific) {
+        GitSource gitLabSource =
+                new GitSource().setGitUrl(gitSpecific.getGitRepoUrl()).setGitProvider(GitProvider.GIT_LAB);
+
+        if (gitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.BRANCH.toString()))
+            gitLabSource.setGitBranch(gitSpecific.getGitReference());
+        else if (gitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.TAG.toString())) {
+            gitLabSource.setGitTag(gitSpecific.getGitReference());
+        }
+
+        return gitLabSource;
+    }
+
+    private com.databricks.sdk.service.compute.ClusterSpec getClusterSpecFromSpecific(ClusterSpecific clusterSpecific) {
+        return new com.databricks.sdk.service.compute.ClusterSpec()
+                .setSparkVersion(clusterSpecific.getClusterSparkVersion())
+                .setNodeTypeId(clusterSpecific.getNodeTypeId())
+                .setNumWorkers(clusterSpecific.getNumWorkers())
+                .setAzureAttributes(new AzureAttributes()
+                        .setFirstOnDemand(clusterSpecific.getFirstOnDemand())
+                        .setAvailability(clusterSpecific.getAvailability())
+                        .setSpotBidMaxPrice(clusterSpecific.getSpotBidMaxPrice()))
+                .setDriverNodeTypeId(clusterSpecific.getDriverNodeTypeId())
+                .setSparkConf(clusterSpecific.getSparkConf())
+                .setSparkEnvVars(clusterSpecific.getSparkEnvVars())
+                .setRuntimeEngine(clusterSpecific.getRuntimeEngine());
+    }
     /**
-     * Export a job given its ID.
+     * Exports a job given its ID.
      *
-     * @param workspaceClient   The WorkspaceClient instance.
-     * @param jobId             The ID of the job to export.
-     * @return                  Either the exported Job if successful, or a FailedOperation.
+     * @param jobId The ID of the job to export.
+     * @return Either the exported Job if successful, or a FailedOperation.
      */
-    public Either<FailedOperation, Job> exportJob(WorkspaceClient workspaceClient, Long jobId) {
+    public Either<FailedOperation, Job> exportJob(Long jobId) {
         try {
             Job job = workspaceClient.jobs().get(jobId);
             return right(job);
@@ -161,51 +180,37 @@ public class JobManager {
             return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
         }
     }
-}
 
-/**
- * Class representing parameters for creating a job cluster.
- */
-@Getter
-@Setter
-class NewClusterParams {
-    private String sparkVersion;
-    private String nodeTypeId;
-    private Long numWorkers;
-    private Long firstOnDemand;
-    private Double spotBidMaxPrice;
-    private String availability;
-    private String driverNodeTypeId;
-    private Map<String, String> sparkConf;
-    private Map<String, String> sparkEnvVars;
-    private RuntimeEngine runtimeEngine;
-}
+    /**
+     * Deletes a job given its ID.
+     *
+     * @param jobId The ID of the job to delete.
+     * @return Either Void if successful, or a FailedOperation.
+     */
+    public Either<FailedOperation, Void> deleteJob(Long jobId) {
+        try {
+            logger.info(String.format("Deleting job with ID: %d in %s", jobId, workspaceName));
+            workspaceClient.jobs().delete(jobId);
+            return right(null);
+        } catch (Exception e) {
+            logger.severe(e.getMessage());
+            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+        }
+    }
 
-/**
- * Class representing parameters for scheduling a job.
- */
-@Getter
-@Setter
-class ScheduleParams {
-    private String timeZoneId;
-    private String cronExpression;
-}
-
-/**
- * Class representing parameters for accessing a Git repository.
- */
-@Getter
-@Setter
-class GitJobSource {
-    private String gitUrl;
-    private GitProvider gitProvider;
-    private String gitBranch;
-    private String gitTag;
-    private GitReferenceType gitReferenceType;
-}
-
-@Getter
-enum GitReferenceType {
-    BRANCH,
-    TAG
+    /**
+     * Lists all jobs with a given name.
+     *
+     * @param jobName The name of the job(s) to list.
+     * @return Either an Iterable of BaseJob if successful, or a FailedOperation.
+     */
+    public Either<FailedOperation, Iterable<BaseJob>> listJobsWithGivenName(String jobName) {
+        try {
+            Iterable<BaseJob> list = workspaceClient.jobs().list(new ListJobsRequest().setName(jobName));
+            return right(list);
+        } catch (Exception e) {
+            logger.severe(e.getMessage());
+            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+        }
+    }
 }

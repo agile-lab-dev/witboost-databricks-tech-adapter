@@ -4,10 +4,12 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.workspace.CreateCredentials;
 import com.databricks.sdk.service.workspace.CredentialInfo;
+import com.databricks.sdk.service.workspace.UpdateCredentials;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.GitProvider;
+import java.util.Optional;
 import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +19,7 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
 
     private WorkspaceClient workspaceClient;
     private String workspaceHost;
+    private String workspaceName;
     private DatabricksAuthConfig databricksAuthConfig;
     private AzureAuthConfig azureAuthConfig;
     private GitCredentialsConfig gitCredentialsConfig;
@@ -24,10 +27,12 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
 
     public DatabricksWorkspaceClientBean(
             String workspaceHost,
+            String workspaceName,
             DatabricksAuthConfig databricksAuthConfig,
             AzureAuthConfig azureAuthConfig,
             GitCredentialsConfig gitCredentialsConfig) {
         this.workspaceHost = workspaceHost;
+        this.workspaceName = workspaceName;
         this.databricksAuthConfig = databricksAuthConfig;
         this.azureAuthConfig = azureAuthConfig;
         this.gitCredentialsConfig = gitCredentialsConfig;
@@ -36,6 +41,14 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
     @Override
     public WorkspaceClient getObject() {
         setWorkspaceClient(initializeWorkspaceClient());
+        return workspaceClient;
+    }
+
+    public WorkspaceClient getObject(String workspaceHost, String workspaceName) throws Exception {
+        setWorkspaceHost(workspaceHost);
+        setWorkspaceName(workspaceName);
+        setWorkspaceClient(initializeWorkspaceClient());
+
         return workspaceClient;
     }
 
@@ -60,7 +73,7 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
             return workspaceClient;
 
         } catch (Exception e) {
-            logger.error("Error initializing the workspaceClient: {}", e.getMessage(), e);
+            logger.error("Error initializing the workspaceClient: {} for {}", e.getMessage(), workspaceName, e);
             throw new RuntimeException("Unable to initialize workspace client", e);
         }
     }
@@ -71,15 +84,16 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
             Iterable<CredentialInfo> listCredentials =
                     workspaceClient.gitCredentials().list();
 
-            boolean credentialsExist = false;
+            Optional<CredentialInfo> optionalCredentialInfo = Optional.empty();
 
             if (listCredentials != null) {
-                credentialsExist = StreamSupport.stream(listCredentials.spliterator(), false)
-                        .anyMatch(credentialInfo ->
-                                credentialInfo.getGitProvider().equalsIgnoreCase(gitProvider.name()));
+                optionalCredentialInfo = StreamSupport.stream(listCredentials.spliterator(), false)
+                        .filter(credentialInfo ->
+                                credentialInfo.getGitProvider().equalsIgnoreCase(gitProvider.name()))
+                        .findFirst();
             }
 
-            if (!credentialsExist)
+            if (optionalCredentialInfo.isEmpty())
                 workspaceClient
                         .gitCredentials()
                         .create(new CreateCredentials()
@@ -87,12 +101,20 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
                                 .setGitUsername(gitUsername)
                                 .setGitProvider(gitProvider.name()));
             else {
+                workspaceClient
+                        .gitCredentials()
+                        .update(new UpdateCredentials()
+                                .setCredentialId(optionalCredentialInfo.get().getCredentialId())
+                                .setGitUsername(gitUsername)
+                                .setPersonalAccessToken(personalAccessToken)
+                                .setGitProvider(gitProvider.name()));
                 logger.warn(
-                        "Credentials for {} already exist, skipping creation.",
-                        gitProvider.toString().toUpperCase());
+                        "Credentials for {} for the workspace {} already exists. Updating them with the ones provided",
+                        gitProvider.toString().toUpperCase(),
+                        workspaceName);
             }
         } catch (Exception e) {
-            logger.error("Error setting Git credentials: {}", e.getMessage(), e);
+            logger.error("Error setting Git credentials for {}: {}", workspaceName, e.getMessage(), e);
             throw new RuntimeException("Unable to set Git credentials", e);
         }
     }
@@ -103,5 +125,9 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
 
     public void setWorkspaceHost(String workspaceHost) {
         this.workspaceHost = workspaceHost;
+    }
+
+    public void setWorkspaceName(String workspaceName) {
+        this.workspaceName = workspaceName;
     }
 }

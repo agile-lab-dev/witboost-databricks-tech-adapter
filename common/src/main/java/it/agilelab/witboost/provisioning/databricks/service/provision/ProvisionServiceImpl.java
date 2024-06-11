@@ -54,7 +54,7 @@ public class ProvisionServiceImpl implements ProvisionService {
         switch (provisionRequest.component().getKind()) {
             case WORKLOAD_KIND: {
                 Either<FailedOperation, String> eitherCreatedWorkspace =
-                        workloadHandler.createNewWorkspaceWithPermissions(provisionRequest);
+                        workloadHandler.provisionWorkload(provisionRequest);
                 if (eitherCreatedWorkspace.isLeft())
                     throw new SpecificProvisionerValidationException(eitherCreatedWorkspace.getLeft());
                 String workspacePath = eitherCreatedWorkspace.get();
@@ -70,7 +70,23 @@ public class ProvisionServiceImpl implements ProvisionService {
 
     @Override
     public ProvisioningStatus unprovision(ProvisioningRequest provisioningRequest) {
-        return null;
+        var eitherValidation = validationService.validate(provisioningRequest);
+        if (eitherValidation.isLeft()) throw new SpecificProvisionerValidationException(eitherValidation.getLeft());
+
+        var provisionRequest = eitherValidation.get();
+
+        switch (provisionRequest.component().getKind()) {
+            case WORKLOAD_KIND: {
+                Either<FailedOperation, Void> eitherDeletedJob = workloadHandler.unprovisionWorkload(provisionRequest);
+                if (eitherDeletedJob.isLeft())
+                    throw new SpecificProvisionerValidationException(eitherDeletedJob.getLeft());
+
+                return new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "");
+            }
+            default:
+                throw new SpecificProvisionerValidationException(
+                        unsupportedKind(provisionRequest.component().getKind()));
+        }
     }
 
     private FailedOperation unsupportedKind(String kind) {

@@ -38,7 +38,7 @@ public class AzureWorkspaceManager {
      *
      * @param resourceGroupName The name of the resource group containing the workspace.
      * @param workspaceName     The name of the workspace to delete.
-     * @return                  Either a list of failed operations if an exception occurs during deletion, or void if successful.
+     * @return Either a FailedOperation if an exception occurs during deletion, or Void if successful.
      */
     public Either<FailedOperation, Void> deleteWorkspace(String resourceGroupName, String workspaceName) {
         try {
@@ -60,7 +60,7 @@ public class AzureWorkspaceManager {
      * @param existingResourceGroupName The name of an existing resource group to use for the workspace.
      * @param managedResourceGroupId    The managed resource group ID for the workspace.
      * @param skuType                   The SKU type for the workspace.
-     * @return                          Either a workspace ID if the operation is successful, or a list of failed operations.
+     * @return Either a DatabricksWorkspaceInfo if the operation is successful, or a FailedOperation.
      */
     public Either<FailedOperation, DatabricksWorkspaceInfo> createWorkspace(
             String workspaceName,
@@ -68,6 +68,48 @@ public class AzureWorkspaceManager {
             String existingResourceGroupName,
             String managedResourceGroupId,
             SkuType skuType) {
+        try {
+
+            // Check if the workspace already exists
+            Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> workspace =
+                    getWorkspace(workspaceName, managedResourceGroupId);
+
+            if (workspace.isLeft()) return left(workspace.getLeft());
+
+            if (workspace.get().isPresent()) {
+
+                logger.info(String.format(
+                        "Workspace %s already exists", workspace.get().get().getName()));
+                return right(workspace.get().get());
+            }
+            logger.info(String.format("Creating workspace %s", workspaceName));
+            Workspace w = azureDatabricksManager
+                    .workspaces()
+                    .define(workspaceName)
+                    .withRegion(region)
+                    .withExistingResourceGroup(existingResourceGroupName)
+                    .withManagedResourceGroupId(managedResourceGroupId)
+                    .withSku(new Sku().withName(skuType.getValue()))
+                    .create();
+            var workspaceInfo = new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id());
+            return right(workspaceInfo);
+
+        } catch (Exception e) {
+            logger.severe(e.getMessage());
+            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+        }
+    }
+
+    /**
+     * Retrieves information about an existing workspace.
+     *
+     * @param workspaceName          The name of the workspace to retrieve.
+     * @param managedResourceGroupId The managed resource group ID for the workspace.
+     * @return Either a DatabricksWorkspaceInfo if the workspace exists, or an empty Optional if not found,
+     *         or a FailedOperation in case of errors.
+     */
+    public Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> getWorkspace(
+            String workspaceName, String managedResourceGroupId) {
         try {
 
             DatabricksWorkspaceInfo workspaceInfo;
@@ -84,27 +126,12 @@ public class AzureWorkspaceManager {
                             && workspace.managedResourceGroupId().equalsIgnoreCase(managedResourceGroupId))
                     .findFirst();
 
-            // Leave or remove? Functional? Azure implements the createOrUpdate
-            // Leave for now to avoid wasting time, then to be evaluated
-
             if (existingWorkspace.isPresent()) {
                 w = existingWorkspace.get();
-                logger.info(String.format("Workspace %s already exists", w.name()));
-            } else {
-                logger.info("Creating workspace...");
-                w = azureDatabricksManager
-                        .workspaces()
-                        .define(workspaceName)
-                        .withRegion(region)
-                        .withExistingResourceGroup(existingResourceGroupName)
-                        .withManagedResourceGroupId(managedResourceGroupId)
-                        .withSku(new Sku().withName(skuType.getValue()))
-                        .create();
-            }
+                workspaceInfo = new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id());
+                return right(Optional.of(workspaceInfo));
+            } else return right(Optional.empty());
 
-            workspaceInfo = new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id());
-
-            return right(workspaceInfo);
         } catch (Exception e) {
             logger.severe(e.getMessage());
             return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
