@@ -45,6 +45,7 @@ public class AzurePermissionsManager {
             PrincipalType principalType) {
 
         try {
+
             Response<RoleAssignmentInner> response = azureResourceManager
                     .accessManagement()
                     .roleAssignments()

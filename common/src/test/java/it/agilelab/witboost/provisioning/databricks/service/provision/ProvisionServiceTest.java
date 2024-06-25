@@ -4,8 +4,10 @@ import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.databricks.sdk.WorkspaceClient;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
@@ -13,11 +15,10 @@ import it.agilelab.witboost.provisioning.databricks.common.SpecificProvisionerVa
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -32,8 +33,17 @@ public class ProvisionServiceTest {
     @Mock
     private WorkloadHandler workloadHandler;
 
+    @Mock
+    private WorkspaceClient workspaceClient;
+
+    @Mock
+    private WorkspaceHandler workspaceHandler;
+
     @InjectMocks
     private ProvisionServiceImpl provisionService;
+
+    private DatabricksWorkspaceInfo workspaceInfo =
+            new DatabricksWorkspaceInfo("workspace", "123", "https://example.com", "abc", "test");
 
     @Test
     public void testValidateOk() {
@@ -90,12 +100,20 @@ public class ProvisionServiceTest {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
+
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
 
-        when(workloadHandler.provisionWorkload(provisionRequest)).thenReturn(right("workloadId"));
+        when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
+        when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
 
-        var info = Map.of("path", "workloadId");
+        when(workloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+                .thenReturn(right("workloadId"));
+
+        var info = new HashMap<String, String>();
+        info.put("workspace path", "test");
+        info.put("job path", "https://https://example.com/jobs/workloadId");
+
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "")
                 .info(new Info(JsonNodeFactory.instance.objectNode(), info).publicInfo(info));
 
@@ -137,7 +155,11 @@ public class ProvisionServiceTest {
         Workload.setKind("workload");
         var provisionRequest = new ProvisionRequest<>(null, Workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
-        when(workloadHandler.unprovisionWorkload(provisionRequest)).thenReturn(right(null));
+        when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
+        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
+        when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
+        when(workloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+                .thenReturn(right(null));
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "");
 
         var actualRes = provisionService.unprovision(provisioningRequest);

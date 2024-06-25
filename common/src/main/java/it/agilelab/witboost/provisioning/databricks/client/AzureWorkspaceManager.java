@@ -10,6 +10,7 @@ import com.azure.resourcemanager.databricks.models.Workspace;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import java.util.Collections;
 import java.util.Optional;
@@ -26,11 +27,14 @@ import org.springframework.stereotype.Service;
 public class AzureWorkspaceManager {
 
     private final AzureDatabricksManager azureDatabricksManager;
-    private static Logger logger = Logger.getLogger(AzureWorkspaceManager.class.getName());
+    private final AzurePermissionsConfig azurePermissionsConfig;
+    private static final Logger logger = Logger.getLogger(AzureWorkspaceManager.class.getName());
 
     @Autowired
-    public AzureWorkspaceManager(AzureDatabricksManager azureDatabricksManager) {
+    public AzureWorkspaceManager(
+            AzureDatabricksManager azureDatabricksManager, AzurePermissionsConfig azurePermissionsConfig) {
         this.azureDatabricksManager = azureDatabricksManager;
+        this.azurePermissionsConfig = azurePermissionsConfig;
     }
 
     /**
@@ -82,7 +86,7 @@ public class AzureWorkspaceManager {
                         "Workspace %s already exists", workspace.get().get().getName()));
                 return right(workspace.get().get());
             }
-            logger.info(String.format("Creating workspace %s", workspaceName));
+            logger.info(String.format("Creating workspace %s ...", workspaceName));
             Workspace w = azureDatabricksManager
                     .workspaces()
                     .define(workspaceName)
@@ -91,7 +95,16 @@ public class AzureWorkspaceManager {
                     .withManagedResourceGroupId(managedResourceGroupId)
                     .withSku(new Sku().withName(skuType.getValue()))
                     .create();
-            var workspaceInfo = new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id());
+
+            String resourceId = String.format(
+                    "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Databricks/workspaces/%s",
+                    azurePermissionsConfig.getSubscriptionId(), azurePermissionsConfig.getResourceGroup(), w.name());
+
+            String azureUrl = String.format(
+                    "https://portal.azure.com/#@%s/resource/%s", azurePermissionsConfig.getAuth_tenantId(), resourceId);
+
+            var workspaceInfo =
+                    new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id(), azureUrl);
             return right(workspaceInfo);
 
         } catch (Exception e) {
@@ -128,7 +141,19 @@ public class AzureWorkspaceManager {
 
             if (existingWorkspace.isPresent()) {
                 w = existingWorkspace.get();
-                workspaceInfo = new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id());
+
+                String resourceId = String.format(
+                        "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Databricks/workspaces/%s",
+                        azurePermissionsConfig.getSubscriptionId(),
+                        azurePermissionsConfig.getResourceGroup(),
+                        w.name());
+
+                String azureUrl = String.format(
+                        "https://portal.azure.com/#@%s/resource/%s",
+                        azurePermissionsConfig.getAuth_tenantId(), resourceId);
+
+                workspaceInfo =
+                        new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id(), azureUrl);
                 return right(Optional.of(workspaceInfo));
             } else return right(Optional.empty());
 

@@ -10,13 +10,16 @@ import lombok.Setter;
 public class DatabricksWorkspaceInfo {
     private String name;
     private String id;
-    private String url;
+    private String databricksHost;
     private String azureResourceId;
+    private String azureResourceUrl;
 
-    public DatabricksWorkspaceInfo(String name, String id, String url, String azureResourceId) {
+    public DatabricksWorkspaceInfo(
+            String name, String id, String databricksHost, String azureResourceId, String azureResourceUrl) {
         this.name = name;
         this.id = id;
-        this.url = url;
+        this.databricksHost = databricksHost;
         this.azureResourceId = azureResourceId;
+        this.azureResourceUrl = azureResourceUrl;
     }
 }

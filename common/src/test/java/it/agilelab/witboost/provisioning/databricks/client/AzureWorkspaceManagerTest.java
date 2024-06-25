@@ -12,10 +12,12 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
@@ -26,10 +28,13 @@ public class AzureWorkspaceManagerTest {
     AzureDatabricksManager mockManager;
     AzureWorkspaceManager workspaceManager;
 
+    @Mock
+    AzurePermissionsConfig azurePermissionsConfig;
+
     @BeforeEach
     void setUp() {
         mockManager = mock(AzureDatabricksManager.class);
-        workspaceManager = new AzureWorkspaceManager(mockManager);
+        workspaceManager = new AzureWorkspaceManager(mockManager, azurePermissionsConfig);
     }
 
     @Test
@@ -148,11 +153,10 @@ public class AzureWorkspaceManagerTest {
                 workspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
 
         assertTrue(result.isRight());
-        System.out.println(result);
         assertTrue(result.get().isPresent());
         DatabricksWorkspaceInfo info = result.get().get();
         assertEquals(workspaceName, info.getName());
-        assertEquals("workspaceUrl", info.getUrl());
+        assertEquals("workspaceUrl", info.getDatabricksHost());
         assertEquals("id", info.getAzureResourceId());
     }
 

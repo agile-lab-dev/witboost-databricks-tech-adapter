@@ -16,15 +16,15 @@ public class DatabricksWorkspaceInfoTest {
 
     @BeforeEach
     public void setUp() {
-        workspaceInfo =
-                new DatabricksWorkspaceInfo("WorkspaceName", "WorkspaceId", "http://workspace.url", "ResourceId");
+        workspaceInfo = new DatabricksWorkspaceInfo(
+                "WorkspaceName", "WorkspaceId", "http://workspace.url", "ResourceId", "resourceUrl");
     }
 
     @Test
     public void testConstructorAndGetters() {
         assertThat(workspaceInfo.getName()).isEqualTo("WorkspaceName");
         assertThat(workspaceInfo.getId()).isEqualTo("WorkspaceId");
-        assertThat(workspaceInfo.getUrl()).isEqualTo("http://workspace.url");
+        assertThat(workspaceInfo.getDatabricksHost()).isEqualTo("http://workspace.url");
         assertThat(workspaceInfo.getAzureResourceId()).isEqualTo("ResourceId");
     }
 
@@ -32,12 +32,12 @@ public class DatabricksWorkspaceInfoTest {
     public void testSetters() {
         workspaceInfo.setName("NewWorkspaceName");
         workspaceInfo.setId("NewWorkspaceId");
-        workspaceInfo.setUrl("http://new.workspace.url");
+        workspaceInfo.setDatabricksHost("http://new.workspace.url");
         workspaceInfo.setAzureResourceId("NewResourceId");
 
         assertThat(workspaceInfo.getName()).isEqualTo("NewWorkspaceName");
         assertThat(workspaceInfo.getId()).isEqualTo("NewWorkspaceId");
-        assertThat(workspaceInfo.getUrl()).isEqualTo("http://new.workspace.url");
+        assertThat(workspaceInfo.getDatabricksHost()).isEqualTo("http://new.workspace.url");
         assertThat(workspaceInfo.getAzureResourceId()).isEqualTo("NewResourceId");
     }
 }

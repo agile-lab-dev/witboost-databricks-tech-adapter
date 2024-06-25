@@ -152,6 +152,15 @@ public class JobManager {
     }
 
     private com.databricks.sdk.service.compute.ClusterSpec getClusterSpecFromSpecific(ClusterSpecific clusterSpecific) {
+
+        //      Temporary functionality. Dots had to be replaced with underscores in the template
+        Map<String, String> sparkConfNew = new HashMap<>();
+        clusterSpecific.getSparkConf().keySet().forEach(key -> {
+            sparkConfNew.put(
+                    key.replace("_", "."), clusterSpecific.getSparkConf().get(key));
+        });
+        // ----
+
         return new com.databricks.sdk.service.compute.ClusterSpec()
                 .setSparkVersion(clusterSpecific.getClusterSparkVersion())
                 .setNodeTypeId(clusterSpecific.getNodeTypeId())
@@ -161,7 +170,7 @@ public class JobManager {
                         .setAvailability(clusterSpecific.getAvailability())
                         .setSpotBidMaxPrice(clusterSpecific.getSpotBidMaxPrice()))
                 .setDriverNodeTypeId(clusterSpecific.getDriverNodeTypeId())
-                .setSparkConf(clusterSpecific.getSparkConf())
+                .setSparkConf(sparkConfNew)
                 .setSparkEnvVars(clusterSpecific.getSparkEnvVars())
                 .setRuntimeEngine(clusterSpecific.getRuntimeEngine());
     }
