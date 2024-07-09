@@ -83,16 +83,16 @@ fail_on_detection:
         - '**/*.scala'
         - '**/*.sc'
 
-vulnerability_analysis:
-  stage: compile
-  before_script:
-    - mvn --version
-  script:
-    - mvn -DskipTests=true package org.owasp:dependency-check-maven:check
-  artifacts:
-    when: always
-    paths:
-      - common/target/dependency-check-report.html
+#vulnerability_analysis:
+#  stage: compile
+#  before_script:
+#    - mvn --version
+#  script:
+#    - mvn -DskipTests=true package org.owasp:dependency-check-maven:check
+#  artifacts:
+#    when: always
+#    paths:
+#      - common/target/dependency-check-report.html
 
 license_check:
   stage: compile

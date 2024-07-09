@@ -85,12 +85,12 @@ paths:
               $ref: '#/components/schemas/ProvisioningRequest'
         required: true
       responses:
-        200:
-          description: It synchronously returns the request result
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProvisioningStatus'
+#        200:
+#          description: It synchronously returns the request result
+#          content:
+#            application/json:
+#              schema:
+#                $ref: '#/components/schemas/ProvisioningStatus'
         202:
           description: If successful returns a provisioning deployment task token that can be used for polling the request status
           content:
@@ -181,12 +181,12 @@ paths:
               $ref: '#/components/schemas/ProvisioningRequest'
         required: true
       responses:
-        200:
-          description: It synchronously returns the request result
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProvisioningStatus'
+#        200:
+#          description: It synchronously returns the request result
+#          content:
+#            application/json:
+#              schema:
+#                $ref: '#/components/schemas/ProvisioningStatus'
         202:
           description: If successful returns a provisioning deployment task token that can be used for polling the request status
           content:
@@ -205,6 +205,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemError'
+
   /v1/updateacl:
     post:
       tags:
@@ -322,9 +323,9 @@ components:
         status:
           description: >
             - `RUNNING`: the validation task is still running
-            
+
             - `COMPLETED`: the operation is complete and the validation result is available (`info.publicInfo` field)
-            
+
             - `FAILED`: an exception occurred while running the validation task
           type: string
           enum: [RUNNING, COMPLETED, FAILED]
@@ -382,7 +383,7 @@ components:
             *Filled only in case of provision/unprovison requests.*
 
 
-            Complete data product descriptor (YAML format), enriched with provisioning info provided by the specific provisioners during the latest (successful or failed) provisioning/unprovisioning operation for each component. 
+            Complete data product descriptor (YAML format), enriched with provisioning info provided by the specific provisioners during the latest (successful or failed) provisioning/unprovisioning operation for each component.
             If available, provisioning information is reported in the `info` fields at both the data product and component levels. The base schema for the `info` object is the same as [Info](#/components/schemas/Info), but additional fields may be included, such as the `latestProvisioningOperation` object. This object contains information about the most recent provisioning operation performed on the component, including the operation type (e.g. Deploy, Undeploy) in the `operation` field, as well as the status of the operation (e.g. NotStarted, Failed, Successful) in the `status` field.
             Please note that the information contained in a `info` object represents the most recent data provided by a specific provisioner for the corresponding component. However, this information may not have been provided during the last data product provisioning operation. For example, if the provisioning operation fails and the component's specific provisioner is not called, the information doesn't change. Only the `latestProvisioningOperation` object always refers to the most recent provisioning operation on the data product.
         removeData:
@@ -572,9 +573,9 @@ components:
           enum: [RUNNING, COMPLETED, FAILED]
           description: >
             - `RUNNING`: the reverse provisioning operation is still running
-            
+
             - `COMPLETED`: the operation is complete and the `updates` object is ready
-            
+
             - `FAILED`: an exception occurred while running the reverse provisioning operation (additional details could be found in the `logs` array)
         updates:
           type: object

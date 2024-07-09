@@ -69,8 +69,8 @@ public class RepoManagerTest {
 
         Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", GitProvider.GITLAB);
 
-        FailedOperation expectedRes =
-                new FailedOperation(Collections.singletonList(new Problem("This is an exception")));
+        FailedOperation expectedRes = new FailedOperation(Collections.singletonList(
+                new Problem("Failed to create repo with url gitUrl, Error: This is an exception ")));
         assert result.isLeft();
         assertEquals(result, Left(expectedRes));
     }

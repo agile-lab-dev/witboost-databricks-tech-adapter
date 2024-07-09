@@ -47,8 +47,10 @@ public class AzureAuthConfigTest {
         config.setClientId("clientId");
         config.setTenantId("tenantId");
         config.setClientSecret("clientSecret");
+        config.setSkuType("trial");
 
-        String expectedToString = "AzureAuthConfig(clientId=clientId, tenantId=tenantId, clientSecret=clientSecret)";
+        String expectedToString =
+                "AzureAuthConfig(clientId=clientId, tenantId=tenantId, clientSecret=clientSecret, skuType=trial)";
         assertEquals(expectedToString, config.toString());
     }
 

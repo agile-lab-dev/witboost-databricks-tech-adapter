@@ -23,8 +23,6 @@ import org.springframework.stereotype.Service;
 public class ValidationServiceImpl implements ValidationService {
 
     private final String OUTPUTPORT_KIND = "outputport";
-    private final String STORAGE_KIND = "storage";
-
     private final String WORKLOAD_KIND = "workload";
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
     private final Map<String, Class<? extends Specific>> kindToSpecificClass =

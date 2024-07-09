@@ -20,15 +20,23 @@ public interface ProvisionService {
      * Provision the component present in the request
      *
      * @param provisioningRequest the request
-     * @return the outcome of the provision
+     * @return a token that can be used for polling the request status
      */
-    ProvisioningStatus provision(ProvisioningRequest provisioningRequest);
+    String provision(ProvisioningRequest provisioningRequest);
 
     /**
      * Unprovision the component present in the request
      *
      * @param provisioningRequest the request
-     * @return the outcome of the unprovision
+     * @return a token that can be used for polling the request status
      */
-    ProvisioningStatus unprovision(ProvisioningRequest provisioningRequest);
+    String unprovision(ProvisioningRequest provisioningRequest);
+
+    /**
+     * Get the provisioning status of a previous request
+     *
+     * @param token the token returned by the previous asynchronous request
+     * @return the outcome of the request
+     */
+    ProvisioningStatus getStatus(String token);
 }

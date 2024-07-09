@@ -15,6 +15,6 @@ public enum SkuType {
     }
 
     public String getValue() {
-        return value;
+        return value.toLowerCase();
     }
 }

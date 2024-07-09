@@ -5,6 +5,7 @@ import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRe
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ValidationResult;
 import it.agilelab.witboost.provisioning.databricks.service.provision.ProvisionService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -25,13 +26,18 @@ public class SpecificProvisionerController implements V1ApiDelegate {
     }
 
     @Override
-    public ResponseEntity<ProvisioningStatus> provision(ProvisioningRequest provisioningRequest) {
-        return ResponseEntity.ok(provisionService.provision(provisioningRequest));
+    public ResponseEntity<ProvisioningStatus> getStatus(String token) {
+        return ResponseEntity.ok(provisionService.getStatus(token));
     }
 
     @Override
-    public ResponseEntity<ProvisioningStatus> unprovision(ProvisioningRequest provisioningRequest) {
-        return ResponseEntity.ok(provisionService.unprovision(provisioningRequest));
+    public ResponseEntity<String> provision(ProvisioningRequest provisioningRequest) {
+        return new ResponseEntity<>(provisionService.provision(provisioningRequest), HttpStatus.ACCEPTED);
+    }
+
+    @Override
+    public ResponseEntity<String> unprovision(ProvisioningRequest provisioningRequest) {
+        return new ResponseEntity<>(provisionService.unprovision(provisioningRequest), HttpStatus.ACCEPTED);
     }
 
     @Override

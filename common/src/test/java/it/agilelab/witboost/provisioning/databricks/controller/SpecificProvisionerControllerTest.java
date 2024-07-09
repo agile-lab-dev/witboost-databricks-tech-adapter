@@ -9,6 +9,7 @@ import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.provision.ProvisionService;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,15 +70,11 @@ public class SpecificProvisionerControllerTest {
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         MockHttpServletRequest mockHttpServletRequest = new MockHttpServletRequest();
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(mockHttpServletRequest));
-        when(service.provision(provisioningRequest))
-                .thenReturn(new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, ""));
-
-        ResponseEntity<ProvisioningStatus> actualRes = specificProvisionerController.provision(provisioningRequest);
-
-        Assertions.assertEquals(HttpStatusCode.valueOf(200), actualRes.getStatusCode());
-        Assertions.assertEquals(
-                ProvisioningStatus.StatusEnum.COMPLETED,
-                Objects.requireNonNull(actualRes.getBody()).getStatus());
+        String token = UUID.randomUUID().toString();
+        when(service.provision(provisioningRequest)).thenReturn(token);
+        var actualRes = specificProvisionerController.provision(provisioningRequest);
+        Assertions.assertEquals(token, actualRes.getBody());
+        Assertions.assertEquals(HttpStatusCode.valueOf(202), actualRes.getStatusCode());
     }
 
     @Test
@@ -89,7 +86,6 @@ public class SpecificProvisionerControllerTest {
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("error")));
         when(service.provision(provisioningRequest))
                 .thenThrow(new SpecificProvisionerValidationException(failedOperation));
-
         var ex = Assertions.assertThrows(
                 SpecificProvisionerValidationException.class,
                 () -> specificProvisionerController.provision(provisioningRequest));
@@ -102,15 +98,13 @@ public class SpecificProvisionerControllerTest {
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         MockHttpServletRequest mockHttpServletRequest = new MockHttpServletRequest();
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(mockHttpServletRequest));
-        when(service.unprovision(provisioningRequest))
-                .thenReturn(new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, ""));
+        String token = UUID.randomUUID().toString();
+        when(service.unprovision(provisioningRequest)).thenReturn(token);
 
-        ResponseEntity<ProvisioningStatus> actualRes = specificProvisionerController.unprovision(provisioningRequest);
+        var actualRes = specificProvisionerController.unprovision(provisioningRequest);
 
-        Assertions.assertEquals(HttpStatusCode.valueOf(200), actualRes.getStatusCode());
-        Assertions.assertEquals(
-                ProvisioningStatus.StatusEnum.COMPLETED,
-                Objects.requireNonNull(actualRes.getBody()).getStatus());
+        Assertions.assertEquals(token, actualRes.getBody());
+        Assertions.assertEquals(HttpStatusCode.valueOf(202), actualRes.getStatusCode());
     }
 
     @Test
@@ -127,5 +121,21 @@ public class SpecificProvisionerControllerTest {
                 SpecificProvisionerValidationException.class,
                 () -> specificProvisionerController.unprovision(provisioningRequest));
         Assertions.assertEquals(failedOperation, ex.getFailedOperation());
+    }
+
+    @Test
+    void testGetStatus() {
+        MockHttpServletRequest mockHttpServletRequest = new MockHttpServletRequest();
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(mockHttpServletRequest));
+        String token = UUID.randomUUID().toString();
+        when(service.getStatus(token))
+                .thenReturn(new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "this is the result"));
+
+        ResponseEntity<ProvisioningStatus> actualRes = specificProvisionerController.getStatus(token);
+
+        Assertions.assertEquals(HttpStatusCode.valueOf(200), actualRes.getStatusCode());
+        Assertions.assertEquals(
+                ProvisioningStatus.StatusEnum.COMPLETED, actualRes.getBody().getStatus());
+        Assertions.assertEquals("this is the result", actualRes.getBody().getResult());
     }
 }

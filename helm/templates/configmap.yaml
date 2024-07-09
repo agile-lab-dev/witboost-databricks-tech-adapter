@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   labels:
   {{- include "databricks-specific-provisioner.labels" . | nindent 4 }}
-name: {{ template "databricks-specific-provisioner.fullname" . }}-config
+  name: {{ template "databricks-specific-provisioner.fullname" . }}-config
 data:
   application.yml: |
   {{- if .Values.configOverride -}}

@@ -12,4 +12,6 @@ public class AzureAuthConfig {
     private String tenantId;
 
     private String clientSecret;
+
+    private String skuType;
 }

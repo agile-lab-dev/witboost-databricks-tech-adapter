@@ -3,7 +3,6 @@ package it.agilelab.witboost.provisioning.databricks.service.provision;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -11,7 +10,6 @@ import com.databricks.sdk.WorkspaceClient;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.common.SpecificProvisionerValidationException;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
@@ -19,10 +17,14 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksW
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.*;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,11 +41,24 @@ public class ProvisionServiceTest {
     @Mock
     private WorkspaceHandler workspaceHandler;
 
+    @Mock
+    ForkJoinPool forkJoinPool;
+
     @InjectMocks
     private ProvisionServiceImpl provisionService;
 
     private DatabricksWorkspaceInfo workspaceInfo =
             new DatabricksWorkspaceInfo("workspace", "123", "https://example.com", "abc", "test");
+
+    @BeforeEach
+    public void setUp() {
+        Mockito.lenient().when(forkJoinPool.submit(any(Runnable.class))).thenAnswer(invocation -> {
+            Runnable task = invocation.getArgument(0);
+            task.run();
+            forkJoinPool.awaitQuiescence(10, TimeUnit.SECONDS);
+            return null;
+        });
+    }
 
     @Test
     public void testValidateOk() {
@@ -51,7 +66,6 @@ public class ProvisionServiceTest {
         when(validationService.validate(provisioningRequest))
                 .thenReturn(right(new ProvisionRequest<Specific>(null, null, false)));
         var expectedRes = new ValidationResult(true);
-
         var actualRes = provisionService.validate(provisioningRequest);
 
         assertEquals(expectedRes, actualRes);
@@ -72,12 +86,13 @@ public class ProvisionServiceTest {
     @Test
     public void testProvisionValidationError() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("error")));
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("validationServiceError")));
         when(validationService.validate(provisioningRequest)).thenReturn(left(failedOperation));
 
-        var ex = assertThrows(
-                SpecificProvisionerValidationException.class, () -> provisionService.provision(provisioningRequest));
-        assertEquals(failedOperation, ex.getFailedOperation());
+        var token = provisionService.provision(provisioningRequest);
+        assertEquals(
+                "Errors: -validationServiceError\n",
+                provisionService.getStatus(token).getResult());
     }
 
     @Test
@@ -87,12 +102,11 @@ public class ProvisionServiceTest {
         workload.setKind("unsupported");
         when(validationService.validate(provisioningRequest))
                 .thenReturn(right(new ProvisionRequest<>(null, workload, false)));
-        String expectedDesc = "The kind 'unsupported' of the component is not supported by this Specific Provisioner";
-        var failedOperation = new FailedOperation(Collections.singletonList(new Problem(expectedDesc)));
 
-        var ex = assertThrows(
-                SpecificProvisionerValidationException.class, () -> provisionService.provision(provisioningRequest));
-        assertEquals(failedOperation, ex.getFailedOperation());
+        String expectedDesc = "The kind 'unsupported' of the component is not supported by this Specific Provisioner";
+
+        var token = provisionService.provision(provisioningRequest);
+        assertEquals(expectedDesc, provisionService.getStatus(token).getResult());
     }
 
     @Test
@@ -117,20 +131,93 @@ public class ProvisionServiceTest {
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "")
                 .info(new Info(JsonNodeFactory.instance.objectNode(), info).publicInfo(info));
 
-        var actualRes = provisionService.provision(provisioningRequest);
+        String token = provisionService.provision(provisioningRequest);
 
-        assertEquals(expectedRes, actualRes);
+        ProvisioningStatus actualRes = provisionService.getStatus(token);
+
+        assertEquals(expectedRes.getStatus(), actualRes.getStatus());
+        assertEquals(expectedRes.getResult(), actualRes.getResult());
+        assertEquals(expectedRes.getInfo().getPublicInfo(), actualRes.getInfo().getPublicInfo());
+    }
+
+    @Test
+    public void testProvisionWorkspaceErrorCreatingJob() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> workload = new Workload<>();
+        workload.setKind("workload");
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+
+        when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
+        when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
+
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("jobCreationError")));
+        when(workloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+                .thenReturn(left(failedOperation));
+
+        String token = provisionService.provision(provisioningRequest);
+
+        ProvisioningStatus actualRes = provisionService.getStatus(token);
+
+        assertEquals(
+                "Errors: -jobCreationError\n", provisionService.getStatus(token).getResult());
+    }
+
+    @Test
+    public void testProvisionWorkspaceErrorGettingWorkspace() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> workload = new Workload<>();
+        workload.setKind("workload");
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+
+        when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
+
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("getWorkspaceError")));
+        when(workspaceHandler.getWorkspaceClient(any())).thenReturn(left(failedOperation));
+
+        String token = provisionService.provision(provisioningRequest);
+
+        ProvisioningStatus actualRes = provisionService.getStatus(token);
+
+        assertEquals(
+                "Errors: -getWorkspaceError\n",
+                provisionService.getStatus(token).getResult());
+    }
+
+    @Test
+    public void testProvisionWorkspaceErrorCreatingWorkspace() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> workload = new Workload<>();
+        workload.setKind("workload");
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("createWorkspaceError")));
+        when(workspaceHandler.provisionWorkspace(any())).thenReturn(left(failedOperation));
+
+        String token = provisionService.provision(provisioningRequest);
+
+        ProvisioningStatus actualRes = provisionService.getStatus(token);
+
+        assertEquals(
+                "Errors: -createWorkspaceError\n",
+                provisionService.getStatus(token).getResult());
     }
 
     @Test
     public void testUnprovisionValidationError() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("error")));
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("validationServiceError")));
         when(validationService.validate(provisioningRequest)).thenReturn(left(failedOperation));
 
-        var ex = assertThrows(
-                SpecificProvisionerValidationException.class, () -> provisionService.unprovision(provisioningRequest));
-        assertEquals(failedOperation, ex.getFailedOperation());
+        String token = provisionService.unprovision(provisioningRequest);
+        assertEquals(
+                "Errors: -validationServiceError\n",
+                provisionService.getStatus(token).getResult());
     }
 
     @Test
@@ -141,11 +228,9 @@ public class ProvisionServiceTest {
         when(validationService.validate(provisioningRequest))
                 .thenReturn(right(new ProvisionRequest<>(null, Workload, false)));
         String expectedDesc = "The kind 'unsupported' of the component is not supported by this Specific Provisioner";
-        var failedOperation = new FailedOperation(Collections.singletonList(new Problem(expectedDesc)));
 
-        var ex = assertThrows(
-                SpecificProvisionerValidationException.class, () -> provisionService.unprovision(provisioningRequest));
-        assertEquals(failedOperation, ex.getFailedOperation());
+        var token = provisionService.unprovision(provisioningRequest);
+        assertEquals(expectedDesc, provisionService.getStatus(token).getResult());
     }
 
     @Test
@@ -162,8 +247,112 @@ public class ProvisionServiceTest {
                 .thenReturn(right(null));
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "");
 
-        var actualRes = provisionService.unprovision(provisioningRequest);
+        String token = provisionService.unprovision(provisioningRequest);
 
-        assertEquals(expectedRes, actualRes);
+        ProvisioningStatus actualRes = provisionService.getStatus(token);
+
+        assertEquals(expectedRes.getStatus(), actualRes.getStatus());
+        assertEquals(expectedRes.getResult(), actualRes.getResult());
+    }
+
+    @Test
+    public void testUnprovisionWorkloadWorkspaceNameError() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> Workload = new Workload<>();
+        Workload.setKind("workload");
+        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("gettingWorkspaceNameError")));
+        when(workspaceHandler.getWorkspaceName(any())).thenReturn(left(failedOperation));
+
+        String token = provisionService.unprovision(provisioningRequest);
+
+        assertEquals(
+                "Errors: -gettingWorkspaceNameError\n",
+                provisionService.getStatus(token).getResult());
+    }
+
+    @Test
+    public void testUnprovisionWorkloadWorkspaceInfoError() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> Workload = new Workload<>();
+        Workload.setKind("workload");
+        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+        when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
+        var failedOperation = new FailedOperation(Collections.singletonList(new Problem("gettingWorkspaceInfoError")));
+        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(left(failedOperation));
+
+        String token = provisionService.unprovision(provisioningRequest);
+
+        assertEquals(
+                "Errors: -gettingWorkspaceInfoError\n",
+                provisionService.getStatus(token).getResult());
+    }
+
+    @Test
+    public void testUnprovisionWorkloadWorkspaceInfoEmpty() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> Workload = new Workload<>();
+        Workload.setKind("workload");
+        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+        when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
+        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.empty()));
+
+        String token = provisionService.unprovision(provisioningRequest);
+
+        ProvisioningStatus actualRes = provisionService.getStatus(token);
+        var expectedRes = new ProvisioningStatus(
+                ProvisioningStatus.StatusEnum.COMPLETED, "Unprovision skipped. Workspace test does not exists");
+
+        assertEquals(expectedRes.getStatus(), actualRes.getStatus());
+        assertEquals(expectedRes.getResult(), actualRes.getResult());
+    }
+
+    @Test
+    public void testUnprovisionWorkloadWorkspaceClientError() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> Workload = new Workload<>();
+        Workload.setKind("workload");
+        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+        when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
+        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
+        var failedOperation =
+                new FailedOperation(Collections.singletonList(new Problem("gettingWorkspaceClientError")));
+        when(workspaceHandler.getWorkspaceClient(workspaceInfo)).thenReturn(left(failedOperation));
+
+        String token = provisionService.unprovision(provisioningRequest);
+
+        assertEquals(
+                "Errors: -gettingWorkspaceClientError\n",
+                provisionService.getStatus(token).getResult());
+    }
+
+    @Test
+    public void testUnprovisionWorkloadUnprovisioningWorkloadError() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<Specific> Workload = new Workload<>();
+        Workload.setKind("workload");
+        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+        when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
+        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
+        when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
+
+        var failedOperation =
+                new FailedOperation(Collections.singletonList(new Problem("unprovisioningWorkloadError")));
+
+        when(workloadHandler.unprovisionWorkload(any(), any(), any())).thenReturn(left(failedOperation));
+
+        String token = provisionService.unprovision(provisioningRequest);
+
+        ProvisioningStatus status = provisionService.getStatus(token);
+
+        assertEquals(
+                "Errors: -unprovisioningWorkloadError\n",
+                provisionService.getStatus(token).getResult());
     }
 }

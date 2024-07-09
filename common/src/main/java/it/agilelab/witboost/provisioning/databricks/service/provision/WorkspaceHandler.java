@@ -119,12 +119,19 @@ public class WorkspaceHandler {
                     "/subscriptions/%s/resourceGroups/%s-rg",
                     azurePermissionsConfig.getSubscriptionId(), workspaceName);
 
+            SkuType skuType;
+            var skuTypeConfig = azureAuthConfig.getSkuType();
+
+            if (skuTypeConfig.equalsIgnoreCase(SkuType.TRIAL.getValue())) {
+                skuType = SkuType.TRIAL;
+            } else skuType = SkuType.PREMIUM;
+
             Either<FailedOperation, DatabricksWorkspaceInfo> eitherNewWorkspace = azureWorkspaceManager.createWorkspace(
                     workspaceName,
                     "westeurope",
                     azurePermissionsConfig.getResourceGroup(),
                     managedResourceGroupId,
-                    SkuType.TRIAL);
+                    skuType);
 
             if (eitherNewWorkspace.isRight())
                 logger.info(String.format(

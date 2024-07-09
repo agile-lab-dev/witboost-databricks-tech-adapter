@@ -2,6 +2,7 @@ azure.auth:
     clientId: testClientId
     tenantId: testTenantId
     clientSecret: testClientSecret
+    skuType: TRIAL
 
 azure.permissions:
     auth_clientId: testClientId
@@ -21,3 +22,6 @@ databricks.auth:
 git:
     username: testUsername
     token: testToken
+
+forkjoin:
+    parallelism: 16

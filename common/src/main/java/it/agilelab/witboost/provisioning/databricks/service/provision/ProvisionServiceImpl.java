@@ -5,18 +5,14 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.common.SpecificProvisionerValidationException;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.Info;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.ValidationError;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.ValidationResult;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +21,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProvisionServiceImpl implements ProvisionService {
 
+    private final ConcurrentHashMap<String, ProvisioningStatus> statusMap = new ConcurrentHashMap<>();
+    private final ForkJoinPool forkJoinPool;
     private final ValidationService validationService;
     private final WorkloadHandler workloadHandler;
     private final WorkspaceHandler workspaceHandler;
@@ -32,10 +30,14 @@ public class ProvisionServiceImpl implements ProvisionService {
     private final Logger logger = LoggerFactory.getLogger(ProvisionServiceImpl.class);
 
     public ProvisionServiceImpl(
-            ValidationService validationService, WorkloadHandler workloadHandler, WorkspaceHandler workspaceHandler) {
+            ValidationService validationService,
+            WorkloadHandler workloadHandler,
+            WorkspaceHandler workspaceHandler,
+            ForkJoinPool forkJoinPool) {
         this.validationService = validationService;
         this.workloadHandler = workloadHandler;
         this.workspaceHandler = workspaceHandler;
+        this.forkJoinPool = forkJoinPool;
     }
 
     @Override
@@ -51,30 +53,81 @@ public class ProvisionServiceImpl implements ProvisionService {
     }
 
     @Override
-    public ProvisioningStatus provision(ProvisioningRequest provisioningRequest) {
-        var eitherValidation = validationService.validate(provisioningRequest);
-        if (eitherValidation.isLeft()) throw new SpecificProvisionerValidationException(eitherValidation.getLeft());
+    public String provision(ProvisioningRequest provisioningRequest) {
+        String token = startProvisioning(provisioningRequest);
+        return token;
+    }
 
-        var provisionRequest = eitherValidation.get();
+    @Override
+    public ProvisioningStatus getStatus(String token) {
+        return statusMap.getOrDefault(
+                token, new ProvisioningStatus(ProvisioningStatus.StatusEnum.FAILED, "Token not found"));
+    }
 
-        switch (provisionRequest.component().getKind()) {
-            case WORKLOAD_KIND: {
+    @Override
+    public String unprovision(ProvisioningRequest provisioningRequest) {
+        String token = startUnprovisioning(provisioningRequest);
+        return token;
+    }
+
+    private String startProvisioning(ProvisioningRequest provisioningRequest) {
+        String token = generateToken();
+        ProvisioningStatus response =
+                new ProvisioningStatus(ProvisioningStatus.StatusEnum.RUNNING, "Provisioning in progress");
+        statusMap.put(token, response);
+
+        forkJoinPool.submit(() -> {
+            var eitherValidation = validationService.validate(provisioningRequest);
+            if (eitherValidation.isLeft()) {
+                StringBuilder errors = new StringBuilder();
+                errors.append("Errors: ");
+                eitherValidation.getLeft().problems().forEach(problem -> {
+                    errors.append("-").append(problem.description()).append("\n");
+                });
+                updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                return;
+            }
+
+            var provisionRequest = eitherValidation.get();
+
+            if (provisionRequest.component().getKind().equalsIgnoreCase(WORKLOAD_KIND)) {
                 Either<FailedOperation, DatabricksWorkspaceInfo> eitherCreatedWorkspace =
                         workspaceHandler.provisionWorkspace(provisionRequest);
-                if (eitherCreatedWorkspace.isLeft())
-                    throw new SpecificProvisionerValidationException(eitherCreatedWorkspace.getLeft());
+                if (eitherCreatedWorkspace.isLeft()) {
+                    StringBuilder errors = new StringBuilder();
+                    errors.append("Errors: ");
+                    eitherCreatedWorkspace.getLeft().problems().forEach(problem -> {
+                        errors.append("-").append(problem.description()).append("\n");
+                    });
+                    updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                    return;
+                }
 
                 DatabricksWorkspaceInfo databricksWorkspaceInfo = eitherCreatedWorkspace.get();
 
                 Either<FailedOperation, WorkspaceClient> eitherWorkspaceClient =
                         workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
-                if (eitherWorkspaceClient.isLeft())
-                    throw new SpecificProvisionerValidationException(eitherWorkspaceClient.getLeft());
+                if (eitherWorkspaceClient.isLeft()) {
+                    StringBuilder errors = new StringBuilder();
+                    errors.append("Errors: ");
+                    eitherWorkspaceClient.getLeft().problems().forEach(problem -> {
+                        errors.append("-").append(problem.description()).append("\n");
+                    });
+                    updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                    return;
+                }
 
                 Either<FailedOperation, String> eitherNewJob = workloadHandler.provisionWorkload(
                         provisionRequest, eitherWorkspaceClient.get(), databricksWorkspaceInfo);
-                if (eitherNewJob.isLeft())
-                    throw new SpecificProvisionerValidationException(eitherWorkspaceClient.getLeft());
+                if (eitherNewJob.isLeft()) {
+                    StringBuilder errors = new StringBuilder();
+                    errors.append("Errors: ");
+                    eitherNewJob.getLeft().problems().forEach(problem -> {
+                        errors.append("-").append(problem.description()).append("\n");
+                    });
+                    updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                    return;
+                }
 
                 String jobUrl =
                         "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/jobs/" + eitherNewJob.get();
@@ -82,63 +135,130 @@ public class ProvisionServiceImpl implements ProvisionService {
                 provisionResult.put("workspace path", databricksWorkspaceInfo.getAzureResourceUrl());
                 provisionResult.put("job path", jobUrl);
 
-                return new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "")
-                        .info(new Info(JsonNodeFactory.instance.objectNode(), provisionResult)
-                                .publicInfo(provisionResult));
+                updateStatus(
+                        token,
+                        ProvisioningStatus.StatusEnum.COMPLETED,
+                        "",
+                        new Info(JsonNodeFactory.instance.objectNode(), provisionResult).publicInfo(provisionResult));
+
+            } else {
+
+                updateStatus(
+                        token,
+                        ProvisioningStatus.StatusEnum.FAILED,
+                        String.format(
+                                "The kind '%s' of the component is not supported by this Specific Provisioner",
+                                provisionRequest.component().getKind()));
             }
-            default:
-                throw new SpecificProvisionerValidationException(
-                        unsupportedKind(provisionRequest.component().getKind()));
-        }
+        });
+
+        return token;
     }
 
-    @Override
-    public ProvisioningStatus unprovision(ProvisioningRequest provisioningRequest) {
-        var eitherValidation = validationService.validate(provisioningRequest);
-        if (eitherValidation.isLeft()) throw new SpecificProvisionerValidationException(eitherValidation.getLeft());
+    private String startUnprovisioning(ProvisioningRequest provisioningRequest) {
+        String token = generateToken();
+        ProvisioningStatus response =
+                new ProvisioningStatus(ProvisioningStatus.StatusEnum.RUNNING, "Unprovisioning in progress");
+        statusMap.put(token, response);
 
-        var provisionRequest = eitherValidation.get();
+        forkJoinPool.submit(() -> {
+            var eitherValidation = validationService.validate(provisioningRequest);
+            if (eitherValidation.isLeft()) {
+                StringBuilder errors = new StringBuilder();
+                errors.append("Errors: ");
+                eitherValidation.getLeft().problems().forEach(problem -> {
+                    errors.append("-").append(problem.description()).append("\n");
+                });
+                updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                return;
+            }
+            var provisionRequest = eitherValidation.get();
 
-        switch (provisionRequest.component().getKind()) {
-            case WORKLOAD_KIND: {
+            if (provisionRequest.component().getKind().equalsIgnoreCase(WORKLOAD_KIND)) {
                 var workspaceName = workspaceHandler.getWorkspaceName(provisionRequest);
-                if (workspaceName.isLeft()) throw new SpecificProvisionerValidationException(workspaceName.getLeft());
-
+                if (workspaceName.isLeft()) {
+                    StringBuilder errors = new StringBuilder();
+                    errors.append("Errors: ");
+                    workspaceName.getLeft().problems().forEach(problem -> {
+                        errors.append("-").append(problem.description()).append("\n");
+                    });
+                    updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                    return;
+                }
                 Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherGetWorkspaceInfo =
                         workspaceHandler.getWorkspaceInfo(provisionRequest);
-                if (eitherGetWorkspaceInfo.isLeft())
-                    throw new SpecificProvisionerValidationException(eitherGetWorkspaceInfo.getLeft());
+                if (eitherGetWorkspaceInfo.isLeft()) {
+                    StringBuilder errors = new StringBuilder();
+                    errors.append("Errors: ");
+                    eitherGetWorkspaceInfo.getLeft().problems().forEach(problem -> {
+                        errors.append("-").append(problem.description()).append("\n");
+                    });
+                    updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                    return;
+                }
 
                 Optional<DatabricksWorkspaceInfo> optionalDatabricksWorkspaceInfo = eitherGetWorkspaceInfo.get();
-                if (optionalDatabricksWorkspaceInfo.isEmpty())
-                    return new ProvisioningStatus(
+                if (optionalDatabricksWorkspaceInfo.isEmpty()) {
+                    updateStatus(
+                            token,
                             ProvisioningStatus.StatusEnum.COMPLETED,
                             String.format("Unprovision skipped. Workspace %s does not exists", workspaceName.get()));
-
+                    return;
+                }
                 DatabricksWorkspaceInfo databricksWorkspaceInfo = optionalDatabricksWorkspaceInfo.get();
 
                 Either<FailedOperation, WorkspaceClient> eitherWorkspaceClient =
                         workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
-                if (eitherWorkspaceClient.isLeft())
-                    throw new SpecificProvisionerValidationException(eitherWorkspaceClient.getLeft());
-
+                if (eitherWorkspaceClient.isLeft()) {
+                    StringBuilder errors = new StringBuilder();
+                    errors.append("Errors: ");
+                    eitherWorkspaceClient.getLeft().problems().forEach(problem -> {
+                        errors.append("-").append(problem.description()).append("\n");
+                    });
+                    updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                    return;
+                }
                 WorkspaceClient workspaceClient = eitherWorkspaceClient.get();
 
                 Either<FailedOperation, Void> eitherDeletedJob =
                         workloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, databricksWorkspaceInfo);
-                if (eitherDeletedJob.isLeft())
-                    throw new SpecificProvisionerValidationException(eitherDeletedJob.getLeft());
 
-                return new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "");
+                if (eitherDeletedJob.isLeft()) {
+                    StringBuilder errors = new StringBuilder();
+                    errors.append("Errors: ");
+                    eitherDeletedJob.getLeft().problems().forEach(problem -> {
+                        errors.append("-").append(problem.description()).append("\n");
+                    });
+                    updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+                    return;
+                }
+
+                updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "");
+
+            } else {
+                updateStatus(
+                        token,
+                        ProvisioningStatus.StatusEnum.FAILED,
+                        String.format(
+                                "The kind '%s' of the component is not supported by this Specific Provisioner",
+                                provisionRequest.component().getKind()));
             }
-            default:
-                throw new SpecificProvisionerValidationException(
-                        unsupportedKind(provisionRequest.component().getKind()));
-        }
+        });
+
+        return token;
     }
 
-    private FailedOperation unsupportedKind(String kind) {
-        return new FailedOperation(Collections.singletonList(new Problem(
-                String.format("The kind '%s' of the component is not supported by this Specific Provisioner", kind))));
+    private String generateToken() {
+        return java.util.UUID.randomUUID().toString();
+    }
+
+    private void updateStatus(String token, ProvisioningStatus.StatusEnum status, String result) {
+        updateStatus(token, status, result, null);
+    }
+
+    private void updateStatus(String token, ProvisioningStatus.StatusEnum status, String result, Info info) {
+        ProvisioningStatus response = new ProvisioningStatus(status, result);
+        response.setInfo(info);
+        statusMap.put(token, response);
     }
 }

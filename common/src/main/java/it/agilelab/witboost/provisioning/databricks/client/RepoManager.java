@@ -39,7 +39,6 @@ public class RepoManager {
     public Either<FailedOperation, Void> createRepo(String gitUrl, GitProvider provider) {
         try {
             logger.info("Creating repo with Git url: {} in {}", gitUrl, workspaceName);
-
             workspaceClient.repos().create(new CreateRepo().setUrl(gitUrl).setProvider(provider.toString()));
             logger.info("Repo with url {} created successfully in {}.", gitUrl, workspaceName);
 
@@ -48,8 +47,9 @@ public class RepoManager {
             logger.warn("Repo with url {} already exists in {}, creation skipped.", gitUrl, workspaceName);
             return right(null);
         } catch (Exception e) {
-            logger.error("Failed to create repo with url {}", gitUrl, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            logger.error(String.format("Failed to create repo with url {}", gitUrl), e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(
+                    String.format("Failed to create repo with url %s, Error: %s ", gitUrl, e.getMessage())))));
         }
     }
 
