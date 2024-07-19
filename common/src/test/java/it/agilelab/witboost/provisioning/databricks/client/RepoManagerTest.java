@@ -1,6 +1,5 @@
 package it.agilelab.witboost.provisioning.databricks.client;
 
-import static io.vavr.API.Left;
 import static io.vavr.API.Right;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -11,10 +10,9 @@ import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
-import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitProvider;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -41,7 +39,7 @@ public class RepoManagerTest {
         RepoInfo repoInfo = mock(RepoInfo.class);
         when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
 
-        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", GitProvider.GITLAB);
+        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", "GITLAB");
 
         assert result.isRight();
         assertEquals(result, Right(null));
@@ -54,7 +52,7 @@ public class RepoManagerTest {
         when(workspaceClient.repos()).thenReturn(reposAPI);
         when(reposAPI.create(any(CreateRepo.class))).thenThrow(new ResourceAlreadyExists("error", null));
 
-        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", GitProvider.GITLAB);
+        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", "GITLAB");
 
         assert result.isRight();
         assertNull(result.get());
@@ -62,37 +60,55 @@ public class RepoManagerTest {
 
     @Test
     public void createRepo_Exception() {
-
+        String errorMessage = "This is an exception ";
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
-        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new RuntimeException("This is an exception"));
+        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new RuntimeException(errorMessage));
 
-        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", GitProvider.GITLAB);
+        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", "GITLAB");
 
-        FailedOperation expectedRes = new FailedOperation(Collections.singletonList(
-                new Problem("Failed to create repo with url gitUrl, Error: This is an exception ")));
         assert result.isLeft();
-        assertEquals(result, Left(expectedRes));
+
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 
     @Test
     public void deleteRepo_Success() {
         ReposAPI reposAPI = mock(ReposAPI.class);
         WorkspaceAPI workspaceAPI = mock(WorkspaceAPI.class);
-        Iterable<ObjectInfo> objectInfos = mock(Iterable.class);
-        Iterator<ObjectInfo> iterator = mock(Iterator.class);
-        ObjectInfo objectInfo = mock(ObjectInfo.class);
         RepoInfo repoInfo = mock(RepoInfo.class);
-
-        when(workspaceClient.workspace()).thenReturn(workspaceAPI);
-        when(workspaceAPI.list(anyString())).thenReturn(objectInfos);
-        when(objectInfos.iterator()).thenReturn(iterator);
-        when(iterator.hasNext()).thenReturn(true, false);
-        when(iterator.next()).thenReturn(objectInfo);
-        when(objectInfo.getObjectType()).thenReturn(ObjectType.REPO);
-        when(workspaceClient.repos()).thenReturn(reposAPI);
         when(reposAPI.get(anyLong())).thenReturn(repoInfo);
         when(repoInfo.getUrl()).thenReturn("gitUrl");
+
+        List<ObjectInfo> objectInfos =
+                Arrays.asList(new ObjectInfo().setObjectType(ObjectType.REPO).setObjectId(123l));
+        Iterable<ObjectInfo> objectInfoIterable = objectInfos;
+
+        when(workspaceClient.workspace()).thenReturn(workspaceAPI);
+        when(workspaceAPI.list(anyString())).thenReturn(objectInfoIterable);
+        when(workspaceClient.repos()).thenReturn(reposAPI);
+
+        Either<FailedOperation, Void> result = repoManager.deleteRepo("gitUrl", "testaccount");
+
+        assertTrue(result.isRight());
+        assertEquals(result, Right(null));
+    }
+
+    @Test
+    public void deleteRepo_EmptyWorkspace() {
+        ReposAPI reposAPI = mock(ReposAPI.class);
+        WorkspaceAPI workspaceAPI = mock(WorkspaceAPI.class);
+        RepoInfo repoInfo = mock(RepoInfo.class);
+        when(reposAPI.get(anyLong())).thenReturn(repoInfo);
+        when(repoInfo.getUrl()).thenReturn("gitUrl");
+
+        List<ObjectInfo> objectInfos =
+                Arrays.asList(new ObjectInfo().setObjectType(ObjectType.REPO).setObjectId(123l));
+        Iterable<ObjectInfo> objectInfoIterable = objectInfos;
+
+        when(workspaceClient.workspace()).thenReturn(workspaceAPI);
+        when(workspaceAPI.list(anyString())).thenReturn(null);
+        when(workspaceClient.repos()).thenReturn(reposAPI);
 
         Either<FailedOperation, Void> result = repoManager.deleteRepo("gitUrl", "testaccount");
 
@@ -122,13 +138,11 @@ public class RepoManagerTest {
     public void deleteRepo_WorkspaceListException() {
         WorkspaceAPI workspaceAPI = mock(WorkspaceAPI.class);
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
-        when(workspaceAPI.list(anyString())).thenThrow(new RuntimeException("This is a workspace list exception"));
-
+        String errorMessage = "This is a workspace list exception";
+        when(workspaceAPI.list(anyString())).thenThrow(new RuntimeException(errorMessage));
         Either<FailedOperation, Void> result = repoManager.deleteRepo("gitUrl", "testaccount");
 
-        FailedOperation expectedRes =
-                new FailedOperation(Collections.singletonList(new Problem("This is a workspace list exception")));
         assertTrue(result.isLeft());
-        assertEquals(result, Left(expectedRes));
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 }

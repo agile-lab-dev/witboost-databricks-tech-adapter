@@ -9,18 +9,19 @@ import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.ClusterSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitReferenceType;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.SchedulingSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.SchedulingSpecific;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Class to manage Databricks jobs.
  */
 public class JobManager {
-    static Logger logger = Logger.getLogger(JobManager.class.getName());
+    private final Logger logger = LoggerFactory.getLogger(JobManager.class);
 
     private WorkspaceClient workspaceClient;
     private String workspaceName;
@@ -67,8 +68,11 @@ public class JobManager {
                     "Created new job in %s with name: %s and ID: %d.", workspaceName, jobName, j.getJobId()));
             return right(j.getJobId());
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while creating the job %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    jobName, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 
@@ -78,7 +82,7 @@ public class JobManager {
      * @param jobName            The name of the job to be created.
      * @param description        The description of the job.
      * @param taskKey            The task key.
-     * @param clusterSpecific    The parameters for creating a new cluster.
+     * @param jobClusterSpecific    The parameters for creating a new cluster.
      * @param schedulingSpecific The parameters for scheduling the job.
      * @param gitSpecific        The parameters including the git details for the task.
      * @return Either a Long representing the job ID if successful, or a FailedOperation.
@@ -87,7 +91,7 @@ public class JobManager {
             String jobName,
             String description,
             String taskKey,
-            ClusterSpecific clusterSpecific,
+            JobClusterSpecific jobClusterSpecific,
             SchedulingSpecific schedulingSpecific,
             GitSpecific gitSpecific) {
 
@@ -106,7 +110,7 @@ public class JobManager {
                             .setNotebookPath(gitSpecific.getGitPath())
                             .setSource(Source.GIT))
                     .setTaskKey(taskKey)
-                    .setNewCluster(getClusterSpecFromSpecific(clusterSpecific)));
+                    .setNewCluster(getClusterSpecFromSpecific(jobClusterSpecific)));
 
             GitSource gitLabSource = getGitSourceFromSpecific(gitSpecific);
 
@@ -133,8 +137,11 @@ public class JobManager {
             return right(j.getJobId());
 
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while creating the job %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    jobName, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 
@@ -151,28 +158,29 @@ public class JobManager {
         return gitLabSource;
     }
 
-    private com.databricks.sdk.service.compute.ClusterSpec getClusterSpecFromSpecific(ClusterSpecific clusterSpecific) {
+    private com.databricks.sdk.service.compute.ClusterSpec getClusterSpecFromSpecific(
+            JobClusterSpecific jobClusterSpecific) {
 
         //      Temporary functionality. Dots had to be replaced with underscores in the template
         Map<String, String> sparkConfNew = new HashMap<>();
-        clusterSpecific.getSparkConf().keySet().forEach(key -> {
+        jobClusterSpecific.getSparkConf().keySet().forEach(key -> {
             sparkConfNew.put(
-                    key.replace("_", "."), clusterSpecific.getSparkConf().get(key));
+                    key.replace("_", "."), jobClusterSpecific.getSparkConf().get(key));
         });
         // ----
 
         return new com.databricks.sdk.service.compute.ClusterSpec()
-                .setSparkVersion(clusterSpecific.getClusterSparkVersion())
-                .setNodeTypeId(clusterSpecific.getNodeTypeId())
-                .setNumWorkers(clusterSpecific.getNumWorkers())
+                .setSparkVersion(jobClusterSpecific.getClusterSparkVersion())
+                .setNodeTypeId(jobClusterSpecific.getNodeTypeId())
+                .setNumWorkers(jobClusterSpecific.getNumWorkers())
                 .setAzureAttributes(new AzureAttributes()
-                        .setFirstOnDemand(clusterSpecific.getFirstOnDemand())
-                        .setAvailability(clusterSpecific.getAvailability())
-                        .setSpotBidMaxPrice(clusterSpecific.getSpotBidMaxPrice()))
-                .setDriverNodeTypeId(clusterSpecific.getDriverNodeTypeId())
+                        .setFirstOnDemand(jobClusterSpecific.getFirstOnDemand())
+                        .setAvailability(jobClusterSpecific.getAvailability())
+                        .setSpotBidMaxPrice(jobClusterSpecific.getSpotBidMaxPrice()))
+                .setDriverNodeTypeId(jobClusterSpecific.getDriverNodeTypeId())
                 .setSparkConf(sparkConfNew)
-                .setSparkEnvVars(clusterSpecific.getSparkEnvVars())
-                .setRuntimeEngine(clusterSpecific.getRuntimeEngine());
+                .setSparkEnvVars(jobClusterSpecific.getSparkEnvVars())
+                .setRuntimeEngine(jobClusterSpecific.getRuntimeEngine());
     }
     /**
      * Exports a job given its ID.
@@ -185,8 +193,11 @@ public class JobManager {
             Job job = workspaceClient.jobs().get(jobId);
             return right(job);
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while exporting the job %d (workspace: %s). Please try again and if the error persists contact the platform team. Details: %s",
+                    jobId, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 
@@ -202,8 +213,11 @@ public class JobManager {
             workspaceClient.jobs().delete(jobId);
             return right(null);
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while deleting the job with ID %d (workspace: %s). Please try again and if the error persists contact the platform team. Details: %s",
+                    jobId, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 
@@ -218,8 +232,11 @@ public class JobManager {
             Iterable<BaseJob> list = workspaceClient.jobs().list(new ListJobsRequest().setName(jobName));
             return right(list);
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while listing the jobs named %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    jobName, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 }

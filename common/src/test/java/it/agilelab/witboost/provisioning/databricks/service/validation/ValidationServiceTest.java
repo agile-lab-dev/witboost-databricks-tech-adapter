@@ -2,16 +2,21 @@ package it.agilelab.witboost.provisioning.databricks.service.validation;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.util.ResourceUtils;
 import java.io.IOException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class ValidationServiceTest {
 
-    private final ValidationService service = new ValidationServiceImpl();
+    @Autowired
+    private TemplatesConfig templatesConfig;
+
+    private ValidationService service = new ValidationServiceImpl();
 
     @Test
     public void testValidateWorkloadOk() throws IOException {

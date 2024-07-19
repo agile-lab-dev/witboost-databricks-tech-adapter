@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.model.databricks;
+package it.agilelab.witboost.provisioning.databricks.model.databricks.job;
 
 import com.databricks.sdk.service.jobs.GitProvider;
 import jakarta.validation.Valid;
@@ -28,7 +28,7 @@ public class GitSpecific {
     private GitReferenceType gitReferenceType;
 
     /**
-     * The path within the Git repository.
+     * The notebook path within the Git repository.
      * Must be a valid path and not be blank.
      */
     @Valid

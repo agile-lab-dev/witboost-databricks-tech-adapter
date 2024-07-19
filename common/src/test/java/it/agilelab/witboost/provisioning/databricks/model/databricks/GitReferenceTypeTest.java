@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;

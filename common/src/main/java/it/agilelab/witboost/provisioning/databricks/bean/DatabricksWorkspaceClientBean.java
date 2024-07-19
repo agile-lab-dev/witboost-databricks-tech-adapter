@@ -8,7 +8,6 @@ import com.databricks.sdk.service.workspace.UpdateCredentials;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitProvider;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
@@ -68,17 +67,23 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
 
             workspaceClient = new WorkspaceClient(config);
 
-            setGitCredentials(gitCredentialsConfig.getToken(), gitCredentialsConfig.getUsername(), GitProvider.GITLAB);
+            setGitCredentials(
+                    gitCredentialsConfig.getToken(),
+                    gitCredentialsConfig.getUsername(),
+                    gitCredentialsConfig.getProvider());
 
             return workspaceClient;
 
         } catch (Exception e) {
-            logger.error("Error initializing the workspaceClient: {} for {}", e.getMessage(), workspaceName, e);
+            String errorMessage = String.format(
+                    "Error initializing the workspaceClient for %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
             throw new RuntimeException("Unable to initialize workspace client", e);
         }
     }
 
-    protected void setGitCredentials(String personalAccessToken, String gitUsername, GitProvider gitProvider) {
+    protected void setGitCredentials(String personalAccessToken, String gitUsername, String gitProvider) {
         try {
 
             Iterable<CredentialInfo> listCredentials =
@@ -89,7 +94,7 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
             if (listCredentials != null) {
                 optionalCredentialInfo = StreamSupport.stream(listCredentials.spliterator(), false)
                         .filter(credentialInfo ->
-                                credentialInfo.getGitProvider().equalsIgnoreCase(gitProvider.name()))
+                                credentialInfo.getGitProvider().equalsIgnoreCase(gitProvider))
                         .findFirst();
             }
 
@@ -99,22 +104,27 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
                         .create(new CreateCredentials()
                                 .setPersonalAccessToken(personalAccessToken)
                                 .setGitUsername(gitUsername)
-                                .setGitProvider(gitProvider.name()));
+                                .setGitProvider(gitProvider));
             else {
+
+                logger.warn(
+                        "Credentials for {} for the workspace {} already exists. Updating them with the ones provided",
+                        gitProvider.toString().toUpperCase(),
+                        workspaceName);
+
                 workspaceClient
                         .gitCredentials()
                         .update(new UpdateCredentials()
                                 .setCredentialId(optionalCredentialInfo.get().getCredentialId())
                                 .setGitUsername(gitUsername)
                                 .setPersonalAccessToken(personalAccessToken)
-                                .setGitProvider(gitProvider.name()));
-                logger.warn(
-                        "Credentials for {} for the workspace {} already exists. Updating them with the ones provided",
-                        gitProvider.toString().toUpperCase(),
-                        workspaceName);
+                                .setGitProvider(gitProvider.toUpperCase()));
             }
         } catch (Exception e) {
-            logger.error("Error setting Git credentials for {}: {}", workspaceName, e.getMessage(), e);
+            String errorMessage = String.format(
+                    "Error setting Git credentials for %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
             throw new RuntimeException("Unable to set Git credentials", e);
         }
     }

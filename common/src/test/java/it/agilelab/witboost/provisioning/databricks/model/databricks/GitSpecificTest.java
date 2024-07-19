@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitSpecific;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;

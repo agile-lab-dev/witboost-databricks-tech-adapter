@@ -65,7 +65,7 @@ dataProduct:
       fullyQualifiedName: null
       version: 0.0.0
       infrastructureTemplateId: urn:dmb:itm:aws-workload-dbt-transformation-provisioner:0
-      useCaseTemplateId: urn:dmb:utm:aws-workload-dbt-transformation-template:0.0.0
+      useCaseTemplateId: urn:dmb:utm:databricks-workload-job-template:0.0.0
       dependsOn: [ ]
       platform: Azure
       technology: databricks

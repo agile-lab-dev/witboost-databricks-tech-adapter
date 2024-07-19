@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.SchedulingSpecific;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.util.Set;

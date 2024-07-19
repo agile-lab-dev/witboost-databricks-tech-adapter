@@ -20,7 +20,7 @@ azure:
     auth_clientId: ${PERMISSIONS_AZURE_CLIENT_ID}
     auth_tenantId: ${PERMISSIONS_AZURE_TENANT_ID}
     auth_clientSecret: ${PERMISSIONS_AZURE_CLIENT_SECRET}
-    roleDefinitionId: ''
+    roleDefinitionId: ""
     subscriptionId: ${AZURE_SUBSCRIPTION_ID}
     resourceGroup: ${AZURE_RESOURCE_GROUP_NAME}
 
@@ -31,7 +31,14 @@ databricks:
 git:
   username: ${GIT_USERNAME}
   token: ${GIT_TOKEN}
+  provider: GITLAB
 
 
 forkjoin:
   parallelism: 16
+
+
+usecasetemplateid:
+  workload:
+    job: ["urn:dmb:utm:databricks-workload-job-template"]
+    dlt: ["urn:dmb:utm:databricks-workload-dlt-template"]

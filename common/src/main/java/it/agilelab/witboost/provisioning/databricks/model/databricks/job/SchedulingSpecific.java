@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.model.databricks;
+package it.agilelab.witboost.provisioning.databricks.model.databricks.job;
 
 import it.agilelab.witboost.provisioning.databricks.model.MandatoryFields;
 import jakarta.validation.constraints.NotNull;

@@ -14,6 +14,7 @@ import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.*;
@@ -28,12 +29,12 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class ProvisionServiceTest {
+public class JobProvisionServiceTest {
     @Mock
     private ValidationService validationService;
 
     @Mock
-    private WorkloadHandler workloadHandler;
+    private JobWorkloadHandler jobWorkloadHandler;
 
     @Mock
     private WorkspaceClient workspaceClient;
@@ -47,7 +48,7 @@ public class ProvisionServiceTest {
     @InjectMocks
     private ProvisionServiceImpl provisionService;
 
-    private DatabricksWorkspaceInfo workspaceInfo =
+    private final DatabricksWorkspaceInfo workspaceInfo =
             new DatabricksWorkspaceInfo("workspace", "123", "https://example.com", "abc", "test");
 
     @BeforeEach
@@ -62,7 +63,8 @@ public class ProvisionServiceTest {
 
     @Test
     public void testValidateOk() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         when(validationService.validate(provisioningRequest))
                 .thenReturn(right(new ProvisionRequest<Specific>(null, null, false)));
         var expectedRes = new ValidationResult(true);
@@ -112,8 +114,9 @@ public class ProvisionServiceTest {
     @Test
     public void testProvisionWorkspaceOk() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> workload = new Workload<>();
+        Workload<DatabricksJobWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
 
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
@@ -121,7 +124,7 @@ public class ProvisionServiceTest {
         when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
 
-        when(workloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+        when(jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right("workloadId"));
 
         var info = new HashMap<String, String>();
@@ -143,8 +146,9 @@ public class ProvisionServiceTest {
     @Test
     public void testProvisionWorkspaceErrorCreatingJob() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> workload = new Workload<>();
+        Workload<DatabricksJobWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
 
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
@@ -153,7 +157,7 @@ public class ProvisionServiceTest {
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
 
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("jobCreationError")));
-        when(workloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+        when(jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(left(failedOperation));
 
         String token = provisionService.provision(provisioningRequest);
@@ -169,6 +173,7 @@ public class ProvisionServiceTest {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
 
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
@@ -192,6 +197,7 @@ public class ProvisionServiceTest {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
 
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
@@ -235,15 +241,18 @@ public class ProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadOk() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> Workload = new Workload<>();
-        Workload.setKind("workload");
-        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
+        Workload<DatabricksJobWorkloadSpecific> workload = new Workload<>();
+        workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
         when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
         when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
-        when(workloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+        when(jobWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right(null));
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "");
 
@@ -258,9 +267,11 @@ public class ProvisionServiceTest {
     @Test
     public void testUnprovisionWorkloadWorkspaceNameError() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> Workload = new Workload<>();
-        Workload.setKind("workload");
-        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        Workload<Specific> workload = new Workload<>();
+        workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
 
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("gettingWorkspaceNameError")));
@@ -276,9 +287,11 @@ public class ProvisionServiceTest {
     @Test
     public void testUnprovisionWorkloadWorkspaceInfoError() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> Workload = new Workload<>();
-        Workload.setKind("workload");
-        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        Workload<Specific> workload = new Workload<>();
+        workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
         when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("gettingWorkspaceInfoError")));
@@ -294,9 +307,13 @@ public class ProvisionServiceTest {
     @Test
     public void testUnprovisionWorkloadWorkspaceInfoEmpty() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> Workload = new Workload<>();
-        Workload.setKind("workload");
-        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        Workload<Specific> workload = new Workload<>();
+        workload.setKind("workload");
+        var specific = new DatabricksJobWorkloadSpecific();
+        specific.setWorkspace("test");
+        workload.setSpecific(specific);
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
         when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
         when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.empty()));
@@ -305,7 +322,7 @@ public class ProvisionServiceTest {
 
         ProvisioningStatus actualRes = provisionService.getStatus(token);
         var expectedRes = new ProvisioningStatus(
-                ProvisioningStatus.StatusEnum.COMPLETED, "Unprovision skipped. Workspace test does not exists");
+                ProvisioningStatus.StatusEnum.COMPLETED, "Unprovision skipped. Workspace test not found.");
 
         assertEquals(expectedRes.getStatus(), actualRes.getStatus());
         assertEquals(expectedRes.getResult(), actualRes.getResult());
@@ -314,9 +331,11 @@ public class ProvisionServiceTest {
     @Test
     public void testUnprovisionWorkloadWorkspaceClientError() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> Workload = new Workload<>();
-        Workload.setKind("workload");
-        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        Workload<Specific> workload = new Workload<>();
+        workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
         when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
         when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
@@ -334,9 +353,11 @@ public class ProvisionServiceTest {
     @Test
     public void testUnprovisionWorkloadUnprovisioningWorkloadError() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
-        Workload<Specific> Workload = new Workload<>();
-        Workload.setKind("workload");
-        var provisionRequest = new ProvisionRequest<>(null, Workload, false);
+        Workload<Specific> workload = new Workload<>();
+        workload.setKind("workload");
+        workload.setSpecific(new DatabricksJobWorkloadSpecific());
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
         when(workspaceHandler.getWorkspaceName(any())).thenReturn(right("test"));
         when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
@@ -345,7 +366,7 @@ public class ProvisionServiceTest {
         var failedOperation =
                 new FailedOperation(Collections.singletonList(new Problem("unprovisioningWorkloadError")));
 
-        when(workloadHandler.unprovisionWorkload(any(), any(), any())).thenReturn(left(failedOperation));
+        when(jobWorkloadHandler.unprovisionWorkload(any(), any(), any())).thenReturn(left(failedOperation));
 
         String token = provisionService.unprovision(provisioningRequest);
 

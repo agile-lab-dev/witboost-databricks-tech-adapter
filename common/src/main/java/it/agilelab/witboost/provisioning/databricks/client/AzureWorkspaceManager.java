@@ -14,9 +14,10 @@ import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfi
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import java.util.Collections;
 import java.util.Optional;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -28,7 +29,7 @@ public class AzureWorkspaceManager {
 
     private final AzureDatabricksManager azureDatabricksManager;
     private final AzurePermissionsConfig azurePermissionsConfig;
-    private static final Logger logger = Logger.getLogger(AzureWorkspaceManager.class.getName());
+    private final Logger logger = LoggerFactory.getLogger(AzureWorkspaceManager.class);
 
     @Autowired
     public AzureWorkspaceManager(
@@ -51,8 +52,12 @@ public class AzureWorkspaceManager {
                     .delete(resourceGroupName, workspaceName, com.azure.core.util.Context.NONE);
             return right(null);
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String error = String.format(
+                    "An error occurred deleting the workspace: %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    workspaceName, e.getMessage());
+            logger.error(error, e);
+
+            return left(new FailedOperation(Collections.singletonList(new Problem(error, e))));
         }
     }
 
@@ -108,8 +113,12 @@ public class AzureWorkspaceManager {
             return right(workspaceInfo);
 
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String error = String.format(
+                    "An error occurred creating the workspace: %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    workspaceName, e.getMessage());
+            logger.error(error, e);
+
+            return left(new FailedOperation(Collections.singletonList(new Problem(error, e))));
         }
     }
 
@@ -158,8 +167,12 @@ public class AzureWorkspaceManager {
             } else return right(Optional.empty());
 
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String error = String.format(
+                    "An error occurred getting info of the workspace: %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    workspaceName, e.getMessage());
+            logger.error(error, e);
+
+            return left(new FailedOperation(Collections.singletonList(new Problem(error, e))));
         }
     }
 }

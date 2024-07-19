@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.model.databricks;
+package it.agilelab.witboost.provisioning.databricks.model.databricks.job;
 
 import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
@@ -12,7 +12,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class ClusterSpecific {
+public class JobClusterSpecific {
 
     @NotBlank
     private String clusterSparkVersion;

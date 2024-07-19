@@ -17,9 +17,7 @@ import com.azure.resourcemanager.authorization.models.RoleAssignments;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.DatabricksWorkspaceClientBean;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
-import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
-import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -96,6 +94,6 @@ class AzurePermissionsManagerTest {
         Either<FailedOperation, Void> result = azurePermissionsManager.assignPermissions(
                 "resId", "GUID", azurePermissionsConfig.getRoleDefinitionId(), "principalId", PrincipalType.USER);
 
-        assertEquals(Either.left(new FailedOperation(Collections.singletonList(new Problem(errorMessage)))), result);
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 }

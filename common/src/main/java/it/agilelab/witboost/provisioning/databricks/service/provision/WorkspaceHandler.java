@@ -19,8 +19,9 @@ import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissionsManager;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
 import java.util.*;
@@ -103,8 +104,11 @@ public class WorkspaceHandler {
             return right(databricksWorkspaceClientBean.getObject(
                     databricksWorkspaceInfo.getDatabricksHost(), databricksWorkspaceInfo.getName()));
         } catch (Exception e) {
-            logger.error("Failed to create databricks workspace client", e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while getting Databricks workspaceClient for workspace %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    databricksWorkspaceInfo.getName(), e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 
@@ -112,9 +116,10 @@ public class WorkspaceHandler {
             ProvisionRequest<T> provisionRequest) {
         try {
 
-            String workspaceName = getWorkspaceName(provisionRequest)
-                    .getOrElseThrow(() -> new ProvisioningException("Failed to get workspace name"));
+            Either<FailedOperation, String> eitherWorkspaceName = getWorkspaceName(provisionRequest);
+            if (eitherWorkspaceName.isLeft()) return left(eitherWorkspaceName.getLeft());
 
+            String workspaceName = eitherWorkspaceName.get();
             String managedResourceGroupId = String.format(
                     "/subscriptions/%s/resourceGroups/%s-rg",
                     azurePermissionsConfig.getSubscriptionId(), workspaceName);
@@ -140,8 +145,11 @@ public class WorkspaceHandler {
             return eitherNewWorkspace;
 
         } catch (Exception e) {
-            logger.error("Failed to create workspace", e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while creating workspace for component %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    provisionRequest.component().getName(), e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 
@@ -177,30 +185,41 @@ public class WorkspaceHandler {
                     PrincipalType.USER);
 
         } catch (Exception e) {
-            logger.error(
-                    "Failed to assign permissions to {} at {} ",
+            String errorMessage = String.format(
+                    "An error occurred while assigning permissions to %s at %s. Details: %s",
                     provisionRequest.dataProduct().getDataProductOwner(),
                     databricksWorkspaceInfo.getName(),
-                    e);
-            return left(new FailedOperation(
-                    Collections.singletonList(new Problem("Failed to assign permissions: " + e.getMessage()))));
+                    e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 
     protected <T extends Specific> Either<FailedOperation, String> getWorkspaceName(
             ProvisionRequest<T> provisionRequest) {
         try {
-            DatabricksWorkloadSpecific databricksWorkloadSpecific =
-                    (DatabricksWorkloadSpecific) provisionRequest.component().getSpecific();
+            Specific specific = provisionRequest.component().getSpecific();
+            String workspaceName;
 
-            return right(databricksWorkloadSpecific.getWorkspace());
+            if (specific instanceof DatabricksJobWorkloadSpecific) {
+                workspaceName = ((DatabricksJobWorkloadSpecific) specific).getWorkspace();
+            } else if (specific instanceof DatabricksDLTWorkloadSpecific) {
+                workspaceName = ((DatabricksDLTWorkloadSpecific) specific).getWorkspace();
+            } else {
+                String errorMessage = String.format(
+                        "The specific section of the component %s is not of type DatabricksJobWorkloadSpecific or DatabricksDLTWorkloadSpecific",
+                        provisionRequest.component().getName());
+                logger.error(errorMessage);
+                return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+            }
+            return right(workspaceName);
 
-        } catch (ClassCastException | NullPointerException e) {
+        } catch (Exception e) {
             String errorMessage = String.format(
-                    "The specific section of the component %s is not of type DatabricksWorkloadSpecific",
-                    provisionRequest.component().getId());
+                    "An error occurred while retrieving the workspace name for component %s. Details: %s",
+                    provisionRequest.component().getName(), e.getMessage());
             logger.error(errorMessage, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 }

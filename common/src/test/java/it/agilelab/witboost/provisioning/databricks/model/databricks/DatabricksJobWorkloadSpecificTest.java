@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -17,12 +18,12 @@ import org.springframework.context.annotation.Import;
 
 @SpringBootTest
 @Import(TestConfig.class)
-public class DatabricksWorkloadSpecificTest {
+public class DatabricksJobWorkloadSpecificTest {
 
     private Validator validator;
-    private DatabricksWorkloadSpecific workloadSpecific1;
-    private DatabricksWorkloadSpecific workloadSpecific2;
-    private DatabricksWorkloadSpecific workloadSpecific3;
+    private DatabricksJobWorkloadSpecific workloadSpecific1;
+    private DatabricksJobWorkloadSpecific workloadSpecific2;
+    private DatabricksJobWorkloadSpecific workloadSpecific3;
 
     @BeforeEach
     public void setUp() {
@@ -31,7 +32,7 @@ public class DatabricksWorkloadSpecificTest {
 
         workloadSpecific1 = createWorkloadSpecific();
         workloadSpecific2 = createWorkloadSpecific();
-        workloadSpecific3 = new DatabricksWorkloadSpecific();
+        workloadSpecific3 = new DatabricksJobWorkloadSpecific();
 
         workloadSpecific3.setWorkspace("testWorkspace3");
         workloadSpecific3.setJobName("testJob3");
@@ -48,15 +49,15 @@ public class DatabricksWorkloadSpecificTest {
         schedulingSpecific3.setJavaTimezoneId("Europe/Rome");
         workloadSpecific3.setScheduling(schedulingSpecific3);
 
-        ClusterSpecific clusterSpecific3 = new ClusterSpecific();
-        clusterSpecific3.setClusterSparkVersion("7.3.x-ml-scala2.12");
-        clusterSpecific3.setNodeTypeId("Standard_D3_v2");
-        clusterSpecific3.setNumWorkers(2L);
-        workloadSpecific3.setCluster(clusterSpecific3);
+        JobClusterSpecific jobClusterSpecific3 = new JobClusterSpecific();
+        jobClusterSpecific3.setClusterSparkVersion("7.3.x-ml-scala2.12");
+        jobClusterSpecific3.setNodeTypeId("Standard_D3_v2");
+        jobClusterSpecific3.setNumWorkers(2L);
+        workloadSpecific3.setCluster(jobClusterSpecific3);
     }
 
-    private DatabricksWorkloadSpecific createWorkloadSpecific() {
-        DatabricksWorkloadSpecific workloadSpecific = new DatabricksWorkloadSpecific();
+    private DatabricksJobWorkloadSpecific createWorkloadSpecific() {
+        DatabricksJobWorkloadSpecific workloadSpecific = new DatabricksJobWorkloadSpecific();
         workloadSpecific.setWorkspace("testWorkspace");
         workloadSpecific.setJobName("testJob");
 
@@ -72,11 +73,11 @@ public class DatabricksWorkloadSpecificTest {
         schedulingSpecific.setJavaTimezoneId("Europe/Rome");
         workloadSpecific.setScheduling(schedulingSpecific);
 
-        ClusterSpecific clusterSpecific = new ClusterSpecific();
-        clusterSpecific.setClusterSparkVersion("7.3.x-ml-scala2.12");
-        clusterSpecific.setNodeTypeId("Standard_D3_v2");
-        clusterSpecific.setNumWorkers(2L);
-        workloadSpecific.setCluster(clusterSpecific);
+        JobClusterSpecific jobClusterSpecific = new JobClusterSpecific();
+        jobClusterSpecific.setClusterSparkVersion("7.3.x-ml-scala2.12");
+        jobClusterSpecific.setNodeTypeId("Standard_D3_v2");
+        jobClusterSpecific.setNumWorkers(2L);
+        workloadSpecific.setCluster(jobClusterSpecific);
 
         return workloadSpecific;
     }
@@ -84,7 +85,15 @@ public class DatabricksWorkloadSpecificTest {
     @Test
     public void testWorkspaceNotBlank() {
         workloadSpecific1.setWorkspace("");
-        Set<ConstraintViolation<DatabricksWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
+        Set<ConstraintViolation<DatabricksJobWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
+        assertEquals(1, violations.size());
+        assertEquals("workspace", violations.iterator().next().getPropertyPath().toString());
+    }
+
+    @Test
+    public void testWorkspaceNotNull() {
+        workloadSpecific1.setWorkspace(null);
+        Set<ConstraintViolation<DatabricksJobWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
         assertEquals(1, violations.size());
         assertEquals("workspace", violations.iterator().next().getPropertyPath().toString());
     }
@@ -92,7 +101,7 @@ public class DatabricksWorkloadSpecificTest {
     @Test
     public void testJobNameNotBlank() {
         workloadSpecific1.setJobName("");
-        Set<ConstraintViolation<DatabricksWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
+        Set<ConstraintViolation<DatabricksJobWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
         assertEquals(1, violations.size());
         assertEquals("jobName", violations.iterator().next().getPropertyPath().toString());
     }
@@ -100,7 +109,7 @@ public class DatabricksWorkloadSpecificTest {
     @Test
     public void testGitNotNull() {
         workloadSpecific1.setGit(null);
-        Set<ConstraintViolation<DatabricksWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
+        Set<ConstraintViolation<DatabricksJobWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
         assertEquals(1, violations.size());
         assertEquals("git", violations.iterator().next().getPropertyPath().toString());
     }
@@ -108,7 +117,7 @@ public class DatabricksWorkloadSpecificTest {
     @Test
     public void testClusterNotNull() {
         workloadSpecific1.setCluster(null);
-        Set<ConstraintViolation<DatabricksWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
+        Set<ConstraintViolation<DatabricksJobWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
         assertEquals(1, violations.size());
         assertEquals("cluster", violations.iterator().next().getPropertyPath().toString());
     }
@@ -141,10 +150,10 @@ public class DatabricksWorkloadSpecificTest {
         assertEquals("0 0 12 * * ?", schedulingSpecific.getCronExpression());
         assertEquals("Europe/Rome", schedulingSpecific.getJavaTimezoneId());
 
-        ClusterSpecific clusterSpecific = workloadSpecific1.getCluster();
-        assertEquals("7.3.x-ml-scala2.12", clusterSpecific.getClusterSparkVersion());
-        assertEquals("Standard_D3_v2", clusterSpecific.getNodeTypeId());
-        assertEquals(2, clusterSpecific.getNumWorkers());
+        JobClusterSpecific jobClusterSpecific = workloadSpecific1.getCluster();
+        assertEquals("7.3.x-ml-scala2.12", jobClusterSpecific.getClusterSparkVersion());
+        assertEquals("Standard_D3_v2", jobClusterSpecific.getNodeTypeId());
+        assertEquals(2, jobClusterSpecific.getNumWorkers());
     }
 
     @AfterEach

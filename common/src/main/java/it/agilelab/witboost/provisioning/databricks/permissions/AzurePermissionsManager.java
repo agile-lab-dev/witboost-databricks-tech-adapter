@@ -14,11 +14,12 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import java.util.Collections;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class AzurePermissionsManager {
-    private static final Logger logger = Logger.getLogger(AzurePermissionsManager.class.getName());
+    private final Logger logger = LoggerFactory.getLogger(AzurePermissionsManager.class);
 
     @Autowired
     AzureResourceManager azureResourceManager;
@@ -68,19 +69,24 @@ public class AzurePermissionsManager {
                         resourceId, response.getStatusCode())))));
 
         } catch (ManagementException e) {
-            String message = e.getMessage();
             if (e.getMessage()
                     .equalsIgnoreCase(
                             "Status code 409, \"{\"error\":{\"code\":\"RoleAssignmentExists\",\"message\":\"The role assignment already exists.\"}}\"")) {
                 logger.info("Role assignment already exists. Creation skipped");
                 return right(null);
             }
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while assigning permissions to the Azure resource %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    resourceId, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
 
         } catch (Exception e) {
-            logger.severe(e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+            String errorMessage = String.format(
+                    "An error occurred while assigning permissions to the Azure resource %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    resourceId, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 }

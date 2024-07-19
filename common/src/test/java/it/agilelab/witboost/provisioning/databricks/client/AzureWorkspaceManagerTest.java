@@ -11,7 +11,6 @@ import com.azure.resourcemanager.databricks.models.Workspace;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
-import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import java.util.*;
@@ -60,8 +59,7 @@ public class AzureWorkspaceManagerTest {
 
         when(mockManager.workspaces()).thenThrow(new RuntimeException(errorMessage));
         Either<FailedOperation, Void> result = workspaceManager.deleteWorkspace(resourceGroupName, workspaceName);
-
-        assertEquals(Either.left(new FailedOperation(Collections.singletonList(new Problem(errorMessage)))), result);
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 
     @Test
@@ -94,6 +92,75 @@ public class AzureWorkspaceManagerTest {
     }
 
     @Test
+    void testCreateWorkspace_AlreadyExists() {
+        String workspaceName = "testWorkspace";
+        String region = "westeurope";
+        String existingResourceGroupName = "existingResourceGroup";
+        String managedResourceGroupId = "managedResourceGroup";
+        SkuType skuType = SkuType.TRIAL;
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(mockManager.workspaces()).thenReturn(mockWorkspaces);
+
+        WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
+
+        when(mockManager.workspaces().define(workspaceName)).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withRegion(region)).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withExistingResourceGroup(existingResourceGroupName))
+                .thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withManagedResourceGroupId(managedResourceGroupId))
+                .thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
+
+        Workspace mockWorkspace = mock(Workspace.class);
+        when(mockWorkspace.name()).thenReturn(workspaceName);
+        when(mockWorkspace.managedResourceGroupId()).thenReturn(managedResourceGroupId);
+        when(mockWorkspace.workspaceUrl()).thenReturn("workspaceUrl");
+        when(mockWorkspace.id()).thenReturn("id");
+
+        PagedIterable<Workspace> mockPagedIterable = mock(PagedIterable.class);
+        when(mockWorkspaces.list()).thenReturn(mockPagedIterable);
+
+        List<Workspace> workspaceList = Collections.singletonList(mockWorkspace);
+        Iterator<Workspace> workspaceIterator = workspaceList.iterator();
+        when(mockPagedIterable.iterator()).thenReturn(workspaceIterator);
+        when(mockPagedIterable.spliterator()).thenReturn(Spliterators.spliteratorUnknownSize(workspaceIterator, 0));
+
+        when(mockWorkspaces.list()).thenReturn(mockPagedIterable);
+
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createWorkspace(
+                workspaceName, region, existingResourceGroupName, managedResourceGroupId, skuType);
+
+        assertTrue(result.isRight());
+        assertTrue(result.get().getClass().equals(DatabricksWorkspaceInfo.class));
+    }
+
+    @Test
+    void testCreateWorkspace_GetWorkspaceLeft() {
+        String workspaceName = "testWorkspace";
+        String region = "westeurope";
+        String existingResourceGroupName = "existingResourceGroup";
+        String managedResourceGroupId = "managedResourceGroup";
+        SkuType skuType = SkuType.TRIAL;
+
+        String errorMessage = "Failed to create workspace";
+        RuntimeException exception = new RuntimeException(errorMessage);
+
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createWorkspace(
+                workspaceName, region, existingResourceGroupName, managedResourceGroupId, skuType);
+
+        assertTrue(result.isLeft());
+        assertTrue(
+                result.getLeft()
+                        .problems()
+                        .get(0)
+                        .description()
+                        .contains(
+                                "Cannot invoke \"com.azure.resourcemanager.databricks.models.Workspaces.list()\" because the return value of \"com.azure.resourcemanager.databricks.AzureDatabricksManager.workspaces()\" is null"));
+    }
+
+    @Test
     void testCreateWorkspace_Failure() {
         String workspaceName = "testWorkspace";
         String region = "westeurope";
@@ -121,7 +188,7 @@ public class AzureWorkspaceManagerTest {
         Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createWorkspace(
                 workspaceName, region, existingResourceGroupName, managedResourceGroupId, skuType);
 
-        assertEquals(Either.left(new FailedOperation(Collections.singletonList(new Problem(errorMessage)))), result);
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 
     @Test
@@ -193,6 +260,6 @@ public class AzureWorkspaceManagerTest {
                 workspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
 
         assertTrue(result.isLeft());
-        assertEquals(Either.left(new FailedOperation(Collections.singletonList(new Problem(errorMessage)))), result);
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 }

@@ -14,10 +14,10 @@ import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
 import com.databricks.sdk.service.iam.GroupsAPI;
 import com.databricks.sdk.service.iam.UsersAPI;
+import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.DatabricksWorkspaceClientBean;
 import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
-import it.agilelab.witboost.provisioning.databricks.client.SkuType;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -29,13 +29,15 @@ import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DLTClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.PipelineChannel;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.ProductEdition;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
 import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissionsManager;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureClient;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -91,13 +93,13 @@ public class WorkspaceHandlerTest {
 
     private DataProduct dataProduct;
     private Workload workload;
-    private DatabricksWorkloadSpecific databricksWorkloadSpecific;
+    private DatabricksJobWorkloadSpecific databricksJobWorkloadSpecific;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
         dataProduct = new DataProduct();
-        databricksWorkloadSpecific = new DatabricksWorkloadSpecific();
+        databricksJobWorkloadSpecific = new DatabricksJobWorkloadSpecific();
         workload = new Workload();
     }
 
@@ -119,7 +121,8 @@ public class WorkspaceHandlerTest {
     @Test
     public void provisionWorkspace_Success() {
 
-        ProvisionRequest<DatabricksWorkloadSpecific> provisionRequest = createProvisionRequest();
+        azureAuthConfig.setSkuType("PREMIUM");
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
@@ -166,9 +169,113 @@ public class WorkspaceHandlerTest {
     }
 
     @Test
+    public void provisionWorkspace_DLT_Success() {
+
+        ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest = createDLTProvisionRequest();
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+
+        WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
+        when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withRegion(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withExistingResourceGroup(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+        try {
+            when(databricksWorkspaceClientBean.getObject(anyString(), anyString()))
+                    .thenReturn(workspaceClient);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        DatabricksWorkspaceInfo databricksWorkspaceInfo =
+                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        when(azureWorkspaceManager.createWorkspace(
+                        eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
+                .thenReturn(Either.right(databricksWorkspaceInfo));
+
+        Map<String, Either<Throwable, String>> mockres = new HashMap<>();
+        mockres.put(dataProduct.getDataProductOwner(), Either.right("azureId"));
+        when(azureMapper.map(anySet())).thenReturn(mockres);
+
+        when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
+                .thenReturn(Either.right(null));
+        GroupsAPI groupsAPI = mock(GroupsAPI.class);
+        when(workspaceClient.groups()).thenReturn(groupsAPI);
+
+        UsersAPI usersAPI = mock(UsersAPI.class);
+        when(workspaceClient.users()).thenReturn(usersAPI);
+
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceHandler.provisionWorkspace(provisionRequest);
+
+        assert result.isRight();
+        assertEquals(result.get().getName(), databricksWorkspaceInfo.getName());
+        assertEquals(result.get().getAzureResourceId(), databricksWorkspaceInfo.getAzureResourceId());
+    }
+
+    @Test
+    public void provisionWorkspace_WrongSpecificType() {
+
+        workload.setSpecific(new Specific());
+        ProvisionRequest<Specific> provisionRequest = new ProvisionRequest<>(dataProduct, workload, false);
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+
+        WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
+        when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withRegion(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withExistingResourceGroup(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+        try {
+            when(databricksWorkspaceClientBean.getObject(anyString(), anyString()))
+                    .thenReturn(workspaceClient);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        DatabricksWorkspaceInfo databricksWorkspaceInfo =
+                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        when(azureWorkspaceManager.createWorkspace(
+                        eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
+                .thenReturn(Either.right(databricksWorkspaceInfo));
+
+        Map<String, Either<Throwable, String>> mockres = new HashMap<>();
+        mockres.put(dataProduct.getDataProductOwner(), Either.right("azureId"));
+        when(azureMapper.map(anySet())).thenReturn(mockres);
+
+        when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
+                .thenReturn(Either.right(null));
+        GroupsAPI groupsAPI = mock(GroupsAPI.class);
+        when(workspaceClient.groups()).thenReturn(groupsAPI);
+
+        UsersAPI usersAPI = mock(UsersAPI.class);
+        when(workspaceClient.users()).thenReturn(usersAPI);
+
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceHandler.provisionWorkspace(provisionRequest);
+
+        assert result.isLeft();
+        assertTrue(
+                result.getLeft()
+                        .problems()
+                        .get(0)
+                        .description()
+                        .contains(
+                                "The specific section of the component null is not of type DatabricksJobWorkloadSpecific or DatabricksDLTWorkloadSpecific"));
+    }
+
+    @Test
     public void provisionWorkspace_AzureMapperException() {
 
-        ProvisionRequest<DatabricksWorkloadSpecific> provisionRequest = createProvisionRequest();
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
@@ -214,15 +321,15 @@ public class WorkspaceHandlerTest {
         String existingResourceGroupName = String.format(
                 "/subscriptions/%s/resourceGroups/%s-rg", azurePermissionsConfig.getSubscriptionId(), workspaceName);
         String managedResourceGroupId = azurePermissionsConfig.getResourceGroup();
-        SkuType skuType = SkuType.TRIAL;
 
-        databricksWorkloadSpecific.setWorkspace(workspaceName);
+        databricksJobWorkloadSpecific.setWorkspace(workspaceName);
         GitSpecific gitSpecific = new GitSpecific();
         gitSpecific.setGitRepoUrl("repoUrl");
-        databricksWorkloadSpecific.setGit(gitSpecific);
-        workload.setSpecific(databricksWorkloadSpecific);
+        databricksJobWorkloadSpecific.setGit(gitSpecific);
 
-        ProvisionRequest<DatabricksWorkloadSpecific> provisionRequest =
+        workload.setSpecific(databricksJobWorkloadSpecific);
+
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
@@ -256,23 +363,6 @@ public class WorkspaceHandlerTest {
     }
 
     @Test
-    public void provisionWorkspace_FailureToGetWorkspaceName() {
-        databricksWorkloadSpecific.setWorkspace(null);
-
-        ProvisionRequest<DatabricksWorkloadSpecific> provisionRequest =
-                new ProvisionRequest<>(dataProduct, workload, false);
-
-        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceHandler.provisionWorkspace(provisionRequest);
-
-        assert result.isLeft();
-        FailedOperation failedOperation = result.getLeft();
-        assertEquals(1, failedOperation.problems().size());
-        assertEquals(
-                "Failed to get workspace name",
-                failedOperation.problems().get(0).description());
-    }
-
-    @Test
     public void provisionWorkspace_Exception() {
         ProvisionRequest<Specific> provisionRequest = new ProvisionRequest<>(dataProduct, new Workload(), false);
 
@@ -300,20 +390,21 @@ public class WorkspaceHandlerTest {
     @Test
     public void getWorkspaceClient_Failure() throws Exception {
 
+        String errorMessage = "This is an exception";
         DatabricksWorkspaceInfo databricksWorkspaceInfo =
                 new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
 
-        when(databricksWorkspaceClientBean.getObject(anyString(), anyString())).thenThrow(new Exception("Exception"));
+        when(databricksWorkspaceClientBean.getObject(anyString(), anyString())).thenThrow(new Exception(errorMessage));
 
         Either<FailedOperation, WorkspaceClient> result = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
 
         assert result.isLeft();
-        assertEquals(result.getLeft(), new FailedOperation(Collections.singletonList(new Problem("Exception"))));
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 
     @Test
     public void testGetWorkspaceInfo_Success() {
-        ProvisionRequest<DatabricksWorkloadSpecific> provisionRequest = createProvisionRequest();
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo =
                 new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
@@ -331,43 +422,83 @@ public class WorkspaceHandlerTest {
                 .getWorkspace("testWorkspace", "/subscriptions/testSubscriptionId/resourceGroups/testWorkspace-rg");
     }
 
-    private ProvisionRequest<DatabricksWorkloadSpecific> createProvisionRequest() {
+    private ProvisionRequest<DatabricksJobWorkloadSpecific> createJobProvisionRequest() {
         String workspaceName = "testWorkspace";
         String region = "westeurope";
         String existingResourceGroupName = String.format(
                 "/subscriptions/%s/resourceGroups/%s-rg", azurePermissionsConfig.getSubscriptionId(), workspaceName);
         String managedResourceGroupId = azurePermissionsConfig.getResourceGroup();
-        SkuType skuType = SkuType.TRIAL;
 
-        databricksWorkloadSpecific.setWorkspace(workspaceName);
+        databricksJobWorkloadSpecific.setWorkspace(workspaceName);
         GitSpecific gitSpecific = new GitSpecific();
         gitSpecific.setGitRepoUrl("repoUrl");
         gitSpecific.setGitReference("main");
         gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
         gitSpecific.setGitPath("/src");
-        databricksWorkloadSpecific.setGit(gitSpecific);
+        databricksJobWorkloadSpecific.setGit(gitSpecific);
 
-        ClusterSpecific clusterSpecific = new ClusterSpecific();
-        clusterSpecific.setSpotBidMaxPrice(10D);
-        clusterSpecific.setFirstOnDemand(5L);
-        clusterSpecific.setSpotInstances(true);
-        clusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
-        clusterSpecific.setDriverNodeTypeId("driverNodeTypeId");
-        clusterSpecific.setSparkConf(new HashMap<>());
-        clusterSpecific.setSparkEnvVars(new HashMap<>());
-        clusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
-        databricksWorkloadSpecific.setCluster(clusterSpecific);
+        JobClusterSpecific jobClusterSpecific = new JobClusterSpecific();
+        jobClusterSpecific.setSpotBidMaxPrice(10D);
+        jobClusterSpecific.setFirstOnDemand(5L);
+        jobClusterSpecific.setSpotInstances(true);
+        jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
+        jobClusterSpecific.setDriverNodeTypeId("driverNodeTypeId");
+        jobClusterSpecific.setSparkConf(new HashMap<>());
+        jobClusterSpecific.setSparkEnvVars(new HashMap<>());
+        jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
+        databricksJobWorkloadSpecific.setCluster(jobClusterSpecific);
 
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setCronExpression("00 * * * * ?");
         schedulingSpecific.setJavaTimezoneId("UTC");
-        databricksWorkloadSpecific.setScheduling(schedulingSpecific);
+        databricksJobWorkloadSpecific.setScheduling(schedulingSpecific);
 
-        workload.setSpecific(databricksWorkloadSpecific);
+        workload.setSpecific(databricksJobWorkloadSpecific);
 
         dataProduct.setDataProductOwner("user:name.surname@company.it");
 
-        ProvisionRequest<DatabricksWorkloadSpecific> provisionRequest =
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+
+        return provisionRequest;
+    }
+
+    private ProvisionRequest<DatabricksDLTWorkloadSpecific> createDLTProvisionRequest() {
+
+        DLTClusterSpecific cluster = new DLTClusterSpecific();
+        cluster.setMode(PipelineClusterAutoscaleMode.LEGACY);
+        cluster.setWorkerType("Standard_DS3_v2");
+        cluster.setDriverType("Standard_DS3_v2");
+        cluster.setPolicyId("policyId");
+
+        DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
+        specific.setWorkspace("testWorkspace");
+        specific.setPipelineName("pipelineName");
+        specific.setProductEdition(ProductEdition.CORE);
+        specific.setContinuous(true);
+        specific.setNotebooks(List.of("notebook1", "notebook2"));
+        specific.setFiles(List.of("file1", "file2"));
+        specific.setMetastore("metastore");
+        specific.setCatalog("catalog");
+        specific.setTarget("target");
+        specific.setPhoton(true);
+        specific.setNotificationsMails(List.of("email1@example.com", "email2@example.com"));
+        specific.setNotificationsAlerts(List.of("alert1", "alert2"));
+        specific.setChannel(PipelineChannel.CURRENT);
+        specific.setCluster(cluster);
+
+        GitSpecific gitSpecific = new GitSpecific();
+        gitSpecific.setGitReference("main");
+        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        gitSpecific.setGitPath("/src");
+        gitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        specific.setGit(gitSpecific);
+
+        workload.setSpecific(specific);
+
+        dataProduct.setDataProductOwner("user:name.surname@company.it");
+
+        ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
         return provisionRequest;

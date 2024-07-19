@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.model.databricks;
+package it.agilelab.witboost.provisioning.databricks.model.databricks.job;
 
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import jakarta.validation.Valid;
@@ -11,7 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class DatabricksWorkloadSpecific extends Specific {
+public class DatabricksJobWorkloadSpecific extends Specific {
 
     @NotBlank
     private String workspace;
@@ -29,5 +29,5 @@ public class DatabricksWorkloadSpecific extends Specific {
 
     @Valid
     @NotNull
-    private ClusterSpecific cluster;
+    private JobClusterSpecific cluster;
 }

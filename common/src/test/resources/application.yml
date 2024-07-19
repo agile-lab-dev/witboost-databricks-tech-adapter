@@ -22,6 +22,12 @@ databricks.auth:
 git:
     username: testUsername
     token: testToken
+    provider: GITLAB
 
 forkjoin:
     parallelism: 16
+
+usecasetemplateid:
+    workload:
+        job: ["urn:dmb:utm:databricks-workload-job-template"]
+        dlt: ["urn:dmb:utm:databricks-workload-dlt-template"]

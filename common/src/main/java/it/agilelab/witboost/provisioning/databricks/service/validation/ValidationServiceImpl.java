@@ -3,18 +3,19 @@ package it.agilelab.witboost.provisioning.databricks.service.validation;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.Component;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.parser.Parser;
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,8 +26,16 @@ public class ValidationServiceImpl implements ValidationService {
     private final String OUTPUTPORT_KIND = "outputport";
     private final String WORKLOAD_KIND = "workload";
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
-    private final Map<String, Class<? extends Specific>> kindToSpecificClass =
-            Map.of(WORKLOAD_KIND, DatabricksWorkloadSpecific.class);
+
+    private final Map<String, List<Class<? extends Specific>>> kindToSpecificClasses = new HashMap<>();
+
+    public ValidationServiceImpl() {
+        List<Class<? extends Specific>> classes = new ArrayList<>();
+        classes.add(DatabricksJobWorkloadSpecific.class);
+        classes.add(DatabricksDLTWorkloadSpecific.class);
+
+        kindToSpecificClasses.put(WORKLOAD_KIND, classes);
+    }
 
     @Override
     public Either<FailedOperation, ProvisionRequest<? extends Specific>> validate(
@@ -59,7 +68,7 @@ public class ValidationServiceImpl implements ValidationService {
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }
 
-        var componentToProvisionAsJson = optionalComponentToProvision.get();
+        JsonNode componentToProvisionAsJson = optionalComponentToProvision.get();
 
         logger.info("Getting component kind for component to provision {}", componentId);
         var optionalComponentKindToProvision = descriptor.getDataProduct().getComponentKindToProvision(componentId);
@@ -72,9 +81,8 @@ public class ValidationServiceImpl implements ValidationService {
         Component<? extends Specific> componentToProvision;
         switch (componentKindToProvision) {
             case WORKLOAD_KIND:
-                var workloadClass = kindToSpecificClass.get(WORKLOAD_KIND);
                 logger.info("Parsing Workload Component");
-                var eitherWorkloadToProvision = Parser.parseComponent(componentToProvisionAsJson, workloadClass);
+                var eitherWorkloadToProvision = parseComponent(componentToProvisionAsJson);
                 if (eitherWorkloadToProvision.isLeft()) return left(eitherWorkloadToProvision.getLeft());
                 componentToProvision = eitherWorkloadToProvision.get();
                 var workloadValidation = WorkloadValidation.validate(componentToProvision);
@@ -89,5 +97,34 @@ public class ValidationServiceImpl implements ValidationService {
         }
         return right(new ProvisionRequest<>(
                 descriptor.getDataProduct(), componentToProvision, provisioningRequest.getRemoveData()));
+    }
+
+    private Either<FailedOperation, Component<? extends Specific>> parseComponent(JsonNode componentToProvisionAsJson) {
+        Component<? extends Specific> componentToProvision;
+        var workloadClasses = kindToSpecificClasses.get(WORKLOAD_KIND);
+
+        List<Problem> problems = new ArrayList<>();
+
+        for (Class<? extends Specific> workloadClass : workloadClasses) {
+            var eitherWorkloadToProvision = Parser.parseComponent(componentToProvisionAsJson, workloadClass);
+            if (eitherWorkloadToProvision.isRight()) {
+                componentToProvision = eitherWorkloadToProvision.get();
+                return right(componentToProvision);
+            }
+
+            for (Problem prob : eitherWorkloadToProvision.getLeft().problems()) problems.add(prob);
+        }
+
+        if (!problems.isEmpty()) {
+            logger.error(
+                    "An error occurred while parsing the component. Please try again and if the error persists contact the platform team. Errors:");
+            for (Problem problem : problems) {
+                logger.error("Problem: {}", problem.description());
+            }
+        } else {
+            logger.error("An error occurred while parsing the component but no specific problems were found.");
+        }
+
+        return left(new FailedOperation(problems));
     }
 }

@@ -9,7 +9,6 @@ import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,10 +35,10 @@ public class RepoManager {
      * @param provider The Git provider (e.g., GitHub, GitLab).
      * @return Either a FailedOperation if an exception occurs, or Void if successful.
      */
-    public Either<FailedOperation, Void> createRepo(String gitUrl, GitProvider provider) {
+    public Either<FailedOperation, Void> createRepo(String gitUrl, String provider) {
         try {
             logger.info("Creating repo with Git url: {} in {}", gitUrl, workspaceName);
-            workspaceClient.repos().create(new CreateRepo().setUrl(gitUrl).setProvider(provider.toString()));
+            workspaceClient.repos().create(new CreateRepo().setUrl(gitUrl).setProvider(provider));
             logger.info("Repo with url {} created successfully in {}.", gitUrl, workspaceName);
 
             return right(null);
@@ -47,9 +46,11 @@ public class RepoManager {
             logger.warn("Repo with url {} already exists in {}, creation skipped.", gitUrl, workspaceName);
             return right(null);
         } catch (Exception e) {
-            logger.error(String.format("Failed to create repo with url {}", gitUrl), e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(
-                    String.format("Failed to create repo with url %s, Error: %s ", gitUrl, e.getMessage())))));
+            String errorMessage = String.format(
+                    "An error occurred while creating the repo with URL %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    gitUrl, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 
@@ -101,8 +102,12 @@ public class RepoManager {
 
             return right(null);
         } catch (Exception e) {
-            logger.error("Failed to delete repo with url {} in {}. Error: {}", workspaceName, gitUrl, e.getMessage());
-            return left(new FailedOperation(Collections.singletonList(new Problem(e.getMessage()))));
+
+            String errorMessage = String.format(
+                    "An error occurred while deleting the repo with URL %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    gitUrl, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 }

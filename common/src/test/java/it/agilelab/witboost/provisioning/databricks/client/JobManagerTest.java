@@ -11,10 +11,10 @@ import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.ClusterSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitReferenceType;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.SchedulingSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.SchedulingSpecific;
 import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,9 +56,12 @@ public class JobManagerTest {
 
         CreateResponse createResponse = new CreateResponse().setJobId(123L);
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
-        jobManager.createJobWithExistingCluster(jobName, description, existingClusterId, notebookPath, taskKey);
+        Either<FailedOperation, Long> result =
+                jobManager.createJobWithExistingCluster(jobName, description, existingClusterId, notebookPath, taskKey);
 
         verify(workspaceClient.jobs(), times(1)).create(any());
+        assertTrue(result.isRight());
+        assertEquals(123l, result.get());
     }
 
     @Test
@@ -75,27 +78,27 @@ public class JobManagerTest {
         Either<FailedOperation, Long> result =
                 jobManager.createJobWithExistingCluster(jobName, description, existingClusterId, notebookPath, taskKey);
 
-        assertFalse(result.isRight());
+        assertTrue(result.isLeft());
     }
 
     @Test
-    public void testCreateJobWithNewCluster() {
+    public void testCreateJobWithNewCluster_GitBRANCH() {
 
         String jobName = "MyJob";
         String description = "Description of the job";
         String taskKey = "task123";
         String notebookPath = "path/to/notebook";
-        ClusterSpecific clusterSpecific = new ClusterSpecific();
-        clusterSpecific.setClusterSparkVersion("3.0.1");
-        clusterSpecific.setNodeTypeId("node123");
-        clusterSpecific.setNumWorkers(2L);
-        clusterSpecific.setFirstOnDemand(1L);
-        clusterSpecific.setSpotBidMaxPrice(0.5);
-        clusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
-        clusterSpecific.setDriverNodeTypeId("driver123");
-        clusterSpecific.setSparkConf(Collections.singletonMap("confKey", "confValue"));
-        clusterSpecific.setSparkEnvVars(Collections.singletonMap("envKey", "envValue"));
-        clusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
+        JobClusterSpecific jobClusterSpecific = new JobClusterSpecific();
+        jobClusterSpecific.setClusterSparkVersion("3.0.1");
+        jobClusterSpecific.setNodeTypeId("node123");
+        jobClusterSpecific.setNumWorkers(2L);
+        jobClusterSpecific.setFirstOnDemand(1L);
+        jobClusterSpecific.setSpotBidMaxPrice(0.5);
+        jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
+        jobClusterSpecific.setDriverNodeTypeId("driver123");
+        jobClusterSpecific.setSparkConf(Collections.singletonMap("confKey", "confValue"));
+        jobClusterSpecific.setSparkEnvVars(Collections.singletonMap("envKey", "envValue"));
+        jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setJavaTimezoneId("UTC");
         schedulingSpecific.setCronExpression("0 0 12 * * ?");
@@ -109,7 +112,46 @@ public class JobManagerTest {
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
 
         Either<FailedOperation, Long> result = jobManager.createJobWithNewCluster(
-                jobName, description, taskKey, clusterSpecific, schedulingSpecific, gitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, gitSpecific);
+
+        assertTrue(result.isRight());
+        assertEquals(123L, result.get().longValue());
+
+        verify(workspaceClient.jobs(), times(1)).create(any());
+    }
+
+    @Test
+    public void testCreateJobWithNewCluster_GitTAG() {
+
+        String jobName = "MyJob";
+        String description = "Description of the job";
+        String taskKey = "task123";
+        String notebookPath = "path/to/notebook";
+        JobClusterSpecific jobClusterSpecific = new JobClusterSpecific();
+        jobClusterSpecific.setClusterSparkVersion("3.0.1");
+        jobClusterSpecific.setNodeTypeId("node123");
+        jobClusterSpecific.setNumWorkers(2L);
+        jobClusterSpecific.setFirstOnDemand(1L);
+        jobClusterSpecific.setSpotBidMaxPrice(0.5);
+        jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
+        jobClusterSpecific.setDriverNodeTypeId("driver123");
+        jobClusterSpecific.setSparkConf(Collections.singletonMap("confKey", "confValue"));
+        jobClusterSpecific.setSparkEnvVars(Collections.singletonMap("envKey", "envValue"));
+        jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
+        SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
+        schedulingSpecific.setJavaTimezoneId("UTC");
+        schedulingSpecific.setCronExpression("0 0 12 * * ?");
+        GitSpecific gitSpecific = new GitSpecific();
+        gitSpecific.setGitRepoUrl("https://github.com/user/repo.git");
+        gitSpecific.setGitProvider(GitProvider.GIT_LAB);
+        gitSpecific.setGitReference("main");
+        gitSpecific.setGitReferenceType(GitReferenceType.TAG);
+
+        CreateResponse createResponse = new CreateResponse().setJobId(123L);
+        when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
+
+        Either<FailedOperation, Long> result = jobManager.createJobWithNewCluster(
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, gitSpecific);
 
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
@@ -123,17 +165,17 @@ public class JobManagerTest {
         String description = "Description of the job";
         String taskKey = "task123";
         String notebookPath = "path/to/notebook";
-        ClusterSpecific clusterSpecific = new ClusterSpecific();
-        clusterSpecific.setClusterSparkVersion("3.0.1");
-        clusterSpecific.setNodeTypeId("node123");
-        clusterSpecific.setNumWorkers(2L);
-        clusterSpecific.setFirstOnDemand(1L);
-        clusterSpecific.setSpotBidMaxPrice(0.5);
-        clusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
-        clusterSpecific.setDriverNodeTypeId("driver123");
-        clusterSpecific.setSparkConf(Collections.singletonMap("confKey", "confValue"));
-        clusterSpecific.setSparkEnvVars(Collections.singletonMap("envKey", "envValue"));
-        clusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
+        JobClusterSpecific jobClusterSpecific = new JobClusterSpecific();
+        jobClusterSpecific.setClusterSparkVersion("3.0.1");
+        jobClusterSpecific.setNodeTypeId("node123");
+        jobClusterSpecific.setNumWorkers(2L);
+        jobClusterSpecific.setFirstOnDemand(1L);
+        jobClusterSpecific.setSpotBidMaxPrice(0.5);
+        jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
+        jobClusterSpecific.setDriverNodeTypeId("driver123");
+        jobClusterSpecific.setSparkConf(Collections.singletonMap("confKey", "confValue"));
+        jobClusterSpecific.setSparkEnvVars(Collections.singletonMap("envKey", "envValue"));
+        jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setJavaTimezoneId("UTC");
         schedulingSpecific.setCronExpression("0 0 12 * * ?");
@@ -146,9 +188,9 @@ public class JobManagerTest {
         when(workspaceClient.jobs().create(any())).thenThrow(new RuntimeException("Failed to create job"));
 
         Either<FailedOperation, Long> result = jobManager.createJobWithNewCluster(
-                jobName, description, taskKey, clusterSpecific, schedulingSpecific, gitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, gitSpecific);
 
-        assertFalse(result.isRight());
+        assertTrue(result.isLeft());
     }
 
     @Test
@@ -160,7 +202,6 @@ public class JobManagerTest {
         Either<FailedOperation, Job> result = jobManager.exportJob(jobId);
 
         assertTrue(result.isRight());
-
         verify(workspaceClient.jobs(), times(1)).get(jobId);
     }
 
@@ -184,5 +225,30 @@ public class JobManagerTest {
         doNothing().when(mockJobs).delete(jobId);
         Either<FailedOperation, Void> result = jobManager.deleteJob(jobId);
         assertTrue(result.isRight());
+    }
+
+    @Test
+    public void testdeleteJob_Exception() {
+        Long jobId = 123L;
+
+        when(workspaceClient.jobs()).thenReturn(null);
+        Either<FailedOperation, Void> result = jobManager.deleteJob(jobId);
+
+        assertTrue(result.isLeft());
+        String errorMessage =
+                "Cannot invoke \"com.databricks.sdk.service.jobs.JobsAPI.delete(long)\" because the return value of \"com.databricks.sdk.WorkspaceClient.jobs()\" is null";
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
+    }
+
+    @Test
+    public void testListJob_Exception() {
+        when(workspaceClient.jobs()).thenReturn(null);
+        Either<FailedOperation, Iterable<BaseJob>> result = jobManager.listJobsWithGivenName("name");
+
+        assertTrue(result.isLeft());
+
+        String errorMessage =
+                "Cannot invoke \"com.databricks.sdk.service.jobs.JobsAPI.list(com.databricks.sdk.service.jobs.ListJobsRequest)\" because the return value of \"com.databricks.sdk.WorkspaceClient.jobs()\" is null";
+        assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 }

@@ -10,7 +10,6 @@ import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -62,7 +61,7 @@ public class DatabricksWorkspaceClientBeanTest {
         // Setup
         String personalAccessToken = "myAccessToken";
         String gitUsername = "myUsername";
-        GitProvider gitProvider = GitProvider.GITLAB;
+        String gitProvider = "GITLAB";
 
         // Test
         clientBean.setGitCredentials(personalAccessToken, gitUsername, gitProvider);
