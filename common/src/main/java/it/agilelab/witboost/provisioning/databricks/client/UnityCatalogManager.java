@@ -78,9 +78,12 @@ public class UnityCatalogManager {
     }
 
     private Either<FailedOperation, String> getMetastoreId(String metastoreName) {
-        for (var metastoreInfo : workspaceClient.metastores().list()) {
-            if (metastoreInfo.getName().equalsIgnoreCase(metastoreName)) {
-                return right(metastoreInfo.getMetastoreId());
+        var metastoreList = workspaceClient.metastores().list();
+        if (metastoreList != null) {
+            for (var metastoreInfo : metastoreList) {
+                if (metastoreInfo.getName().equalsIgnoreCase(metastoreName)) {
+                    return right(metastoreInfo.getMetastoreId());
+                }
             }
         }
 
@@ -93,11 +96,15 @@ public class UnityCatalogManager {
 
     public Either<FailedOperation, Boolean> checkCatalogExistence(String catalogName) {
         try {
-            for (CatalogInfo catalogInfo : workspaceClient.catalogs().list(new ListCatalogsRequest())) {
-                if (catalogInfo.getName().equalsIgnoreCase(catalogName)) {
-                    return right(true);
+            var catalogsList = workspaceClient.catalogs().list(new ListCatalogsRequest());
+            if (catalogsList != null) {
+                for (CatalogInfo catalogInfo : catalogsList) {
+                    if (catalogInfo.getName().equalsIgnoreCase(catalogName)) {
+                        return right(true);
+                    }
                 }
             }
+
             return right(false);
 
         } catch (Exception e) {

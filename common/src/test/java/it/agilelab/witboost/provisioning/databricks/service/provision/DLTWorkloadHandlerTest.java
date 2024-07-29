@@ -33,6 +33,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.Pipelin
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.ProductEdition;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -105,10 +106,14 @@ public class DLTWorkloadHandlerTest {
         cluster.setWorkerType("Standard_DS3_v2");
         cluster.setDriverType("Standard_DS3_v2");
         cluster.setPolicyId("policyId");
+        HashMap<String, String> sparkConf = new HashMap<>();
+        sparkConf.put("spark.conf", "value");
+        cluster.setSparkConf(sparkConf);
 
         DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
         specific.setWorkspace("workspace");
         specific.setPipelineName("pipelineName");
+        specific.setRepoPath("dataproduct/component");
         specific.setProductEdition(ProductEdition.CORE);
         specific.setContinuous(true);
         specific.setNotebooks(List.of("notebook1", "notebook2"));

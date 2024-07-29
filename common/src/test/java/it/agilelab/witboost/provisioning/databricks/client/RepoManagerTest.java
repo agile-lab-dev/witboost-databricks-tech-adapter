@@ -39,7 +39,8 @@ public class RepoManagerTest {
         RepoInfo repoInfo = mock(RepoInfo.class);
         when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
 
-        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", "GITLAB");
+        Either<FailedOperation, Void> result =
+                repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isRight();
         assertEquals(result, Right(null));
@@ -52,7 +53,8 @@ public class RepoManagerTest {
         when(workspaceClient.repos()).thenReturn(reposAPI);
         when(reposAPI.create(any(CreateRepo.class))).thenThrow(new ResourceAlreadyExists("error", null));
 
-        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", "GITLAB");
+        Either<FailedOperation, Void> result =
+                repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isRight();
         assertNull(result.get());
@@ -65,7 +67,8 @@ public class RepoManagerTest {
         when(workspaceClient.repos()).thenReturn(reposAPI);
         when(reposAPI.create(any(CreateRepo.class))).thenThrow(new RuntimeException(errorMessage));
 
-        Either<FailedOperation, Void> result = repoManager.createRepo("gitUrl", "GITLAB");
+        Either<FailedOperation, Void> result =
+                repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isLeft();
 
@@ -76,10 +79,6 @@ public class RepoManagerTest {
     public void deleteRepo_Success() {
         ReposAPI reposAPI = mock(ReposAPI.class);
         WorkspaceAPI workspaceAPI = mock(WorkspaceAPI.class);
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.get(anyLong())).thenReturn(repoInfo);
-        when(repoInfo.getUrl()).thenReturn("gitUrl");
-
         List<ObjectInfo> objectInfos =
                 Arrays.asList(new ObjectInfo().setObjectType(ObjectType.REPO).setObjectId(123l));
         Iterable<ObjectInfo> objectInfoIterable = objectInfos;
@@ -88,10 +87,16 @@ public class RepoManagerTest {
         when(workspaceAPI.list(anyString())).thenReturn(objectInfoIterable);
         when(workspaceClient.repos()).thenReturn(reposAPI);
 
-        Either<FailedOperation, Void> result = repoManager.deleteRepo("gitUrl", "testaccount");
+        RepoInfo repoInfo = mock(RepoInfo.class);
+        when(reposAPI.get(anyLong())).thenReturn(repoInfo);
+        when(repoInfo.getUrl()).thenReturn("gitUrl");
+        when(repoInfo.getPath()).thenReturn("/Users/user/dataproduct/component");
+
+        Either<FailedOperation, Void> result = repoManager.deleteRepo("gitUrl", "/Users/user/dataproduct/component");
 
         assertTrue(result.isRight());
         assertEquals(result, Right(null));
+        verify(workspaceClient.repos(), times(1)).delete(any(DeleteRepoRequest.class));
     }
 
     @Test
@@ -110,7 +115,8 @@ public class RepoManagerTest {
         when(workspaceAPI.list(anyString())).thenReturn(null);
         when(workspaceClient.repos()).thenReturn(reposAPI);
 
-        Either<FailedOperation, Void> result = repoManager.deleteRepo("gitUrl", "testaccount");
+        Either<FailedOperation, Void> result =
+                repoManager.deleteRepo("testaccount", "/Users/user/dataproduct/component");
 
         assertTrue(result.isRight());
         assertEquals(result, Right(null));
@@ -128,7 +134,7 @@ public class RepoManagerTest {
         when(objectInfos.iterator()).thenReturn(iterator);
         when(iterator.hasNext()).thenReturn(false);
 
-        Either<FailedOperation, Void> result = repoManager.deleteRepo("nonexistentGitUrl", "testaccount");
+        Either<FailedOperation, Void> result = repoManager.deleteRepo("testaccount", "/Users/user/dataproduct/error");
 
         assertTrue(result.isRight());
         assertEquals(result, Right(null));
@@ -140,7 +146,8 @@ public class RepoManagerTest {
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
         String errorMessage = "This is a workspace list exception";
         when(workspaceAPI.list(anyString())).thenThrow(new RuntimeException(errorMessage));
-        Either<FailedOperation, Void> result = repoManager.deleteRepo("gitUrl", "testaccount");
+        Either<FailedOperation, Void> result =
+                repoManager.deleteRepo("testaccount", "/Users/user/dataproduct/component");
 
         assertTrue(result.isLeft());
         assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));

@@ -41,6 +41,7 @@ public class DatabricksDLTWorkloadSpecificTest {
 
         DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
         specific.setWorkspace("workspace");
+        specific.setRepoPath("dataproduct/component");
         specific.setPipelineName("pipelineName");
         specific.setProductEdition(ProductEdition.CORE);
         specific.setContinuous(true);

@@ -13,12 +13,10 @@ import com.databricks.sdk.service.jobs.BaseJob;
 import com.databricks.sdk.service.jobs.CreateResponse;
 import com.databricks.sdk.service.jobs.Job;
 import com.databricks.sdk.service.jobs.JobsAPI;
-import com.databricks.sdk.service.workspace.ObjectInfo;
-import com.databricks.sdk.service.workspace.RepoInfo;
-import com.databricks.sdk.service.workspace.ReposAPI;
-import com.databricks.sdk.service.workspace.WorkspaceAPI;
+import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
+import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
@@ -49,6 +47,9 @@ public class JobWorkloadHandlerTest {
     @Mock
     WorkspaceClient workspaceClient;
 
+    @Autowired
+    AzureAuthConfig azureAuthConfig;
+
     @MockBean
     private AzureResourceManager azureResourceManager;
 
@@ -69,6 +70,8 @@ public class JobWorkloadHandlerTest {
 
         databricksJobWorkloadSpecific.setWorkspace(workspaceName);
         databricksJobWorkloadSpecific.setJobName("jobName");
+        databricksJobWorkloadSpecific.setRepoPath("dataproduct/component");
+
         GitSpecific gitSpecific = new GitSpecific();
         gitSpecific.setGitRepoUrl("repoUrl");
         gitSpecific.setGitReference("main");
@@ -119,6 +122,7 @@ public class JobWorkloadHandlerTest {
 
         mockReposAPI(workspaceClient);
         mockJobAPI(workspaceClient);
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
         Either<FailedOperation, String> result =
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -132,6 +136,7 @@ public class JobWorkloadHandlerTest {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
         mockReposAPI(workspaceClient);
 
         Either<FailedOperation, String> result =
@@ -190,12 +195,28 @@ public class JobWorkloadHandlerTest {
 
         WorkspaceAPI workspaceAPI = mock(WorkspaceAPI.class);
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
+
         Iterable<ObjectInfo> objectInfos = mock(Iterable.class);
         when(workspaceAPI.list(anyString())).thenReturn(objectInfos);
         RepoInfo repoInfo = mock(RepoInfo.class);
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
         when(reposAPI.get(anyLong())).thenReturn(repoInfo);
+        when(repoInfo.getUrl()).thenReturn("repoUrl");
+        when(repoInfo.getPath()).thenReturn("path");
+
+        List<ObjectInfo> folderContent = Arrays.asList(
+                new ObjectInfo()
+                        .setObjectType(ObjectType.REPO)
+                        .setPath("/Users/testClientId/dataproduct/repo")
+                        .setObjectId(1l),
+                new ObjectInfo()
+                        .setObjectType(ObjectType.REPO)
+                        .setPath("/Users/testClientId/dataproduct/repo2")
+                        .setObjectId(2l));
+
+        when(workspaceClient.workspace().list("/Users/testClientId/dataproduct"))
+                .thenReturn(folderContent);
 
         Either<FailedOperation, Void> result =
                 jobWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo);

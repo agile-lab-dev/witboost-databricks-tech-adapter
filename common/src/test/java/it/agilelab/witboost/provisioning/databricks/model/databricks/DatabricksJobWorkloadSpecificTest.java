@@ -60,6 +60,7 @@ public class DatabricksJobWorkloadSpecificTest {
         DatabricksJobWorkloadSpecific workloadSpecific = new DatabricksJobWorkloadSpecific();
         workloadSpecific.setWorkspace("testWorkspace");
         workloadSpecific.setJobName("testJob");
+        workloadSpecific.setRepoPath("dataproduct/component");
 
         GitSpecific gitSpecific = new GitSpecific();
         gitSpecific.setGitReference("main");

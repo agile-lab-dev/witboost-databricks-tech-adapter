@@ -140,9 +140,11 @@ public class DLTWorkloadHandler {
             if (provisionRequest.removeData()) {
                 var repoManager = new RepoManager(workspaceClient, databricksWorkspaceInfo.getName());
 
+                String repoPath = databricksDLTWorkloadSpecific.getRepoPath();
+                repoPath = String.format("/Users/%s/%s", azureAuthConfig.getClientId(), repoPath);
+
                 Either<FailedOperation, Void> eitherDeletedRepo = repoManager.deleteRepo(
-                        (provisionRequest.component().getSpecific()).getGit().getGitRepoUrl(),
-                        azureAuthConfig.getClientId());
+                        provisionRequest.component().getSpecific().getGit().getGitRepoUrl(), repoPath);
 
                 if (eitherDeletedRepo.isLeft()) return left(eitherDeletedRepo.getLeft());
             }
@@ -175,9 +177,18 @@ public class DLTWorkloadHandler {
                     provisionRequest.component().getSpecific();
 
             String gitRepo = databricksDLTWorkloadSpecific.getGit().getGitRepoUrl();
+            String repoPath = databricksDLTWorkloadSpecific.getRepoPath();
+
+            int lastIndex = repoPath.lastIndexOf('/');
+            String folderPath = repoPath.substring(0, lastIndex);
+            workspaceClient
+                    .workspace()
+                    .mkdirs(String.format("/Users/%s/%s", azureAuthConfig.getClientId(), folderPath));
+
+            repoPath = String.format("/Users/%s/%s", azureAuthConfig.getClientId(), repoPath);
 
             var repoManager = new RepoManager(workspaceClient, workspaceName);
-            return repoManager.createRepo(gitRepo, gitCredentialsConfig.getProvider());
+            return repoManager.createRepo(gitRepo, gitCredentialsConfig.getProvider(), repoPath);
 
         } catch (Exception e) {
             DatabricksDLTWorkloadSpecific specific =

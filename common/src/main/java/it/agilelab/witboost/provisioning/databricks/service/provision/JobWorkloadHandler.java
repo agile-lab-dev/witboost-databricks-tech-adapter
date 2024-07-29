@@ -15,10 +15,7 @@ import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,8 +54,12 @@ public class JobWorkloadHandler {
                 return left(eitherCreatedJob.getLeft());
             }
 
-            logger.info(String.format(
-                    "New workspace created available at: %s", databricksWorkspaceInfo.getDatabricksHost()));
+            logger.info(String.format("Workspace available at: %s", databricksWorkspaceInfo.getDatabricksHost()));
+
+            String jobUrl =
+                    "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/pipelines/" + eitherCreatedJob.get();
+            logger.info(String.format("New job available at %s", jobUrl));
+
             return right(eitherCreatedJob.get().toString());
 
         } catch (Exception e) {
@@ -102,9 +103,11 @@ public class JobWorkloadHandler {
             if (provisionRequest.removeData()) {
                 var repoManager = new RepoManager(workspaceClient, databricksWorkspaceInfo.getName());
 
+                String repoPath = databricksJobWorkloadSpecific.getRepoPath();
+                repoPath = String.format("/Users/%s/%s", azureAuthConfig.getClientId(), repoPath);
+
                 Either<FailedOperation, Void> eitherDeletedRepo = repoManager.deleteRepo(
-                        (provisionRequest.component().getSpecific()).getGit().getGitRepoUrl(),
-                        azureAuthConfig.getClientId());
+                        provisionRequest.component().getSpecific().getGit().getGitRepoUrl(), repoPath);
 
                 if (eitherDeletedRepo.isLeft()) return left(eitherDeletedRepo.getLeft());
 
@@ -137,9 +140,18 @@ public class JobWorkloadHandler {
                     provisionRequest.component().getSpecific();
 
             String gitRepo = databricksJobWorkloadSpecific.getGit().getGitRepoUrl();
+            String repoPath = databricksJobWorkloadSpecific.getRepoPath();
+
+            int lastIndex = repoPath.lastIndexOf('/');
+            String folderPath = repoPath.substring(0, lastIndex);
+            workspaceClient
+                    .workspace()
+                    .mkdirs(String.format("/Users/%s/%s", azureAuthConfig.getClientId(), folderPath));
+
+            repoPath = String.format("/Users/%s/%s", azureAuthConfig.getClientId(), repoPath);
 
             var repoManager = new RepoManager(workspaceClient, workspaceName);
-            return repoManager.createRepo(gitRepo, gitCredentialsConfig.getProvider());
+            return repoManager.createRepo(gitRepo, gitCredentialsConfig.getProvider(), repoPath);
 
         } catch (Exception e) {
             String errorMessage = String.format(

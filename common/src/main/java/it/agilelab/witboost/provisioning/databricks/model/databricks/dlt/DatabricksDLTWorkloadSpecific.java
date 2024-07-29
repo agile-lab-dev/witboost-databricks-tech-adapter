@@ -29,6 +29,9 @@ public class DatabricksDLTWorkloadSpecific extends Specific {
     @NotNull
     private Boolean continuous;
 
+    @NotBlank
+    private String repoPath;
+
     @Valid
     @NotNull
     private GitSpecific git;

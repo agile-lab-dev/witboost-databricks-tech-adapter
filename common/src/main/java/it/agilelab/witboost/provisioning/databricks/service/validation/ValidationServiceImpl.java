@@ -112,7 +112,8 @@ public class ValidationServiceImpl implements ValidationService {
                 return right(componentToProvision);
             }
 
-            for (Problem prob : eitherWorkloadToProvision.getLeft().problems()) problems.add(prob);
+            var problemsList = eitherWorkloadToProvision.getLeft().problems();
+            if (problemsList != null) for (Problem prob : problemsList) problems.add(prob);
         }
 
         if (!problems.isEmpty()) {
