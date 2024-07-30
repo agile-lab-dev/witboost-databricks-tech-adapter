@@ -1,6 +1,6 @@
 <!-- Generator: Widdershins v4.0.1 -->
 
-<h1 id="specific-provisioner-micro-service">Specific Provisioner Micro Service v2.1.0</h1>
+<h1 id="specific-provisioner-micro-service">Specific Provisioner Micro Service v2.2.0</h1>
 
 > Scroll down for code samples, example requests and responses. Select a language for code samples from the tabs above or the mobile navigation menu.
 
@@ -16,19 +16,13 @@ All the provisioning related operations
 
 > Code samples
 
-<details>
-    <summary>Shell</summary>
-
 ```shell
 # You can also use wget
 curl -X POST /v2/validate \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json'
-```
-</details>
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
 const inputBody = '{
@@ -53,11 +47,8 @@ fetch('/v2/validate',
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
 URL obj = new URL("/v2/validate");
@@ -73,11 +64,8 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
@@ -89,8 +77,8 @@ headers = {
 r = requests.post('/v2/validate', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `POST /v2/validate`
 
@@ -139,19 +127,15 @@ This operation does not require authentication
 
 > Code samples
 
-<details>
-    <summary>Shell</summary>
 ```shell
 # You can also use wget
 curl -X GET /v2/validate/{token}/status \
   -H 'Accept: application/json'
-```
-</details>
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
+
 const headers = {
   'Accept':'application/json'
 };
@@ -167,11 +151,8 @@ fetch('/v2/validate/{token}/status',
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
 URL obj = new URL("/v2/validate/{token}/status");
@@ -187,11 +168,8 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
@@ -202,8 +180,8 @@ headers = {
 r = requests.get('/v2/validate/{token}/status', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `GET /v2/validate/{token}/status`
 
@@ -247,30 +225,26 @@ print(r.json())
 This operation does not require authentication
 </aside>
 
-
 ## provision
 
 <a id="opIdprovision"></a>
 
 > Code samples
-<details>
-    <summary>Shell</summary>
 
 ```shell
 # You can also use wget
-    curl -X POST /v1/provision \
-      -H 'Content-Type: application/json' \
-      -H 'Accept: application/json'
-```
-</details>
+curl -X POST /v1/provision \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json'
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
 const inputBody = '{
   "descriptorKind": "DATAPRODUCT_DESCRIPTOR",
-  "descriptor": "string"
+  "descriptor": "string",
+  "latestEnrichedDescriptor": "string",
+  "removeData": false
 }';
 const headers = {
   'Content-Type':'application/json',
@@ -288,11 +262,8 @@ fetch('/v1/provision',
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
 URL obj = new URL("/v1/provision");
@@ -308,11 +279,8 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
@@ -324,19 +292,21 @@ headers = {
 r = requests.post('/v1/provision', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `POST /v1/provision`
 
-*Deploy a data product starting from its descriptor*
+*Deploy a data product or a single component starting from a provisioning descriptor*
 
 > Body parameter
 
 ```json
 {
   "descriptorKind": "DATAPRODUCT_DESCRIPTOR",
-  "descriptor": "string"
+  "descriptor": "string",
+  "latestEnrichedDescriptor": "string",
+  "removeData": false
 }
 ```
 
@@ -344,7 +314,7 @@ print(r.json())
 
 |Name|In|Type|Required|Description|
 |---|---|---|---|---|
-|body|body|[ProvisioningRequest](#schemaprovisioningrequest)|true|A provisioning request descriptor wrapped as a string into a simple object|
+|body|body|[ProvisioningRequest](#schemaprovisioningrequest)|true|Provisioning descriptor|
 
 > Example responses
 
@@ -353,7 +323,19 @@ print(r.json())
 ```json
 {
   "status": "RUNNING",
-  "result": "string"
+  "result": "string",
+  "info": {
+    "publicInfo": {},
+    "privateInfo": {}
+  },
+  "logs": [
+    {
+      "timestamp": "2019-08-24T14:15:22Z",
+      "level": "DEBUG",
+      "message": "string",
+      "phase": "string"
+    }
+  ]
 }
 ```
 
@@ -376,26 +358,20 @@ This operation does not require authentication
 
 > Code samples
 
-<details>
-    <summary>Shell</summary>
-
 ```shell
 # You can also use wget
 curl -X GET /v1/provision/{token}/status \
   -H 'Accept: application/json'
-```
-</details>
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
+
 const headers = {
   'Accept':'application/json'
 };
-const token = "";
 
-fetch(`/v1/provision/${token}/status`,
+fetch('/v1/provision/{token}/status',
 {
   method: 'GET',
 
@@ -406,15 +382,11 @@ fetch(`/v1/provision/${token}/status`,
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
-String token = "";
-URL obj = new URL("/v1/provision/"+token+"/status");
+URL obj = new URL("/v1/provision/{token}/status");
 HttpURLConnection con = (HttpURLConnection) obj.openConnection();
 con.setRequestMethod("GET");
 int responseCode = con.getResponseCode();
@@ -427,28 +399,24 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
 headers = {
   'Accept': 'application/json'
 }
-token = ''
 
-r = requests.get(f'/v1/provision/{token}/status', headers = headers)
+r = requests.get('/v1/provision/{token}/status', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `GET /v1/provision/{token}/status`
 
-*Get the status for a provisioning request*
+*Get the status of a provisioning request*
 
 <h3 id="getstatus-parameters">Parameters</h3>
 
@@ -463,7 +431,19 @@ print(r.json())
 ```json
 {
   "status": "RUNNING",
-  "result": "string"
+  "result": "string",
+  "info": {
+    "publicInfo": {},
+    "privateInfo": {}
+  },
+  "logs": [
+    {
+      "timestamp": "2019-08-24T14:15:22Z",
+      "level": "DEBUG",
+      "message": "string",
+      "phase": "string"
+    }
+  ]
 }
 ```
 
@@ -485,24 +465,20 @@ This operation does not require authentication
 
 > Code samples
 
-<details>
-    <summary>Shell</summary>
-
 ```shell
 # You can also use wget
 curl -X POST /v1/validate \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json'
-```
-</details>
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
 const inputBody = '{
   "descriptorKind": "DATAPRODUCT_DESCRIPTOR",
-  "descriptor": "string"
+  "descriptor": "string",
+  "latestEnrichedDescriptor": "string",
+  "removeData": false
 }';
 const headers = {
   'Content-Type':'application/json',
@@ -520,11 +496,8 @@ fetch('/v1/validate',
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
 URL obj = new URL("/v1/validate");
@@ -540,11 +513,8 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
@@ -556,8 +526,8 @@ headers = {
 r = requests.post('/v1/validate', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `POST /v1/validate`
 
@@ -568,7 +538,9 @@ print(r.json())
 ```json
 {
   "descriptorKind": "DATAPRODUCT_DESCRIPTOR",
-  "descriptor": "string"
+  "descriptor": "string",
+  "latestEnrichedDescriptor": "string",
+  "removeData": false
 }
 ```
 
@@ -576,7 +548,7 @@ print(r.json())
 
 |Name|In|Type|Required|Description|
 |---|---|---|---|---|
-|body|body|[ProvisioningRequest](#schemaprovisioningrequest)|true|A provisioning request descriptor wrapped as a string into a simple object|
+|body|body|[ProvisioningRequest](#schemaprovisioningrequest)|true|Details of a provisioning request to be validated|
 
 > Example responses
 
@@ -588,18 +560,7 @@ print(r.json())
   "error": {
     "errors": [
       "string"
-    ],
-    "userMessage": "string",
-    "input": "string",
-    "inputErrorField": "string",
-    "moreInfo": {
-      "problems": [
-        "string"
-      ],
-      "solutions": [
-        "string"
-      ]
-    }
+    ]
   }
 }
 ```
@@ -621,24 +582,20 @@ This operation does not require authentication
 
 > Code samples
 
-<details>
-    <summary>Shell</summary>
-
 ```shell
 # You can also use wget
 curl -X POST /v1/unprovision \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json'
-```
-</details>
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
 const inputBody = '{
   "descriptorKind": "DATAPRODUCT_DESCRIPTOR",
-  "descriptor": "string"
+  "descriptor": "string",
+  "latestEnrichedDescriptor": "string",
+  "removeData": false
 }';
 const headers = {
   'Content-Type':'application/json',
@@ -656,11 +613,8 @@ fetch('/v1/unprovision',
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
 URL obj = new URL("/v1/unprovision");
@@ -676,11 +630,8 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
@@ -692,19 +643,21 @@ headers = {
 r = requests.post('/v1/unprovision', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `POST /v1/unprovision`
 
-*Undeploy a data product starting from its descriptor*
+*Undeploy a data product or a single component given the provisioning descriptor relative to the latest complete provisioning request*
 
 > Body parameter
 
 ```json
 {
   "descriptorKind": "DATAPRODUCT_DESCRIPTOR",
-  "descriptor": "string"
+  "descriptor": "string",
+  "latestEnrichedDescriptor": "string",
+  "removeData": false
 }
 ```
 
@@ -712,7 +665,7 @@ print(r.json())
 
 |Name|In|Type|Required|Description|
 |---|---|---|---|---|
-|body|body|[ProvisioningRequest](#schemaprovisioningrequest)|true|A provisioning request descriptor wrapped as a string into a simple object|
+|body|body|[ProvisioningRequest](#schemaprovisioningrequest)|true|Provisioning descriptor|
 
 > Example responses
 
@@ -721,7 +674,19 @@ print(r.json())
 ```json
 {
   "status": "RUNNING",
-  "result": "string"
+  "result": "string",
+  "info": {
+    "publicInfo": {},
+    "privateInfo": {}
+  },
+  "logs": [
+    {
+      "timestamp": "2019-08-24T14:15:22Z",
+      "level": "DEBUG",
+      "message": "string",
+      "phase": "string"
+    }
+  ]
 }
 ```
 
@@ -744,24 +709,22 @@ This operation does not require authentication
 
 > Code samples
 
-<details>
-    <summary>Shell</summary>
-
 ```shell
 # You can also use wget
 curl -X POST /v1/updateacl \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json'
-```
-</details>
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
 const inputBody = '{
   "refs": [
-    "string"
+    "user:alice",
+    "user:bob",
+    "group:groupA",
+    "group:groupB",
+    "group:groupC"
   ],
   "provisionInfo": {
     "request": "string",
@@ -784,11 +747,8 @@ fetch('/v1/updateacl',
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
 URL obj = new URL("/v1/updateacl");
@@ -804,11 +764,8 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
@@ -820,8 +777,8 @@ headers = {
 r = requests.post('/v1/updateacl', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `POST /v1/updateacl`
 
@@ -832,7 +789,11 @@ print(r.json())
 ```json
 {
   "refs": [
-    "string"
+    "user:alice",
+    "user:bob",
+    "group:groupA",
+    "group:groupB",
+    "group:groupC"
   ],
   "provisionInfo": {
     "request": "string",
@@ -845,7 +806,7 @@ print(r.json())
 
 |Name|In|Type|Required|Description|
 |---|---|---|---|---|
-|body|body|[UpdateAclRequest](#schemaupdateaclrequest)|true|An access request object|
+|body|body|[UpdateAclRequest](#schemaupdateaclrequest)|true|An access request object. The provisoning info reported in `provisionInfo` refer to the latest complete provisioning workflow of the target component|
 
 > Example responses
 
@@ -854,7 +815,19 @@ print(r.json())
 ```json
 {
   "status": "RUNNING",
-  "result": "string"
+  "result": "string",
+  "info": {
+    "publicInfo": {},
+    "privateInfo": {}
+  },
+  "logs": [
+    {
+      "timestamp": "2019-08-24T14:15:22Z",
+      "level": "DEBUG",
+      "message": "string",
+      "phase": "string"
+    }
+  ]
 }
 ```
 
@@ -863,7 +836,7 @@ print(r.json())
 |Status|Meaning|Description|Schema|
 |---|---|---|---|
 |200|[OK](https://tools.ietf.org/html/rfc7231#section-6.3.1)|It synchronously returns the access request response|[ProvisioningStatus](#schemaprovisioningstatus)|
-|202|[Accepted](https://tools.ietf.org/html/rfc7231#section-6.3.3)|It synchronously returns the access request response|string|
+|202|[Accepted](https://tools.ietf.org/html/rfc7231#section-6.3.3)|If successful returns a provisioning deployment task token that can be used for polling the request status|string|
 |400|[Bad Request](https://tools.ietf.org/html/rfc7231#section-6.5.1)|Invalid input|[RequestValidationError](#schemarequestvalidationerror)|
 |500|[Internal Server Error](https://tools.ietf.org/html/rfc7231#section-6.6.1)|System problem|[SystemError](#schemasystemerror)|
 
@@ -877,19 +850,13 @@ This operation does not require authentication
 
 > Code samples
 
-<details>
-    <summary>Shell</summary>
-
 ```shell
 # You can also use wget
 curl -X POST /v1/reverse-provisioning \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json'
-```
-</details>
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
 const inputBody = '{
@@ -917,11 +884,8 @@ fetch('/v1/reverse-provisioning',
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
 URL obj = new URL("/v1/reverse-provisioning");
@@ -937,11 +901,8 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
@@ -953,8 +914,8 @@ headers = {
 r = requests.post('/v1/reverse-provisioning', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `POST /v1/reverse-provisioning`
 
@@ -1025,20 +986,15 @@ This operation does not require authentication
 
 > Code samples
 
-<details>
-    <summary>Shell</summary>
-
 ```shell
 # You can also use wget
 curl -X GET /v1/reverse-provisioning/{token}/status \
   -H 'Accept: application/json'
-```
-</details>
 
-<details>
-    <summary>JavaScript</summary>
+```
 
 ```javascript
+
 const headers = {
   'Accept':'application/json'
 };
@@ -1054,11 +1010,8 @@ fetch('/v1/reverse-provisioning/{token}/status',
 }).then(function(body) {
     console.log(body);
 });
-```
-</details>
 
-<details>
-    <summary>Java</summary>
+```
 
 ```java
 URL obj = new URL("/v1/reverse-provisioning/{token}/status");
@@ -1074,11 +1027,8 @@ while ((inputLine = in.readLine()) != null) {
 }
 in.close();
 System.out.println(response.toString());
-```
-</details>
 
-<details>
-    <summary>Python</summary>
+```
 
 ```python
 import requests
@@ -1089,8 +1039,8 @@ headers = {
 r = requests.get('/v1/reverse-provisioning/{token}/status', headers = headers)
 
 print(r.json())
+
 ```
-</details>
 
 `GET /v1/reverse-provisioning/{token}/status`
 
@@ -1139,7 +1089,6 @@ print(r.json())
 <aside class="success">
 This operation does not require authentication
 </aside>
-
 
 # Schemas
 
@@ -1226,9 +1175,9 @@ This operation does not require authentication
 ```
 
 Values:
-* `DATAPRODUCT_DESCRIPTOR` - Complete descriptor of a data product. It is used in the data product level provisioning workflow.
-* `COMPONENT_DESCRIPTOR` - Provisioning descriptor for a single data product component. Includes both the complete data product descriptor (`dataProduct` object field) and the id of the component to be provisioned (`componentIdToProvision` string field).
-* `DATAPRODUCT_DESCRIPTOR_WITH_RESULTS` - This value is not currently used in the scope of a specific provisioner.
+ * `DATAPRODUCT_DESCRIPTOR` - Complete descriptor of a data product. It is used in the data product level provisioning workflow.
+ * `COMPONENT_DESCRIPTOR` - Provisioning descriptor for a single data product component. Includes both the complete data product descriptor (`dataProduct` object field) and the id of the component to be provisioned (`componentIdToProvision` string field).
+ * `DATAPRODUCT_DESCRIPTOR_WITH_RESULTS` - This value is not currently used in the scope of a specific provisioner.
 
 ### Properties
 
@@ -1648,3 +1597,4 @@ Object that will include the more in-depth, specific information about the error
 |status|RUNNING|
 |status|COMPLETED|
 |status|FAILED|
+
