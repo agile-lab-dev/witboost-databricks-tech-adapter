@@ -220,7 +220,6 @@ public class DLTWorkloadHandlerTest {
         Either<FailedOperation, String> result =
                 dltWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
 
-        System.out.println(result);
         assert result.isLeft();
 
         String errorMessage =

@@ -1,0 +1,47 @@
+dataProduct:
+  id: urn:dmb:dp:organization:test-op:0
+  name: test-op
+  fullyQualifiedName: null
+  description: test-op
+  kind: dataproduct
+  domain: organization
+  version: 0.1.0-SNAPSHOT-1
+  environment: development
+  dataProductOwner: user:user_test_agilelab.it
+  dataProductOwnerDisplayName: UserTest
+  email: user_test@agilelab.it
+  devGroup: group:bigdata
+  ownerGroup: group:bigdata
+  informationSLA: null
+  status: null
+  maturity: null
+  billing: {}
+  tags: []
+  specific: {}
+  components:
+    - kind: outputport
+      id: urn:dmb:cmp:organization:test-op:0:test-op
+      description: test-op
+      name: test-op
+      fullyQualifiedName: null
+      version: 0.0.0
+      infrastructureTemplateId: urn:dmb:itm:dbr-outputport-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:dbr-outputport-template:0.0.1
+      dependsOn: []
+      platform: Azure
+      technology: Databricks
+      outputPortType: SQL
+      tags: []
+      readsFrom: []
+      dataContract:
+        schema:
+          - name: col_1
+            dataType: TEXT
+          - name: col_2
+            dataType: TEXT
+      specific:
+        catalogName: catalog_name
+        schemaName: schema_name
+        tableName: table_name
+        workspaceHost: https://workspace_host.net
+componentIdToProvision: urn:dmb:cmp:organization:test-op:0:test-op

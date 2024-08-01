@@ -3,13 +3,18 @@ package it.agilelab.witboost.provisioning.databricks.service.validation;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
+import com.databricks.sdk.service.catalog.TablesAPI;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.bean.DatabricksTableAPIBean;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.model.Component;
+import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
@@ -28,13 +33,19 @@ public class ValidationServiceImpl implements ValidationService {
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
     private final Map<String, List<Class<? extends Specific>>> kindToSpecificClasses = new HashMap<>();
+    private final DatabricksTableAPIBean databricksTableApiBean;
+    private final MiscConfig miscConfig;
 
-    public ValidationServiceImpl() {
+    public ValidationServiceImpl(DatabricksTableAPIBean databricksTableApiBean, MiscConfig miscConfig) {
+        this.databricksTableApiBean = databricksTableApiBean;
+        this.miscConfig = miscConfig;
+
         List<Class<? extends Specific>> classes = new ArrayList<>();
         classes.add(DatabricksJobWorkloadSpecific.class);
         classes.add(DatabricksDLTWorkloadSpecific.class);
 
         kindToSpecificClasses.put(WORKLOAD_KIND, classes);
+        kindToSpecificClasses.put(OUTPUTPORT_KIND, List.of(DatabricksOutputPortSpecific.class));
     }
 
     @Override
@@ -87,6 +98,30 @@ public class ValidationServiceImpl implements ValidationService {
                 componentToProvision = eitherWorkloadToProvision.get();
                 var workloadValidation = WorkloadValidation.validate(componentToProvision);
                 if (workloadValidation.isLeft()) return left(workloadValidation.getLeft());
+                break;
+            case OUTPUTPORT_KIND:
+                String environment = descriptor.getDataProduct().getEnvironment();
+
+                var outputPortClass = kindToSpecificClasses.get(OUTPUTPORT_KIND).get(0); // List of 1 element
+                var eitherOutputPortToValidate = Parser.parseComponent(componentToProvisionAsJson, outputPortClass);
+                if (eitherOutputPortToValidate.isLeft()) return left(eitherOutputPortToValidate.getLeft());
+                componentToProvision = eitherOutputPortToValidate.get();
+
+                logger.info(
+                        "Parsing Output Port Component {} in {} environment",
+                        componentToProvision.getName(),
+                        environment);
+
+                String workspaceHost =
+                        ((DatabricksOutputPortSpecific) componentToProvision.getSpecific()).getWorkspaceHost();
+
+                TablesAPI tablesAPI = databricksTableApiBean.getObject(workspaceHost);
+
+                var outputPortValidator = new OutputPortValidation(miscConfig, tablesAPI);
+                var outputPortValidation = outputPortValidator.validate(
+                        (OutputPort<DatabricksOutputPortSpecific>) componentToProvision, environment);
+                if (outputPortValidation.isLeft()) return left(outputPortValidation.getLeft());
+
                 break;
             default:
                 String errorMessage = String.format(

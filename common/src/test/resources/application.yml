@@ -31,3 +31,6 @@ usecasetemplateid:
     workload:
         job: ["urn:dmb:utm:databricks-workload-job-template"]
         dlt: ["urn:dmb:utm:databricks-workload-dlt-template"]
+
+misc:
+    developmentEnvironmentName: development
