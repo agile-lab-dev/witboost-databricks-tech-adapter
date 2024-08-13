@@ -61,6 +61,7 @@ public class DatabricksJobWorkloadSpecificTest {
         workloadSpecific.setWorkspace("testWorkspace");
         workloadSpecific.setJobName("testJob");
         workloadSpecific.setRepoPath("dataproduct/component");
+        workloadSpecific.setMetastore("metastore");
 
         GitSpecific gitSpecific = new GitSpecific();
         gitSpecific.setGitReference("main");
@@ -121,6 +122,14 @@ public class DatabricksJobWorkloadSpecificTest {
         Set<ConstraintViolation<DatabricksJobWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
         assertEquals(1, violations.size());
         assertEquals("cluster", violations.iterator().next().getPropertyPath().toString());
+    }
+
+    @Test
+    public void testMetastoreBlank() {
+        workloadSpecific1.setMetastore("");
+        Set<ConstraintViolation<DatabricksJobWorkloadSpecific>> violations = validator.validate(workloadSpecific1);
+        assertEquals(1, violations.size());
+        assertEquals("metastore", violations.iterator().next().getPropertyPath().toString());
     }
 
     @Test

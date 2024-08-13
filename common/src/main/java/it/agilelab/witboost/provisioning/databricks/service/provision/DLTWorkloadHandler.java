@@ -3,6 +3,7 @@ package it.agilelab.witboost.provisioning.databricks.service.provision;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
+import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.pipelines.PipelineStateInfo;
 import io.vavr.control.Either;
@@ -12,30 +13,30 @@ import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
+import it.agilelab.witboost.provisioning.databricks.config.DatabricksPermissionsConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import it.agilelab.witboost.provisioning.databricks.principalsmapping.databricks.DatabricksMapper;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DLTWorkloadHandler {
+public class DLTWorkloadHandler extends BaseWorkloadHandler {
 
     private final Logger logger = LoggerFactory.getLogger(DLTWorkloadHandler.class);
 
-    private final AzureAuthConfig azureAuthConfig;
-    private final GitCredentialsConfig gitCredentialsConfig;
-
     @Autowired
-    public DLTWorkloadHandler(AzureAuthConfig azureAuthConfig, GitCredentialsConfig gitCredentialsConfig) {
-        this.azureAuthConfig = azureAuthConfig;
-        this.gitCredentialsConfig = gitCredentialsConfig;
+    public DLTWorkloadHandler(
+            AzureAuthConfig azureAuthConfig,
+            GitCredentialsConfig gitCredentialsConfig,
+            DatabricksPermissionsConfig databricksPermissionsConfig,
+            AccountClient accountClient) {
+        super(azureAuthConfig, gitCredentialsConfig, databricksPermissionsConfig, accountClient);
     }
 
     /**
@@ -57,13 +58,47 @@ public class DLTWorkloadHandler {
 
             var unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
 
-            Either<FailedOperation, Void> eitherAttachedMetastore = unityCatalogManager.attachMetastore(
-                    databricksDLTWorkloadSpecific.getMetastore(), databricksDLTWorkloadSpecific.getCatalog());
+            Either<FailedOperation, Void> eitherAttachedMetastore =
+                    unityCatalogManager.attachMetastore(databricksDLTWorkloadSpecific.getMetastore());
 
             if (eitherAttachedMetastore.isLeft()) return left(eitherAttachedMetastore.getLeft());
 
-            Either<FailedOperation, Void> eitherCreatedRepo =
-                    createRepository(provisionRequest, workspaceClient, databricksWorkspaceInfo.getName());
+            Either<FailedOperation, Void> eitherCreatedCatalog =
+                    unityCatalogManager.createCatalogIfNotExists(databricksDLTWorkloadSpecific.getCatalog());
+
+            if (eitherCreatedCatalog.isLeft()) return left(eitherCreatedCatalog.getLeft());
+
+            // TODO: This is a temporary solution. Remove or update this logic in the future.
+            String devGroup = provisionRequest.dataProduct().getDevGroup();
+            if (!devGroup.startsWith("group:")) {
+                devGroup = "group:" + devGroup;
+            }
+
+            DatabricksMapper databricksMapper = new DatabricksMapper();
+            Map<String, Either<Throwable, String>> eitherMap =
+                    databricksMapper.map(Set.of(provisionRequest.dataProduct().getDataProductOwner(), devGroup));
+
+            Either<Throwable, String> eitherDpOwnerDatabricksId =
+                    eitherMap.get(provisionRequest.dataProduct().getDataProductOwner());
+            if (eitherDpOwnerDatabricksId.isLeft()) {
+                var error = eitherDpOwnerDatabricksId.getLeft();
+                return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
+            }
+            String dpOwnerDatabricksId = eitherDpOwnerDatabricksId.get();
+
+            Either<Throwable, String> eitherDpDevGroupDatabricksId = eitherMap.get(devGroup);
+            if (eitherDpDevGroupDatabricksId.isLeft()) {
+                var error = eitherDpDevGroupDatabricksId.getLeft();
+                return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
+            }
+            String dpDevGroupDatabricksId = eitherDpDevGroupDatabricksId.get();
+
+            Either<FailedOperation, Void> eitherCreatedRepo = createRepositoryWithPermissions(
+                    provisionRequest,
+                    workspaceClient,
+                    databricksWorkspaceInfo,
+                    dpOwnerDatabricksId,
+                    dpDevGroupDatabricksId);
             if (eitherCreatedRepo.isLeft()) {
                 return left(eitherCreatedRepo.getLeft());
             }
@@ -87,7 +122,9 @@ public class DLTWorkloadHandler {
 
             String pipelineUrl = "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/pipelines/"
                     + eitherCreatedPipeline.get();
-            logger.info(String.format("New pipeline available at %s", pipelineUrl));
+            logger.info(String.format(
+                    "New pipeline linked to component %s available at %s",
+                    provisionRequest.component().getName(), pipelineUrl));
 
             return right(eitherCreatedPipeline.get());
 
@@ -155,50 +192,6 @@ public class DLTWorkloadHandler {
             String errorMessage = String.format(
                     "An error occurred while unprovisioning component %s. Please try again and if the error persists contact the platform team. Details: %s",
                     provisionRequest.component().getName(), e.getMessage());
-            logger.error(errorMessage, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
-        }
-    }
-
-    /**
-     * Creates a repository in the Databricks workspace.
-     *
-     * @param provisionRequest the request containing the details for creating the repository
-     * @param workspaceClient the Databricks workspace client
-     * @param workspaceName the name of the Databricks workspace
-     * @return Either a FailedOperation or Void if successful
-     */
-    private Either<FailedOperation, Void> createRepository(
-            ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest,
-            WorkspaceClient workspaceClient,
-            String workspaceName) {
-        try {
-            DatabricksDLTWorkloadSpecific databricksDLTWorkloadSpecific =
-                    provisionRequest.component().getSpecific();
-
-            String gitRepo = databricksDLTWorkloadSpecific.getGit().getGitRepoUrl();
-            String repoPath = databricksDLTWorkloadSpecific.getRepoPath();
-
-            int lastIndex = repoPath.lastIndexOf('/');
-            String folderPath = repoPath.substring(0, lastIndex);
-            workspaceClient
-                    .workspace()
-                    .mkdirs(String.format("/Users/%s/%s", azureAuthConfig.getClientId(), folderPath));
-
-            repoPath = String.format("/Users/%s/%s", azureAuthConfig.getClientId(), repoPath);
-
-            var repoManager = new RepoManager(workspaceClient, workspaceName);
-            return repoManager.createRepo(gitRepo, gitCredentialsConfig.getProvider(), repoPath);
-
-        } catch (Exception e) {
-            DatabricksDLTWorkloadSpecific specific =
-                    provisionRequest.component().getSpecific();
-            String errorMessage = String.format(
-                    "An error occurred while creating repository %s in %s for component %s. Please try again and if the error persists contact the platform team. Details: %s",
-                    specific.getGit().getGitRepoUrl(),
-                    workspaceName,
-                    provisionRequest.component().getName(),
-                    e.getMessage());
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }

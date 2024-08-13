@@ -3,6 +3,7 @@ package it.agilelab.witboost.provisioning.databricks.client;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.service.catalog.*;
@@ -29,8 +30,8 @@ public class UnityCatalogManagerTest {
 
     private UnityCatalogManager unityCatalogManager;
 
-    private DatabricksWorkspaceInfo databricksWorkspaceInfo =
-            new DatabricksWorkspaceInfo("workspace", "123", "https://example.com", "abc", "test");
+    private DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+            "workspace", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
 
     @BeforeEach
     public void setUp() {
@@ -48,37 +49,25 @@ public class UnityCatalogManagerTest {
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
         when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
 
-        List<CatalogInfo> catalogList =
-                Arrays.asList(new CatalogInfo().setName("catalog1"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
-
-        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
-        when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
-
-        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore", "catalog1");
+        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore");
         assertTrue(result.isRight());
         assertEquals(null, result.get());
     }
 
     @Test
-    public void testAttachMetastore_CreateCatalog() {
+    public void testCreateCatalog() {
         List<MetastoreInfo> metastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
         Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
-
         List<CatalogInfo> catalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog1"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
 
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
-        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore", "new");
+        Either<FailedOperation, Void> result = unityCatalogManager.createCatalogIfNotExists("new");
         assertTrue(result.isRight());
         assertEquals(null, result.get());
     }
@@ -90,7 +79,7 @@ public class UnityCatalogManagerTest {
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
         Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
-        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore", "new");
+        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore");
         assertTrue(result.isLeft());
         assertEquals(
                 "Error linking the workspace workspace to the metastore metastore",
@@ -98,17 +87,13 @@ public class UnityCatalogManagerTest {
     }
 
     @Test
-    public void testAttachMetastore_CreateCatalogException() {
+    public void testCreateCatalog_ExceptionSearchingCatalog() {
         List<MetastoreInfo> metastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
         Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
-
-        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore", "new");
+        Either<FailedOperation, Void> result = unityCatalogManager.createCatalogIfNotExists("new");
         assertTrue(result.isLeft());
         String expectedError =
                 "An error occurred trying to search the catalog new. Please try again and if the error persists contact the platform team. Details: Cannot invoke \"com.databricks.sdk.service.catalog.CatalogsAPI.";
@@ -126,7 +111,7 @@ public class UnityCatalogManagerTest {
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
         when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
 
-        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore", "new");
+        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore");
         assertTrue(result.isLeft());
         String expectedError =
                 "An error occurred while searching metastore 'metastore' details. Please try again and if the error persists contact the platform team. Details: Metastore not found";
@@ -134,20 +119,17 @@ public class UnityCatalogManagerTest {
     }
 
     @Test
-    public void testAttachMetastore_ExceptionCreatingCatalog() {
+    public void testCreateCatalog_ExceptionCreatingCatalog() {
         List<MetastoreInfo> metastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
         Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().create(anyString()))
                 .thenThrow(new DatabricksException("Exception creating catalog"));
 
-        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore", "new");
+        Either<FailedOperation, Void> result = unityCatalogManager.createCatalogIfNotExists("new");
         assertTrue(result.isLeft());
         String expectedError =
                 "An error occurred while creating unity catalog 'new'. Please try again and if the error persists contact the platform team. Details: Exception creating catalog";

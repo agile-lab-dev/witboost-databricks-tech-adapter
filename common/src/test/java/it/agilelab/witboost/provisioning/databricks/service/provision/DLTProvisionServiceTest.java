@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
@@ -53,8 +54,8 @@ public class DLTProvisionServiceTest {
     @InjectMocks
     private ProvisionServiceImpl provisionService;
 
-    private DatabricksWorkspaceInfo workspaceInfo =
-            new DatabricksWorkspaceInfo("workspace", "123", "https://example.com", "abc", "test");
+    private DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
+            "workspace", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
 
     @BeforeEach
     public void setUp() {
@@ -127,7 +128,7 @@ public class DLTProvisionServiceTest {
         info.put("Pipeline path", "https://https://example.com/pipelines/workloadId");
 
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "")
-                .info(new Info(JsonNodeFactory.instance.objectNode(), info).publicInfo(info));
+                .info(new Info(JsonNodeFactory.instance.objectNode(), info).privateInfo(info));
 
         String token = provisionService.provision(provisioningRequest);
 
@@ -135,7 +136,7 @@ public class DLTProvisionServiceTest {
 
         assertEquals(expectedRes.getStatus(), actualRes.getStatus());
         assertEquals(expectedRes.getResult(), actualRes.getResult());
-        assertEquals(expectedRes.getInfo().getPublicInfo(), actualRes.getInfo().getPublicInfo());
+        assertEquals(expectedRes.getInfo().getPrivateInfo(), actualRes.getInfo().getPrivateInfo());
     }
 
     @Test
@@ -164,6 +165,29 @@ public class DLTProvisionServiceTest {
     }
 
     @Test
+    public void testProvisionWorkloadWrongWorkspaceStatus() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<DatabricksDLTWorkloadSpecific> workload = new Workload<>();
+        workload.setKind("workload");
+        workload.setSpecific(new DatabricksDLTWorkloadSpecific());
+
+        var provisionRequest = new ProvisionRequest<DatabricksDLTWorkloadSpecific>(null, workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+
+        DatabricksWorkspaceInfo databricksWorkspaceInfoWrong = workspaceInfo;
+        databricksWorkspaceInfoWrong.setProvisioningState(ProvisioningState.DELETING);
+
+        when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(databricksWorkspaceInfoWrong));
+
+        String token = provisionService.provision(provisioningRequest);
+
+        ProvisioningStatus actualRes = provisionService.getStatus(token);
+
+        assertEquals(ProvisioningStatus.StatusEnum.FAILED, actualRes.getStatus());
+        assert (actualRes.getResult().contains("The status of null workspace is different from 'ACTIVE'."));
+    }
+
+    @Test
     public void testProvisionWorkspaceErrorGettingWorkspace() {
         ProvisioningRequest provisioningRequest = new ProvisioningRequest();
         Workload<Specific> workload = new Workload<>();
@@ -181,9 +205,7 @@ public class DLTProvisionServiceTest {
 
         ProvisioningStatus actualRes = provisionService.getStatus(token);
 
-        assertEquals(
-                "Errors: -getWorkspaceError\n",
-                provisionService.getStatus(token).getResult());
+        assertEquals("Errors: -getWorkspaceError\n", actualRes.getResult());
     }
 
     @Test
@@ -308,5 +330,28 @@ public class DLTProvisionServiceTest {
         assertEquals(
                 "Errors: -unprovisioningWorkloadError\n",
                 provisionService.getStatus(token).getResult());
+    }
+
+    @Test
+    public void testUnprovisionWorkloadWrongWorkspaceStatus() {
+        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        Workload<DatabricksDLTWorkloadSpecific> workload = new Workload<>();
+        workload.setKind("workload");
+        workload.setSpecific(new DatabricksDLTWorkloadSpecific());
+
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
+        when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
+
+        DatabricksWorkspaceInfo wrongWorkspaceInfo = workspaceInfo;
+        wrongWorkspaceInfo.setProvisioningState(ProvisioningState.DELETING);
+
+        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(wrongWorkspaceInfo)));
+
+        String token = provisionService.unprovision(provisioningRequest);
+
+        ProvisioningStatus actualRes = provisionService.getStatus(token);
+
+        assertEquals(ProvisioningStatus.StatusEnum.FAILED, actualRes.getStatus());
+        assert actualRes.getResult().contains("The status of null workspace is different from 'ACTIVE'.");
     }
 }

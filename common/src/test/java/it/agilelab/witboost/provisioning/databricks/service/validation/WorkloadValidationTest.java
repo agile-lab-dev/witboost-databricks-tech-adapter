@@ -118,8 +118,9 @@ public class WorkloadValidationTest {
     @Test
     public void testValidateWrongType() {
         OutputPort<Specific> outputPort = new OutputPort<>();
-        outputPort.setId("my_id_storage");
-        String expectedDesc = "The component my_id_storage is not of type Workload";
+        outputPort.setId("op id");
+        outputPort.setName("op name");
+        String expectedDesc = "The component op name is not of type Workload";
 
         var actualRes = workloadValidation.validate(outputPort);
 
@@ -206,7 +207,7 @@ public class WorkloadValidationTest {
 
         var actualRes = workloadValidation.validate(workload);
         String expectedError =
-                "Optional[wrong] (component my_workload_id) is not an accepted useCaseTemplateId for Databricks jobs or DLT pipelines.";
+                "Optional[wrong] (component workload name) is not an accepted useCaseTemplateId for Databricks jobs or DLT pipelines.";
 
         assert actualRes.isLeft();
         assert actualRes.getLeft().problems().get(0).description().contains(expectedError);
@@ -225,7 +226,7 @@ public class WorkloadValidationTest {
         workload.setUseCaseTemplateId(Optional.of("urn:dmb:utm:databricks-workload-job-template:0.0.0"));
 
         String expectedDesc =
-                "The specific section of the component my_workload_id is not of type DatabricksJobWorkloadSpecific";
+                "The specific section of the component workload name is not of type DatabricksJobWorkloadSpecific";
 
         var actualRes = workloadValidation.validate(workload);
 
@@ -250,7 +251,7 @@ public class WorkloadValidationTest {
         workload.setUseCaseTemplateId(Optional.of("urn:dmb:utm:databricks-workload-dlt-template:0.0.0"));
 
         String expectedDesc =
-                "The specific section of the component my_workload_id is not of type DatabricksDLTWorkloadSpecific";
+                "The specific section of the component workload name is not of type DatabricksDLTWorkloadSpecific";
 
         var actualRes = workloadValidation.validate(workload);
 

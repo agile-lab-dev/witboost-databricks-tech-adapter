@@ -26,7 +26,7 @@ public class UnityCatalogManager {
 
     private final Logger logger = LoggerFactory.getLogger(UnityCatalogManager.class);
 
-    public Either<FailedOperation, Void> attachMetastore(String metastoreName, String catalogName) {
+    public Either<FailedOperation, Void> attachMetastore(String metastoreName) {
 
         try {
             logger.info(String.format(
@@ -41,14 +41,6 @@ public class UnityCatalogManager {
                             .setWorkspaceId(Long.valueOf(databricksWorkspaceInfo.getId()))
                             .setMetastoreId(metastoreId.get()));
 
-            Either<FailedOperation, Boolean> eitherCatalogExists = checkCatalogExistence(catalogName);
-            if (eitherCatalogExists.isLeft()) return left(eitherCatalogExists.getLeft());
-            boolean catalogExists = eitherCatalogExists.get();
-
-            if (!catalogExists) {
-                var createCatalog = createCatalog(catalogName);
-                if (createCatalog.isLeft()) return left(createCatalog.getLeft());
-            }
             return right(null);
 
         } catch (Exception e) {
@@ -57,6 +49,29 @@ public class UnityCatalogManager {
                     databricksWorkspaceInfo.getName(), metastoreName);
             logger.error(error, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(error, e))));
+        }
+    }
+
+    public Either<FailedOperation, Void> createCatalogIfNotExists(String catalogName) {
+        try {
+            Either<FailedOperation, Boolean> eitherCatalogExists = checkCatalogExistence(catalogName);
+            if (eitherCatalogExists.isLeft()) return left(eitherCatalogExists.getLeft());
+
+            boolean catalogExists = eitherCatalogExists.get();
+
+            if (!catalogExists) {
+                var createCatalog = createCatalog(catalogName);
+                if (createCatalog.isLeft()) return left(createCatalog.getLeft());
+            }
+
+            return right(null);
+        } catch (Exception e) {
+
+            String errorMessage = String.format(
+                    "An error occurred while creating unity catalog '%s'. Please try again and if the error persists contact the platform team. Details: %s",
+                    catalogName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 

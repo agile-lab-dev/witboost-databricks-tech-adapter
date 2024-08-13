@@ -16,8 +16,13 @@ azure.permissions:
     subscriptionId: testSubscriptionId
     resourceGroup: testResourceGroup
 
-databricks.auth:
-    accountId: testAccountId
+databricks:
+    auth:
+        accountId: testAccountId
+    permissions:
+        workload:
+            owner: "CAN_MANAGE"     #CAN_EDIT, CAN_MANAGE, CAN_READ, CAN_RUN, NO_PERMISSIONS
+            developer: "CAN_MANAGE"
 
 git:
     username: testUsername

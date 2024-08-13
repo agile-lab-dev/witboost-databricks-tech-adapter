@@ -1,5 +1,6 @@
 package it.agilelab.witboost.provisioning.databricks.service.provision;
 
+import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
@@ -158,6 +159,16 @@ public class ProvisionServiceImpl implements ProvisionService {
         }
 
         var databricksWorkspaceInfo = eitherCreatedWorkspace.get();
+        if (!databricksWorkspaceInfo.getProvisioningState().equals(ProvisioningState.SUCCEEDED)) {
+            var specific =
+                    (DatabricksJobWorkloadSpecific) provisionRequest.component().getSpecific();
+            String errorMessage = String.format(
+                    "Provision of %s skipped. The status of %s workspace is different from 'ACTIVE'. Please try again and if the error persists contact the platform team. ",
+                    provisionRequest.component().getName(), specific.getWorkspace());
+            logger.info(errorMessage);
+            updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errorMessage);
+            return;
+        }
 
         var eitherWorkspaceClient = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
         if (eitherWorkspaceClient.isLeft()) {
@@ -183,7 +194,7 @@ public class ProvisionServiceImpl implements ProvisionService {
                 token,
                 ProvisioningStatus.StatusEnum.COMPLETED,
                 "",
-                new Info(JsonNodeFactory.instance.objectNode(), provisionResult).publicInfo(provisionResult));
+                new Info(JsonNodeFactory.instance.objectNode(), provisionResult).privateInfo(provisionResult));
     }
 
     private void provisionDLT(ProvisionRequest provisionRequest, String token) {
@@ -195,6 +206,16 @@ public class ProvisionServiceImpl implements ProvisionService {
         }
 
         var databricksWorkspaceInfo = eitherCreatedWorkspace.get();
+        if (!databricksWorkspaceInfo.getProvisioningState().equals(ProvisioningState.SUCCEEDED)) {
+            var specific =
+                    (DatabricksDLTWorkloadSpecific) provisionRequest.component().getSpecific();
+            String errorMessage = String.format(
+                    "Provision of %s skipped. The status of %s workspace is different from 'ACTIVE'. Please try again and if the error persists contact the platform team. ",
+                    provisionRequest.component().getName(), specific.getWorkspace());
+            logger.info(errorMessage);
+            updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errorMessage);
+            return;
+        }
 
         var eitherWorkspaceClient = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
         if (eitherWorkspaceClient.isLeft()) {
@@ -221,7 +242,7 @@ public class ProvisionServiceImpl implements ProvisionService {
                 token,
                 ProvisioningStatus.StatusEnum.COMPLETED,
                 "",
-                new Info(JsonNodeFactory.instance.objectNode(), provisionResult).publicInfo(provisionResult));
+                new Info(JsonNodeFactory.instance.objectNode(), provisionResult).privateInfo(provisionResult));
     }
 
     private void unprovisionJob(ProvisionRequest provisionRequest, String token) {
@@ -247,6 +268,16 @@ public class ProvisionServiceImpl implements ProvisionService {
                     token,
                     ProvisioningStatus.StatusEnum.COMPLETED,
                     String.format("Unprovision skipped. Workspace %s not found.", specific.getWorkspace()));
+            return;
+        }
+        if (!workspaceInfoOpt.get().getProvisioningState().equals(ProvisioningState.SUCCEEDED)) {
+            var specific =
+                    (DatabricksJobWorkloadSpecific) provisionRequest.component().getSpecific();
+            String errorMessage = String.format(
+                    "The status of %s workspace is different from 'ACTIVE'. Please try again and if the error persists contact the platform team. ",
+                    specific.getWorkspace());
+            logger.info(errorMessage);
+            updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errorMessage);
             return;
         }
 
@@ -287,6 +318,16 @@ public class ProvisionServiceImpl implements ProvisionService {
                     token,
                     ProvisioningStatus.StatusEnum.COMPLETED,
                     String.format("Unprovision skipped. Workspace %s not found.", specific.getWorkspace()));
+            return;
+        }
+        if (!workspaceInfoOpt.get().getProvisioningState().equals(ProvisioningState.SUCCEEDED)) {
+            var specific =
+                    (DatabricksDLTWorkloadSpecific) provisionRequest.component().getSpecific();
+            String errorMessage = String.format(
+                    "The status of %s workspace is different from 'ACTIVE'. Please try again and if the error persists contact the platform team. ",
+                    specific.getWorkspace());
+            logger.info(errorMessage);
+            updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errorMessage);
             return;
         }
 

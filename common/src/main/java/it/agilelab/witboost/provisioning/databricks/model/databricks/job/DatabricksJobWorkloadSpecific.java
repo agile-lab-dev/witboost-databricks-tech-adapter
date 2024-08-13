@@ -24,6 +24,9 @@ public class DatabricksJobWorkloadSpecific extends Specific {
     @NotBlank
     private String repoPath;
 
+    @NotBlank
+    private String metastore;
+
     @Valid
     @NotNull
     private GitSpecific git;

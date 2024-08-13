@@ -31,9 +31,9 @@ public class WorkloadValidation {
     }
 
     public static Either<FailedOperation, Void> validate(Component<? extends Specific> component) {
-        logger.info("Checking component with ID {} is of type Workload", component.getId());
+        logger.info("Checking component with ID {} is of type Workload", component.getName());
         if (!(component instanceof Workload<? extends Specific>)) {
-            String errorMessage = String.format("The component %s is not of type Workload", component.getId());
+            String errorMessage = String.format("The component %s is not of type Workload", component.getName());
             logger.error(errorMessage);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }
@@ -48,34 +48,34 @@ public class WorkloadValidation {
         if (templatesConfig.getJob().contains(useCaseTemplateId.toString())) {
             logger.info(
                     "Checking specific section of component {} is of type DatabricksJobWorkloadSpecific",
-                    component.getId());
+                    component.getName());
             if (!(component.getSpecific() instanceof DatabricksJobWorkloadSpecific)) {
                 String errorMessage = String.format(
                         "The specific section of the component %s is not of type DatabricksJobWorkloadSpecific",
-                        component.getId());
+                        component.getName());
                 logger.error(errorMessage);
                 return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
             }
-            logger.info("Validation of Workload {} completed successfully", component.getId());
+            logger.info("Validation of Workload {} completed successfully", component.getName());
             return right(null);
         } else if (templatesConfig.getDlt().contains(useCaseTemplateId)) {
             logger.info(
                     "Checking specific section of component {} is of type DatabricksDLTWorkloadSpecific",
-                    component.getId());
+                    component.getName());
             if (!(component.getSpecific() instanceof DatabricksDLTWorkloadSpecific)) {
                 String errorMessage = String.format(
                         "The specific section of the component %s is not of type DatabricksDLTWorkloadSpecific",
-                        component.getId());
+                        component.getName());
                 logger.error(errorMessage);
                 return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
             }
-            logger.info("Validation of Workload {} completed successfully", component.getId());
+            logger.info("Validation of Workload {} completed successfully", component.getName());
             return right(null);
         }
 
         String errorMessage = String.format(
                 "%s (component %s) is not an accepted useCaseTemplateId for Databricks jobs or DLT pipelines.",
-                ((Workload<? extends Specific>) component).getUseCaseTemplateId(), component.getId());
+                ((Workload<? extends Specific>) component).getUseCaseTemplateId(), component.getName());
         logger.error(errorMessage);
         return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
     }

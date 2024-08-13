@@ -4,17 +4,24 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.databricks.models.ProvisioningState;
+import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.service.catalog.CatalogInfo;
+import com.databricks.sdk.service.catalog.CatalogsAPI;
+import com.databricks.sdk.service.catalog.MetastoreInfo;
+import com.databricks.sdk.service.catalog.MetastoresAPI;
 import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
+import com.databricks.sdk.service.iam.*;
 import com.databricks.sdk.service.jobs.BaseJob;
 import com.databricks.sdk.service.jobs.CreateResponse;
 import com.databricks.sdk.service.jobs.Job;
 import com.databricks.sdk.service.jobs.JobsAPI;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
@@ -29,14 +36,14 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 
 @SpringBootTest
-@EnableConfigurationProperties
+@Import(TestConfig.class)
 public class JobWorkloadHandlerTest {
     @Autowired
     private AzurePermissionsConfig azurePermissionsConfig;
@@ -44,21 +51,21 @@ public class JobWorkloadHandlerTest {
     @Autowired
     private JobWorkloadHandler jobWorkloadHandler;
 
+    @MockBean
+    AccountClient accountClient;
+
     @Mock
     WorkspaceClient workspaceClient;
 
     @Autowired
     AzureAuthConfig azureAuthConfig;
 
-    @MockBean
-    private AzureResourceManager azureResourceManager;
-
     private DataProduct dataProduct;
     private Workload workload;
     private DatabricksJobWorkloadSpecific databricksJobWorkloadSpecific;
 
-    private DatabricksWorkspaceInfo workspaceInfo =
-            new DatabricksWorkspaceInfo("workspace", "123", "https://example.com", "abc", "test");
+    private DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
+            "workspace", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
     private String workspaceName = "testWorkspace";
 
     @BeforeEach
@@ -94,10 +101,13 @@ public class JobWorkloadHandlerTest {
         schedulingSpecific.setCronExpression("00 * * * * ?");
         schedulingSpecific.setJavaTimezoneId("UTC");
         databricksJobWorkloadSpecific.setScheduling(schedulingSpecific);
-
+        databricksJobWorkloadSpecific.setWorkspace("workspace");
+        databricksJobWorkloadSpecific.setMetastore("metastore");
         workload.setSpecific(databricksJobWorkloadSpecific);
 
+        workload.setName("workload");
         dataProduct.setDataProductOwner("user:name.surname@company.it");
+        dataProduct.setDevGroup("group:developers");
     }
 
     @Test
@@ -124,6 +134,36 @@ public class JobWorkloadHandlerTest {
         mockJobAPI(workspaceClient);
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
+        List<MetastoreInfo> metastoresList = Arrays.asList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
+                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+
+        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list()).thenReturn(metastoresList);
+
+        RepoInfo repoInfo = mock(RepoInfo.class);
+        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        when(repoInfo.getId()).thenReturn(123l);
+
+        when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
+        when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
+        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
+        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
+
+        List<User> users =
+                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
+        List<Group> groups =
+                Arrays.asList(new Group().setDisplayName("developers").setId("234"));
+
+        when(accountClient.users().list(any())).thenReturn(users);
+        when(accountClient.groups().list(any())).thenReturn(groups);
+
+        RepoPermissions repoPermissions = mock(RepoPermissions.class);
+        when(workspaceClient.repos().getPermissions(anyString())).thenReturn(repoPermissions);
+        when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
+        when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
+
         Either<FailedOperation, String> result =
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
 
@@ -132,12 +172,72 @@ public class JobWorkloadHandlerTest {
     }
 
     @Test
+    public void provisionWorkload_ErrorAttachingMetastore() {
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+
+        mockReposAPI(workspaceClient);
+        mockJobAPI(workspaceClient);
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
+
+        List<MetastoreInfo> metastoresList = Arrays.asList(
+                new MetastoreInfo().setName("metastore1").setMetastoreId("id"),
+                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+
+        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list()).thenReturn(metastoresList);
+
+        Either<FailedOperation, String> result =
+                jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+
+        assert result.isLeft();
+        assert result.getLeft().problems().get(0).description().contains("Details: Metastore not found");
+    }
+
+    @Test
     public void provisionWorkload_ErrorCreatingJob() {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
-        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
         mockReposAPI(workspaceClient);
+
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
+
+        List<MetastoreInfo> metastoresList = Arrays.asList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
+                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+
+        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list()).thenReturn(metastoresList);
+
+        ReposAPI reposAPI = mock(ReposAPI.class);
+        when(workspaceClient.repos()).thenReturn(reposAPI);
+
+        RepoInfo repoInfo = mock(RepoInfo.class);
+        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+        when(repoInfo.getId()).thenReturn(123l);
+
+        RepoPermissions repoPermissions = mock(RepoPermissions.class);
+        when(reposAPI.getPermissions(anyString())).thenReturn(repoPermissions);
+        when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
+
+        when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
+        when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
+        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
+        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
+
+        List<User> users =
+                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
+
+        List<Group> groups =
+                Arrays.asList(new Group().setDisplayName("developers").setId("456"));
+
+        when(accountClient.users().list(any())).thenReturn(users);
+        when(accountClient.groups().list(any())).thenReturn(groups);
+
+        when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
 
         Either<FailedOperation, String> result =
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -153,13 +253,77 @@ public class JobWorkloadHandlerTest {
     }
 
     @Test
+    public void provisionWorkload_ErrorMappingDpOwner() {
+
+        dataProduct.setDataProductOwner("wrong_user");
+        List<CatalogInfo> catalogList =
+                Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
+        Iterable<CatalogInfo> iterableCatalogList = catalogList;
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
+
+        List<MetastoreInfo> metastoresList = Arrays.asList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
+                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+
+        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list()).thenReturn(metastoresList);
+
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+        Either<FailedOperation, String> result =
+                jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+
+        assert result.isLeft();
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains("The subject wrong_user is neither a Witboost user nor a group");
+    }
+
+    // TODO: Temporarily removed. See annotation in JobWorkloadHandler.provisionWorkload
+
+    //    @Test
+    //    public void provisionWorkload_ErrorMappingDevGroup() {
+    //
+    //        dataProduct.setDevGroup("wrong_group");
+    //        List<CatalogInfo> catalogList =
+    //                Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
+    //        Iterable<CatalogInfo> iterableCatalogList = catalogList;
+    //
+    //        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+    //        when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
+    //
+    //        List<MetastoreInfo> metastoresList = Arrays.asList(
+    //                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
+    //                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+    //        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
+    //
+    //        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+    //        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+    //        when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
+    //
+    //        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
+    //                new ProvisionRequest<>(dataProduct, workload, false);
+    //        Either<FailedOperation, String> result =
+    //                jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+    //
+    //        assert result.isLeft();
+    //        assert result.getLeft()
+    //                .problems()
+    //                .get(0)
+    //                .description()
+    //                .contains("The subject wrong_group is neither a Witboost user nor a group");
+    //    }
+
+    @Test
     public void unprovisionWorkloadRemoveDataFalse_Success() {
 
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
-
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo(workspaceName, "test", "test", "test", "test");
 
         List<BaseJob> baseJobList = Arrays.asList(new BaseJob().setJobId(1l), new BaseJob().setJobId(2l));
         Iterable<BaseJob> baseJobIterable = baseJobList;
@@ -182,7 +346,7 @@ public class JobWorkloadHandlerTest {
                 new ProvisionRequest<>(dataProduct, workload, true);
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo(workspaceName, "test", "test", "test", "test");
+                new DatabricksWorkspaceInfo(workspaceName, "123", "test", "test", "test", ProvisioningState.SUCCEEDED);
 
         Optional<DatabricksWorkspaceInfo> optionalDatabricksWorkspaceInfo = Optional.of(databricksWorkspaceInfo);
 
@@ -226,6 +390,95 @@ public class JobWorkloadHandlerTest {
     }
 
     @Test
+    public void provisionWorkload_ErrorUpdatingUser() {
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+
+        mockReposAPI(workspaceClient);
+        mockJobAPI(workspaceClient);
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
+
+        List<MetastoreInfo> metastoresList = Arrays.asList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
+                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
+
+        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
+
+        RepoInfo repoInfo = mock(RepoInfo.class);
+        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        when(repoInfo.getId()).thenReturn(123l);
+
+        when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
+        when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
+        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
+        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
+
+        RepoPermissions repoPermissions = mock(RepoPermissions.class);
+        when(workspaceClient.repos().getPermissions(anyString())).thenReturn(repoPermissions);
+        when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
+
+        Either<FailedOperation, String> result =
+                jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+
+        assert result.isLeft();
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains("User name.surname@company.it not found at Databricks account level.");
+    }
+
+    @Test
+    public void provisionWorkload_ErrorUpdatingGroup() {
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+
+        mockReposAPI(workspaceClient);
+        mockJobAPI(workspaceClient);
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
+
+        List<MetastoreInfo> metastoresList = Arrays.asList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
+                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+
+        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list()).thenReturn(metastoresList);
+
+        RepoInfo repoInfo = mock(RepoInfo.class);
+        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        when(repoInfo.getId()).thenReturn(123l);
+
+        when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
+        when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
+        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
+        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
+
+        List<User> users =
+                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
+
+        when(accountClient.users().list(any())).thenReturn(users);
+        when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
+
+        RepoPermissions repoPermissions = mock(RepoPermissions.class);
+        when(workspaceClient.repos().getPermissions(anyString())).thenReturn(repoPermissions);
+        when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
+
+        Either<FailedOperation, String> result =
+                jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+
+        assert result.isLeft();
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains("Group developers not found at Databricks account level.");
+    }
+
+    @Test
     public void provisionWorkload_Exception() {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, new Workload(), false);
@@ -256,9 +509,6 @@ public class JobWorkloadHandlerTest {
 
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
-
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo(workspaceName, "test", "test", "test", "test");
 
         List<BaseJob> baseJobList = Arrays.asList(new BaseJob().setJobId(1l), new BaseJob().setJobId(2l));
         Iterable<BaseJob> baseJobIterable = baseJobList;
@@ -294,12 +544,6 @@ public class JobWorkloadHandlerTest {
 
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
-
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo(workspaceName, "test", "test", "test", "test");
-
-        List<BaseJob> baseJobList = Arrays.asList(new BaseJob().setJobId(1l), new BaseJob().setJobId(2l));
-        Iterable<BaseJob> baseJobIterable = baseJobList;
 
         JobsAPI jobsAPI = mock(JobsAPI.class);
         when(workspaceClient.jobs()).thenReturn(jobsAPI);

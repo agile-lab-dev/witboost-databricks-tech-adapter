@@ -9,6 +9,7 @@ import com.azure.resourcemanager.AzureResourceManager;
 import com.azure.resourcemanager.databricks.AzureDatabricksManager;
 import com.azure.resourcemanager.databricks.implementation.WorkspaceImpl;
 import com.azure.resourcemanager.databricks.implementation.WorkspacesImpl;
+import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
@@ -143,8 +144,8 @@ public class WorkspaceHandlerTest {
             throw new RuntimeException(e);
         }
 
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
         when(azureWorkspaceManager.createWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(Either.right(databricksWorkspaceInfo));
@@ -192,8 +193,8 @@ public class WorkspaceHandlerTest {
             throw new RuntimeException(e);
         }
 
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
         when(azureWorkspaceManager.createWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(Either.right(databricksWorkspaceInfo));
@@ -242,8 +243,8 @@ public class WorkspaceHandlerTest {
             throw new RuntimeException(e);
         }
 
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
         when(azureWorkspaceManager.createWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(Either.right(databricksWorkspaceInfo));
@@ -296,8 +297,8 @@ public class WorkspaceHandlerTest {
             throw new RuntimeException(e);
         }
 
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
         when(azureWorkspaceManager.createWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(Either.right(databricksWorkspaceInfo));
@@ -308,10 +309,12 @@ public class WorkspaceHandlerTest {
 
         Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceHandler.provisionWorkspace(provisionRequest);
 
-        var expected = new FailedOperation(Collections.singletonList(new Problem("Failed to map user: Error")));
-
         assert result.isLeft();
-        assert result.getLeft().equals(expected);
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains("Failed to get AzureID of: user:name.surname@company.it.");
     }
 
     @Test
@@ -376,8 +379,8 @@ public class WorkspaceHandlerTest {
     @Test
     public void getWorkspaceClient_Success() throws Exception {
 
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
 
         when(databricksWorkspaceClientBean.getObject(anyString(), anyString())).thenReturn(workspaceClient);
 
@@ -391,8 +394,8 @@ public class WorkspaceHandlerTest {
     public void getWorkspaceClient_Failure() throws Exception {
 
         String errorMessage = "This is an exception";
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
 
         when(databricksWorkspaceClientBean.getObject(anyString(), anyString())).thenThrow(new Exception(errorMessage));
 
@@ -406,8 +409,8 @@ public class WorkspaceHandlerTest {
     public void testGetWorkspaceInfo_Success() {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
 
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo("testWorkspace", "test", "test", "test", "test");
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
 
         when(azureWorkspaceManager.getWorkspace(anyString(), anyString()))
                 .thenReturn(Either.right(Optional.of(databricksWorkspaceInfo)));

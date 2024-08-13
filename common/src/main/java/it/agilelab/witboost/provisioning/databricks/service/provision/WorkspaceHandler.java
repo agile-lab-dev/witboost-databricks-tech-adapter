@@ -156,19 +156,26 @@ public class WorkspaceHandler {
     private <T extends Specific> Either<FailedOperation, Void> assignAzurePermissions(
             ProvisionRequest<T> provisionRequest, DatabricksWorkspaceInfo databricksWorkspaceInfo) {
         try {
-            logger.info("Assigning Azure permissions to {}", databricksWorkspaceInfo.getName());
 
             // TODO: Assign permissions to the group!? Now are assigned to the DP owner
 
             String mail = provisionRequest.dataProduct().getDataProductOwner();
             Set<String> inputUser = Set.of(mail);
 
+            String message = String.format(
+                    "Assigning permissions to %s for workspace %s", mail, databricksWorkspaceInfo.getName());
+            logger.info(message);
+
             Map<String, Either<Throwable, String>> res = azureMapper.map(inputUser);
             Either<Throwable, String> userMap = res.get(mail);
 
             if (userMap.isLeft()) {
-                return left(new FailedOperation(Collections.singletonList(
-                        new Problem("Failed to map user: " + userMap.getLeft().getMessage()))));
+                String errorMessage = String.format(
+                        "Failed to get AzureID of: %s. Details:",
+                        mail, userMap.getLeft().getMessage());
+                logger.error(errorMessage, userMap.getLeft());
+                return left(
+                        new FailedOperation(Collections.singletonList(new Problem(errorMessage, userMap.getLeft()))));
             }
 
             String resourceId = String.format(

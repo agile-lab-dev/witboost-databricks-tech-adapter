@@ -2,6 +2,7 @@ package it.agilelab.witboost.provisioning.databricks.model.databricks;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,12 @@ public class DatabricksWorkspaceInfoTest {
     @BeforeEach
     public void setUp() {
         workspaceInfo = new DatabricksWorkspaceInfo(
-                "WorkspaceName", "WorkspaceId", "http://workspace.url", "ResourceId", "resourceUrl");
+                "WorkspaceName",
+                "WorkspaceId",
+                "http://workspace.url",
+                "ResourceId",
+                "resourceUrl",
+                ProvisioningState.SUCCEEDED);
     }
 
     @Test

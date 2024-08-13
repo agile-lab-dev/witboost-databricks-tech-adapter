@@ -56,7 +56,7 @@ public class DatabricksWorkspaceClientBean implements FactoryBean<WorkspaceClien
         return WorkspaceClient.class;
     }
 
-    private WorkspaceClient initializeWorkspaceClient() {
+    private synchronized WorkspaceClient initializeWorkspaceClient() {
         try {
             DatabricksConfig config = new DatabricksConfig()
                     .setHost(workspaceHost)

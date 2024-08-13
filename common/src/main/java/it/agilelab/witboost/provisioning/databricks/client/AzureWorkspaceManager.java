@@ -71,27 +71,25 @@ public class AzureWorkspaceManager {
      * @param skuType                   The SKU type for the workspace.
      * @return Either a DatabricksWorkspaceInfo if the operation is successful, or a FailedOperation.
      */
-    public Either<FailedOperation, DatabricksWorkspaceInfo> createWorkspace(
+    public synchronized Either<FailedOperation, DatabricksWorkspaceInfo> createWorkspace(
             String workspaceName,
             String region,
             String existingResourceGroupName,
             String managedResourceGroupId,
             SkuType skuType) {
         try {
-
-            // Check if the workspace already exists
             Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> workspace =
                     getWorkspace(workspaceName, managedResourceGroupId);
 
             if (workspace.isLeft()) return left(workspace.getLeft());
 
             if (workspace.get().isPresent()) {
-
                 logger.info(String.format(
                         "Workspace %s already exists", workspace.get().get().getName()));
                 return right(workspace.get().get());
             }
-            logger.info(String.format("Creating workspace %s ...", workspaceName));
+
+            logger.info(String.format("Creating workspace %s", workspaceName));
             Workspace w = azureDatabricksManager
                     .workspaces()
                     .define(workspaceName)
@@ -108,11 +106,20 @@ public class AzureWorkspaceManager {
             String azureUrl = String.format(
                     "https://portal.azure.com/#@%s/resource/%s", azurePermissionsConfig.getAuth_tenantId(), resourceId);
 
-            var workspaceInfo =
-                    new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id(), azureUrl);
+            var workspaceInfo = new DatabricksWorkspaceInfo(
+                    w.name(), w.workspaceId(), w.workspaceUrl(), w.id(), azureUrl, w.provisioningState());
             return right(workspaceInfo);
 
         } catch (Exception e) {
+
+            if (e.getMessage().contains("\"code\": \"ApplianceBeingCreated\"")) {
+                String error = String.format(
+                        "The workspace %s is currently being created. Please wait a few minutes and try again.",
+                        workspaceName);
+                logger.error(error, e);
+                return left(new FailedOperation(Collections.singletonList(new Problem(error, e))));
+            }
+
             String error = String.format(
                     "An error occurred creating the workspace: %s. Please try again and if the error persists contact the platform team. Details: %s",
                     workspaceName, e.getMessage());
@@ -161,8 +168,8 @@ public class AzureWorkspaceManager {
                         "https://portal.azure.com/#@%s/resource/%s",
                         azurePermissionsConfig.getAuth_tenantId(), resourceId);
 
-                workspaceInfo =
-                        new DatabricksWorkspaceInfo(w.name(), w.workspaceId(), w.workspaceUrl(), w.id(), azureUrl);
+                workspaceInfo = new DatabricksWorkspaceInfo(
+                        w.name(), w.workspaceId(), w.workspaceUrl(), w.id(), azureUrl, w.provisioningState());
                 return right(Optional.of(workspaceInfo));
             } else return right(Optional.empty());
 
