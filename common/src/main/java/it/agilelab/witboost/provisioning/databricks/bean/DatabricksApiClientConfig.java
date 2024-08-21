@@ -6,12 +6,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class DatabricksTablesAPIConfig {
+public class DatabricksApiClientConfig {
 
     @Bean
-    public DatabricksTableAPIBean databricksTableAPIBean(
+    public DatabricksApiClientBean databricksApiClientBean(
             DatabricksAuthConfig databricksAuthConfig, AzureAuthConfig azureAuthConfig) {
-        return new DatabricksTableAPIBean(
+        return new DatabricksApiClientBean(
                 null, databricksAuthConfig, azureAuthConfig); // workspaceHost will be set later
     }
 }

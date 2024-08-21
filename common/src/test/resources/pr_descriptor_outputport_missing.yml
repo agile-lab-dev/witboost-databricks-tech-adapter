@@ -40,8 +40,13 @@ dataProduct:
           - name: col_2
             dataType: TEXT
       specific:
+        workspace: workspace_name
         catalogName: catalog_name
         schemaName: schema_name
         tableName: table_name
-        workspaceHost: https://workspace_host.net
+        sqlWarehouseName: a
+        workspaceOP: .
+        catalogNameOP: .
+        schemaNameOP: .
+        viewNameOP: .
 componentIdToProvision: urn:dmb:cmp:organization:test-op:0:test-op

@@ -3,10 +3,9 @@ package it.agilelab.witboost.provisioning.databricks.service.validation;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
-import com.databricks.sdk.service.catalog.TablesAPI;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksTableAPIBean;
+import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
@@ -20,6 +19,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.job.Databri
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.parser.Parser;
+import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,12 +33,15 @@ public class ValidationServiceImpl implements ValidationService {
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
     private final Map<String, List<Class<? extends Specific>>> kindToSpecificClasses = new HashMap<>();
-    private final DatabricksTableAPIBean databricksTableApiBean;
+    private final DatabricksApiClientBean databricksApiClientBean;
+    private final WorkspaceHandler workspaceHandler;
     private final MiscConfig miscConfig;
 
-    public ValidationServiceImpl(DatabricksTableAPIBean databricksTableApiBean, MiscConfig miscConfig) {
-        this.databricksTableApiBean = databricksTableApiBean;
+    public ValidationServiceImpl(
+            DatabricksApiClientBean databricksApiClientBean, MiscConfig miscConfig, WorkspaceHandler workspaceHandler) {
+        this.databricksApiClientBean = databricksApiClientBean;
         this.miscConfig = miscConfig;
+        this.workspaceHandler = workspaceHandler;
 
         List<Class<? extends Specific>> classes = new ArrayList<>();
         classes.add(DatabricksJobWorkloadSpecific.class);
@@ -112,12 +115,8 @@ public class ValidationServiceImpl implements ValidationService {
                         componentToProvision.getName(),
                         environment);
 
-                String workspaceHost =
-                        ((DatabricksOutputPortSpecific) componentToProvision.getSpecific()).getWorkspaceHost();
-
-                TablesAPI tablesAPI = databricksTableApiBean.getObject(workspaceHost);
-
-                var outputPortValidator = new OutputPortValidation(miscConfig, tablesAPI);
+                var outputPortValidator =
+                        new OutputPortValidation(miscConfig, workspaceHandler, databricksApiClientBean);
                 var outputPortValidation = outputPortValidator.validate(
                         (OutputPort<DatabricksOutputPortSpecific>) componentToProvision, environment);
                 if (outputPortValidation.isLeft()) return left(outputPortValidation.getLeft());

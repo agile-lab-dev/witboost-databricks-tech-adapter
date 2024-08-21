@@ -17,6 +17,7 @@ import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
+import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.Collections;
 import java.util.HashMap;
@@ -229,7 +230,8 @@ public class DLTProvisionServiceTest {
 
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
-        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
+        when(workspaceHandler.getWorkspaceInfo(any(ProvisionRequest.class)))
+                .thenReturn(right(Optional.of(workspaceInfo)));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
         when(dltWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right(null));
@@ -253,7 +255,7 @@ public class DLTProvisionServiceTest {
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("gettingWorkspaceInfoError")));
-        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(left(failedOperation));
+        when(workspaceHandler.getWorkspaceInfo(any(ProvisionRequest.class))).thenReturn(left(failedOperation));
 
         String token = provisionService.unprovision(provisioningRequest);
 
@@ -273,7 +275,7 @@ public class DLTProvisionServiceTest {
 
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
-        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.empty()));
+        when(workspaceHandler.getWorkspaceInfo(any(ProvisionRequest.class))).thenReturn(right(Optional.empty()));
 
         String token = provisionService.unprovision(provisioningRequest);
 
@@ -294,7 +296,8 @@ public class DLTProvisionServiceTest {
 
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
-        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
+        when(workspaceHandler.getWorkspaceInfo(any(ProvisionRequest.class)))
+                .thenReturn(right(Optional.of(workspaceInfo)));
         var failedOperation =
                 new FailedOperation(Collections.singletonList(new Problem("gettingWorkspaceClientError")));
         when(workspaceHandler.getWorkspaceClient(workspaceInfo)).thenReturn(left(failedOperation));
@@ -315,7 +318,8 @@ public class DLTProvisionServiceTest {
 
         var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
-        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(workspaceInfo)));
+        when(workspaceHandler.getWorkspaceInfo(any(ProvisionRequest.class)))
+                .thenReturn(right(Optional.of(workspaceInfo)));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
 
         var failedOperation =
@@ -345,7 +349,8 @@ public class DLTProvisionServiceTest {
         DatabricksWorkspaceInfo wrongWorkspaceInfo = workspaceInfo;
         wrongWorkspaceInfo.setProvisioningState(ProvisioningState.DELETING);
 
-        when(workspaceHandler.getWorkspaceInfo(any())).thenReturn(right(Optional.of(wrongWorkspaceInfo)));
+        when(workspaceHandler.getWorkspaceInfo(any(ProvisionRequest.class)))
+                .thenReturn(right(Optional.of(wrongWorkspaceInfo)));
 
         String token = provisionService.unprovision(provisioningRequest);
 

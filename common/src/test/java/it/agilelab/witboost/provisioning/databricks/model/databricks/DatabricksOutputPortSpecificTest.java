@@ -25,10 +25,15 @@ class DatabricksOutputPortSpecificTest {
 
     @Test
     public void testTableNameNotNull() {
-        outputPortSpecific.setTableName(null);
-        outputPortSpecific.setSchemaName("fake_schema");
+        outputPortSpecific.setWorkspace("fake_ws");
         outputPortSpecific.setCatalogName("fake_catalog");
-        outputPortSpecific.setWorkspaceHost("fake_ws");
+        outputPortSpecific.setSchemaName("fake_schema");
+        outputPortSpecific.setTableName(null);
+        outputPortSpecific.setSqlWarehouseName("fake_sql_wh");
+        outputPortSpecific.setWorkspaceOP("fake_ws_op");
+        outputPortSpecific.setCatalogNameOP("fake_catalog_op");
+        outputPortSpecific.setSchemaNameOP("fake_schema_op");
+        outputPortSpecific.setViewNameOP("fake_view_op");
         Set<ConstraintViolation<DatabricksOutputPortSpecific>> violations = validator.validate(outputPortSpecific);
         assertEquals(1, violations.size());
 
@@ -37,10 +42,15 @@ class DatabricksOutputPortSpecificTest {
 
     @Test
     public void testTableNameValid() {
-        outputPortSpecific.setTableName("sales");
-        outputPortSpecific.setSchemaName("fake_schema");
+        outputPortSpecific.setWorkspace("fake_ws");
         outputPortSpecific.setCatalogName("fake_catalog");
-        outputPortSpecific.setWorkspaceHost("fake_ws");
+        outputPortSpecific.setSchemaName("fake_schema");
+        outputPortSpecific.setTableName("table_valid");
+        outputPortSpecific.setWorkspaceOP("fake_ws_op");
+        outputPortSpecific.setSqlWarehouseName("fake_sql_wh");
+        outputPortSpecific.setCatalogNameOP("fake_catalog_op");
+        outputPortSpecific.setSchemaNameOP("fake_schema_op");
+        outputPortSpecific.setViewNameOP("fake_view_op");
         Set<ConstraintViolation<DatabricksOutputPortSpecific>> violations = validator.validate(outputPortSpecific);
         assertEquals(0, violations.size());
     }
@@ -49,12 +59,12 @@ class DatabricksOutputPortSpecificTest {
     public void testSettersAndGetters() {
 
         outputPortSpecific = new DatabricksOutputPortSpecific();
-        outputPortSpecific.setWorkspaceHost("ws");
+        outputPortSpecific.setWorkspace("ws");
         outputPortSpecific.setCatalogName("c");
         outputPortSpecific.setSchemaName("s");
         outputPortSpecific.setTableName("t");
 
-        assertEquals("ws", outputPortSpecific.getWorkspaceHost());
+        assertEquals("ws", outputPortSpecific.getWorkspace());
         assertEquals("c", outputPortSpecific.getCatalogName());
         assertEquals("s", outputPortSpecific.getSchemaName());
         assertEquals("t", outputPortSpecific.getTableName());

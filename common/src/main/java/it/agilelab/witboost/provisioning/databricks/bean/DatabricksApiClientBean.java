@@ -2,24 +2,23 @@ package it.agilelab.witboost.provisioning.databricks.bean;
 
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
-import com.databricks.sdk.service.catalog.TablesAPI;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.FactoryBean;
 
-public class DatabricksTableAPIBean implements FactoryBean<TablesAPI> {
+public class DatabricksApiClientBean implements FactoryBean<ApiClient> {
 
     private DatabricksConfig databricksConfig;
     private String workspaceHost;
     private final DatabricksAuthConfig databricksAuthConfig;
     private final AzureAuthConfig azureAuthConfig;
-    private TablesAPI tablesAPI;
+    private ApiClient apiClient;
 
-    private final Logger logger = LoggerFactory.getLogger(DatabricksTableAPIBean.class);
+    private final Logger logger = LoggerFactory.getLogger(DatabricksApiClientBean.class);
 
-    public DatabricksTableAPIBean(
+    public DatabricksApiClientBean(
             String workspaceHost, DatabricksAuthConfig databricksAuthConfig, AzureAuthConfig azureAuthConfig) {
         this.workspaceHost = workspaceHost;
         this.databricksAuthConfig = databricksAuthConfig;
@@ -27,24 +26,24 @@ public class DatabricksTableAPIBean implements FactoryBean<TablesAPI> {
     }
 
     @Override
-    public TablesAPI getObject() {
-        setTablesAPI(initializeTablesAPI());
-        return tablesAPI;
+    public ApiClient getObject() {
+        setApiClient(initializeApiClient());
+        return apiClient;
     }
 
-    public TablesAPI getObject(String workspaceHost) {
+    public ApiClient getObject(String workspaceHost) {
         setWorkspaceHost(workspaceHost);
-        setTablesAPI(initializeTablesAPI());
+        setApiClient(initializeApiClient());
 
-        return tablesAPI;
+        return apiClient;
     }
 
     @Override
     public Class<?> getObjectType() {
-        return TablesAPI.class;
+        return ApiClient.class;
     }
 
-    public DatabricksConfig setDatabricksConfig(String workspaceHost) {
+    private DatabricksConfig setDatabricksConfig(String workspaceHost) {
         return new DatabricksConfig()
                 .setHost(workspaceHost)
                 .setAccountId(databricksAuthConfig.getAccountId())
@@ -53,22 +52,22 @@ public class DatabricksTableAPIBean implements FactoryBean<TablesAPI> {
                 .setAzureClientSecret(azureAuthConfig.getClientSecret());
     }
 
-    private TablesAPI initializeTablesAPI() {
+    private ApiClient initializeApiClient() {
         try {
             DatabricksConfig config = setDatabricksConfig(workspaceHost);
 
             ApiClient apiClient = new ApiClient(config);
 
-            return new TablesAPI(apiClient);
+            return apiClient;
 
         } catch (Exception e) {
-            logger.error("Error initializing the TablesAPI", e);
-            throw new RuntimeException("Unable to initialize TablesAPI", e);
+            logger.error("Error initializing the ApiClient: {}", e.getMessage());
+            throw new RuntimeException("Unable to initialize ApiClient", e);
         }
     }
 
-    public void setTablesAPI(TablesAPI tablesAPI) {
-        this.tablesAPI = tablesAPI;
+    public void setApiClient(ApiClient apiClient) {
+        this.apiClient = apiClient;
     }
 
     public void setWorkspaceHost(String workspaceHost) {

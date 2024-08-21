@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.service.provision;
+package it.agilelab.witboost.provisioning.databricks.service;
 
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
@@ -19,6 +19,7 @@ import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
@@ -83,7 +84,7 @@ public class WorkspaceHandler {
         return right(eitherNewWorkspace.get());
     }
 
-    protected <T extends Specific> Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> getWorkspaceInfo(
+    public <T extends Specific> Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> getWorkspaceInfo(
             ProvisionRequest<T> provisionRequest) {
 
         String workspaceName = getWorkspaceName(provisionRequest)
@@ -98,7 +99,38 @@ public class WorkspaceHandler {
         return eitherGetWorkspace;
     }
 
-    protected Either<FailedOperation, WorkspaceClient> getWorkspaceClient(
+    public Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> getWorkspaceInfo(String workspaceName) {
+
+        String managedResourceGroupId = String.format(
+                "/subscriptions/%s/resourceGroups/%s-rg", azurePermissionsConfig.getSubscriptionId(), workspaceName);
+
+        Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherGetWorkspace =
+                azureWorkspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
+
+        return eitherGetWorkspace;
+    }
+
+    public Either<FailedOperation, String> getWorkspaceHost(String workspaceName) {
+
+        try {
+            String managedResourceGroupId = String.format(
+                    "/subscriptions/%s/resourceGroups/%s-rg",
+                    azurePermissionsConfig.getSubscriptionId(), workspaceName);
+
+            Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherGetWorkspace =
+                    azureWorkspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
+
+            return right(eitherGetWorkspace.get().get().getDatabricksHost());
+
+        } catch (Exception e) {
+            String errorMessage =
+                    String.format("An error occurred while retrieving workspace host. Details: %s", e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    public Either<FailedOperation, WorkspaceClient> getWorkspaceClient(
             DatabricksWorkspaceInfo databricksWorkspaceInfo) {
         try {
             return right(databricksWorkspaceClientBean.getObject(
@@ -202,8 +234,7 @@ public class WorkspaceHandler {
         }
     }
 
-    protected <T extends Specific> Either<FailedOperation, String> getWorkspaceName(
-            ProvisionRequest<T> provisionRequest) {
+    public <T extends Specific> Either<FailedOperation, String> getWorkspaceName(ProvisionRequest<T> provisionRequest) {
         try {
             Specific specific = provisionRequest.component().getSpecific();
             String workspaceName;
@@ -212,6 +243,8 @@ public class WorkspaceHandler {
                 workspaceName = ((DatabricksJobWorkloadSpecific) specific).getWorkspace();
             } else if (specific instanceof DatabricksDLTWorkloadSpecific) {
                 workspaceName = ((DatabricksDLTWorkloadSpecific) specific).getWorkspace();
+            } else if (specific instanceof DatabricksOutputPortSpecific) {
+                workspaceName = ((DatabricksOutputPortSpecific) specific).getWorkspaceOP();
             } else {
                 String errorMessage = String.format(
                         "The specific section of the component %s is not of type DatabricksJobWorkloadSpecific or DatabricksDLTWorkloadSpecific",

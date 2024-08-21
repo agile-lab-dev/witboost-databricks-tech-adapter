@@ -1,6 +1,7 @@
-package it.agilelab.witboost.provisioning.databricks.service.provision;
+package it.agilelab.witboost.provisioning.databricks.service;
 
 import static io.vavr.API.Left;
+import static io.vavr.control.Either.right;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -11,6 +12,7 @@ import com.azure.resourcemanager.databricks.implementation.WorkspaceImpl;
 import com.azure.resourcemanager.databricks.implementation.WorkspacesImpl;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
 import com.databricks.sdk.service.iam.GroupsAPI;
@@ -148,14 +150,14 @@ public class WorkspaceHandlerTest {
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
         when(azureWorkspaceManager.createWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
-                .thenReturn(Either.right(databricksWorkspaceInfo));
+                .thenReturn(right(databricksWorkspaceInfo));
 
         Map<String, Either<Throwable, String>> mockres = new HashMap<>();
-        mockres.put(dataProduct.getDataProductOwner(), Either.right("azureId"));
+        mockres.put(dataProduct.getDataProductOwner(), right("azureId"));
         when(azureMapper.map(anySet())).thenReturn(mockres);
 
         when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
-                .thenReturn(Either.right(null));
+                .thenReturn(right(null));
         GroupsAPI groupsAPI = mock(GroupsAPI.class);
         when(workspaceClient.groups()).thenReturn(groupsAPI);
 
@@ -197,14 +199,14 @@ public class WorkspaceHandlerTest {
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
         when(azureWorkspaceManager.createWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
-                .thenReturn(Either.right(databricksWorkspaceInfo));
+                .thenReturn(right(databricksWorkspaceInfo));
 
         Map<String, Either<Throwable, String>> mockres = new HashMap<>();
-        mockres.put(dataProduct.getDataProductOwner(), Either.right("azureId"));
+        mockres.put(dataProduct.getDataProductOwner(), right("azureId"));
         when(azureMapper.map(anySet())).thenReturn(mockres);
 
         when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
-                .thenReturn(Either.right(null));
+                .thenReturn(right(null));
         GroupsAPI groupsAPI = mock(GroupsAPI.class);
         when(workspaceClient.groups()).thenReturn(groupsAPI);
 
@@ -247,14 +249,14 @@ public class WorkspaceHandlerTest {
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
         when(azureWorkspaceManager.createWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
-                .thenReturn(Either.right(databricksWorkspaceInfo));
+                .thenReturn(right(databricksWorkspaceInfo));
 
         Map<String, Either<Throwable, String>> mockres = new HashMap<>();
-        mockres.put(dataProduct.getDataProductOwner(), Either.right("azureId"));
+        mockres.put(dataProduct.getDataProductOwner(), right("azureId"));
         when(azureMapper.map(anySet())).thenReturn(mockres);
 
         when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
-                .thenReturn(Either.right(null));
+                .thenReturn(right(null));
         GroupsAPI groupsAPI = mock(GroupsAPI.class);
         when(workspaceClient.groups()).thenReturn(groupsAPI);
 
@@ -301,7 +303,7 @@ public class WorkspaceHandlerTest {
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
         when(azureWorkspaceManager.createWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
-                .thenReturn(Either.right(databricksWorkspaceInfo));
+                .thenReturn(right(databricksWorkspaceInfo));
 
         Map<String, Either<Throwable, String>> mockres = new HashMap<>();
         mockres.put(dataProduct.getDataProductOwner(), Either.left(new Throwable("Error")));
@@ -413,7 +415,7 @@ public class WorkspaceHandlerTest {
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
 
         when(azureWorkspaceManager.getWorkspace(anyString(), anyString()))
-                .thenReturn(Either.right(Optional.of(databricksWorkspaceInfo)));
+                .thenReturn(right(Optional.of(databricksWorkspaceInfo)));
 
         Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> result =
                 workspaceHandler.getWorkspaceInfo(provisionRequest);
@@ -423,6 +425,27 @@ public class WorkspaceHandlerTest {
         assertEquals(databricksWorkspaceInfo, result.get().get());
         verify(azureWorkspaceManager, times(1))
                 .getWorkspace("testWorkspace", "/subscriptions/testSubscriptionId/resourceGroups/testWorkspace-rg");
+    }
+
+    @Test
+    public void testRetrieveWorkspaceHost_Success() {
+
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "ws_name", "ws_id", "ws_host", "test", "ws_arurl", ProvisioningState.SUCCEEDED);
+
+        when(azureWorkspaceManager.getWorkspace(
+                        "ws_name", "/subscriptions/testSubscriptionId/resourceGroups/ws_name-rg"))
+                .thenReturn(right(Optional.of(databricksWorkspaceInfo)));
+
+        assertEquals("ws_host", workspaceHandler.getWorkspaceHost("ws_name").get());
+    }
+
+    @Test
+    public void testRetrieveWorkspaceHost_Failed() {
+
+        when(azureWorkspaceManager.getWorkspace(anyString(), anyString())).thenThrow(new DatabricksException("Error"));
+
+        assertTrue(workspaceHandler.getWorkspaceHost("any").isLeft());
     }
 
     private ProvisionRequest<DatabricksJobWorkloadSpecific> createJobProvisionRequest() {

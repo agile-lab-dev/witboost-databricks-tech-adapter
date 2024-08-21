@@ -4,14 +4,15 @@ import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
 import com.databricks.sdk.WorkspaceClient;
-import com.databricks.sdk.service.catalog.CatalogInfo;
-import com.databricks.sdk.service.catalog.CreateMetastoreAssignment;
-import com.databricks.sdk.service.catalog.ListCatalogsRequest;
+import com.databricks.sdk.service.catalog.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -129,5 +130,170 @@ public class UnityCatalogManager {
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
+    }
+
+    public Either<FailedOperation, Void> createSchemaIfNotExists(String catalogName, String schemaName) {
+        try {
+            Either<FailedOperation, Boolean> eitherSchemaExists = checkSchemaExistence(catalogName, schemaName);
+            if (eitherSchemaExists.isLeft()) return left(eitherSchemaExists.getLeft());
+
+            boolean schemaExists = eitherSchemaExists.get();
+
+            if (!schemaExists) {
+                var createSchema = createSchema(catalogName, schemaName);
+                if (createSchema.isLeft()) return left(createSchema.getLeft());
+            }
+
+            return right(null);
+        } catch (Exception e) {
+
+            String errorMessage = String.format(
+                    "An error occurred while creating schema '%s' in catalog '%s'. Please try again and if the error persists contact the platform team. Details: %s",
+                    schemaName, catalogName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    private Either<FailedOperation, Void> createSchema(String catalogName, String schemaName) {
+        try {
+            logger.info(String.format(
+                    "Creating schema '%s' in catalog '%s', in workspace %s",
+                    schemaName, catalogName, databricksWorkspaceInfo.getName()));
+            workspaceClient.schemas().create(schemaName, catalogName);
+            return right(null);
+
+        } catch (Exception e) {
+
+            String errorMessage = String.format(
+                    "An error occurred while creating schema '%s' in catalog '%s'. Please try again and if the error persists contact the platform team. Details: %s",
+                    schemaName, catalogName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    public Either<FailedOperation, Boolean> checkSchemaExistence(String catalogName, String schemaName) {
+        try {
+            var catalogExists = checkCatalogExistence(catalogName);
+
+            if (catalogExists.isLeft()) {
+                // checkCatalogExistence returns Left, so it fails for various reason
+                return left(catalogExists.getLeft());
+            }
+
+            if (!catalogExists.get()) {
+                // checkCatalogExistence returns Right(false), so the catalog does not exist
+                return left(new FailedOperation(Collections.singletonList(new Problem(String.format(
+                        "An error occurred trying to search the schema '%s' in catalog '%s': catalog '%s' does not exist!",
+                        schemaName, catalogName, catalogName)))));
+            } else {
+                // checkCatalogExistence returns Right(true), so the catalog exists, so I can proceed with schemas check
+                var schemasList = workspaceClient.schemas().list(catalogName);
+                if (schemasList != null) {
+                    for (SchemaInfo schemaInfo : schemasList) {
+                        if (schemaInfo.getName().equalsIgnoreCase(schemaName)) {
+                            return right(true);
+                        }
+                    }
+                }
+            }
+            return right(false);
+
+        } catch (Exception e) {
+            String errorMessage = String.format(
+                    "An error occurred trying to search the schema '%s' in catalog '%s'. Please try again and if the error persists contact the platform team. Details: %s",
+                    schemaName, catalogName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    public Either<FailedOperation, TableInfo> getTableInfo(String catalogName, String schemaName, String tableName) {
+        String tableFullName = retrieveTableFullName(catalogName, schemaName, tableName);
+        return right(workspaceClient.tables().get(tableFullName));
+    }
+
+    public Either<FailedOperation, Boolean> checkTableExistence(
+            String catalogName, String schemaName, String tableName) {
+
+        String tableFullName = retrieveTableFullName(catalogName, schemaName, tableName);
+
+        try {
+
+            TableExistsResponse tableExistsResponse = workspaceClient.tables().exists(tableFullName);
+            return right(tableExistsResponse.getTableExists());
+        } catch (Exception e) {
+            String errorMessage = String.format(
+                    "An error occurred while searching table %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    tableFullName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    public Either<FailedOperation, Void> dropTableIfExists(String catalogName, String schemaName, String tableName) {
+
+        String tableFullName = retrieveTableFullName(catalogName, schemaName, tableName);
+
+        try {
+            Either<FailedOperation, Boolean> eitherTableExists =
+                    checkTableExistence(catalogName, schemaName, tableName);
+            if (eitherTableExists.isLeft()) return left(eitherTableExists.getLeft());
+
+            boolean tableExists = eitherTableExists.get();
+
+            if (!tableExists) {
+                logger.info(String.format("Drop table skipped. Table '%s' does not exist.", tableFullName));
+            } else {
+                logger.info(String.format("Dropping table '%s'.", tableFullName));
+                workspaceClient.tables().delete(tableFullName);
+                logger.info(String.format("Table '%s' correctly dropped.", tableFullName));
+            }
+            return (right(null));
+
+        } catch (Exception e) {
+
+            String errorMessage = String.format(
+                    "An error occurred while dropping table '%s'. Please try again and if the error persists contact the platform team. Details: %s",
+                    tableFullName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    public Either<FailedOperation, List<String>> retrieveTableColumnsNames(
+            String catalogName, String schemaName, String tableName) {
+
+        String tableFullName = retrieveTableFullName(catalogName, schemaName, tableName);
+
+        try {
+            logger.info(String.format(
+                    "Retrieving columns for table '%s' in workspace %s",
+                    tableFullName, databricksWorkspaceInfo.getName()));
+            List<String> colNames = new ArrayList<>();
+
+            TableInfo tableInfo = workspaceClient.tables().get(tableFullName);
+
+            Collection<ColumnInfo> columns = tableInfo.getColumns();
+
+            for (ColumnInfo column : columns) {
+                colNames.add(column.getName());
+            }
+
+            return right(colNames);
+
+        } catch (Exception e) {
+
+            String errorMessage = String.format(
+                    "An error occurred while retrieving columns for table '%s' in workspace %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    tableFullName, databricksWorkspaceInfo.getName(), e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    private String retrieveTableFullName(String catalogName, String schemaName, String tableName) {
+        return catalogName + "." + schemaName + "." + tableName;
     }
 }

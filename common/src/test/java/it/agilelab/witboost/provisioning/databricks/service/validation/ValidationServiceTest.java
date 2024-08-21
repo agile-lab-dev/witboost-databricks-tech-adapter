@@ -1,24 +1,30 @@
 package it.agilelab.witboost.provisioning.databricks.service.validation;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static io.vavr.control.Either.right;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.catalog.ColumnInfo;
 import com.databricks.sdk.service.catalog.TableExistsResponse;
 import com.databricks.sdk.service.catalog.TableInfo;
 import com.databricks.sdk.service.catalog.TablesAPI;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksTableAPIBean;
+import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
+import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.util.ResourceUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -34,12 +40,16 @@ public class ValidationServiceTest {
     private TemplatesConfig templatesConfig;
 
     @Mock
-    DatabricksTableAPIBean databricksTableAPIBean;
+    DatabricksApiClientBean databricksApiClientBean;
+
+    @Mock
+    WorkspaceHandler workspaceHandler;
 
     @Autowired
     MiscConfig miscConfig;
 
-    private ValidationService service = new ValidationServiceImpl(databricksTableAPIBean, miscConfig);
+    private ValidationService service =
+            new ValidationServiceImpl(databricksApiClientBean, miscConfig, workspaceHandler);
 
     @Test
     public void testValidateWorkloadOk() throws IOException {
@@ -163,18 +173,34 @@ public class ValidationServiceTest {
     public void testValidateOutputPortOk() throws Exception {
         String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_outputport_ok.yml");
 
-        DatabricksTableAPIBean databricksTableAPIBeanMock = mock(DatabricksTableAPIBean.class);
+        DatabricksApiClientBean databricksApiClientBeanMock = mock(DatabricksApiClientBean.class);
 
-        TablesAPI tablesAPIMock = mock(TablesAPI.class);
+        WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
+
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+
+        when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
+                .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
+        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
+
+        when(workspaceHandlerMock.getWorkspaceHost("workspace_name")).thenReturn(right("http://workspace"));
+
         TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
-
         when(tableExistsResponseMock.getTableExists()).thenReturn(true);
-        when(tablesAPIMock.exists("catalog_name.schema_name.table_name")).thenReturn(tableExistsResponseMock);
 
-        when(databricksTableAPIBeanMock.getObject("https://workspace_host.net")).thenReturn(tablesAPIMock);
+        ApiClient apiClientMock = mock(ApiClient.class);
+
+        when(databricksApiClientBeanMock.getObject("http://workspace")).thenReturn(apiClientMock);
+
+        when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
+
+        when(workspaceClientMock.tables().exists("catalog_name.schema_name.table_name"))
+                .thenReturn(tableExistsResponseMock);
 
         TableInfo tableInfoMock = mock(TableInfo.class);
-        when(tablesAPIMock.get("catalog_name.schema_name.table_name")).thenReturn(tableInfoMock);
+
+        when(workspaceClientMock.tables().get("catalog_name.schema_name.table_name"))
+                .thenReturn(tableInfoMock);
 
         // Mock columns of original table.
         Collection<ColumnInfo> columnInfos = new ArrayList<>();
@@ -186,7 +212,8 @@ public class ValidationServiceTest {
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
-        ValidationService service = new ValidationServiceImpl(databricksTableAPIBeanMock, miscConfig);
+        ValidationService service =
+                new ValidationServiceImpl(databricksApiClientBeanMock, miscConfig, workspaceHandlerMock);
 
         var actualRes = service.validate(provisioningRequest);
 
@@ -197,18 +224,33 @@ public class ValidationServiceTest {
     public void testValidateOutputPortUnexistingCol() throws Exception {
         String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_outputport_missing.yml");
 
-        DatabricksTableAPIBean databricksTableAPIBeanMock = mock(DatabricksTableAPIBean.class);
+        DatabricksApiClientBean databricksApiClientBeanMock = mock(DatabricksApiClientBean.class);
 
-        TablesAPI tablesAPIMock = mock(TablesAPI.class);
+        WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
+
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+
+        when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
+                .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
+        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
+        when(workspaceHandlerMock.getWorkspaceHost("workspace_name")).thenReturn(right("http://workspace"));
+
         TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
-
         when(tableExistsResponseMock.getTableExists()).thenReturn(true);
-        when(tablesAPIMock.exists("catalog_name.schema_name.table_name")).thenReturn(tableExistsResponseMock);
 
-        when(databricksTableAPIBeanMock.getObject("https://workspace_host.net")).thenReturn(tablesAPIMock);
+        ApiClient apiClientMock = mock(ApiClient.class);
+
+        when(databricksApiClientBeanMock.getObject("http://workspace")).thenReturn(apiClientMock);
+
+        when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
+
+        when(workspaceClientMock.tables().exists("catalog_name.schema_name.table_name"))
+                .thenReturn(tableExistsResponseMock);
 
         TableInfo tableInfoMock = mock(TableInfo.class);
-        when(tablesAPIMock.get("catalog_name.schema_name.table_name")).thenReturn(tableInfoMock);
+
+        when(workspaceClientMock.tables().get("catalog_name.schema_name.table_name"))
+                .thenReturn(tableInfoMock);
 
         // Mock columns of original table.
         Collection<ColumnInfo> columnInfos = new ArrayList<>();
@@ -220,17 +262,18 @@ public class ValidationServiceTest {
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
-        ValidationService service = new ValidationServiceImpl(databricksTableAPIBeanMock, miscConfig);
+        ValidationService service =
+                new ValidationServiceImpl(databricksApiClientBeanMock, miscConfig, workspaceHandlerMock);
 
         var actualRes = service.validate(provisioningRequest);
 
         assertTrue(actualRes.isLeft());
-        assertEquals(1, actualRes.getLeft().problems().size());
+        Assertions.assertEquals(1, actualRes.getLeft().problems().size());
 
         String actualResDescription = actualRes.getLeft().problems().get(0).description();
         String expectedResDescription =
                 "Check for Output Port test-op: the column 'unexisting_col' cannot be found in the table 'catalog_name.schema_name.table_name'.";
 
-        assertEquals(expectedResDescription, actualResDescription);
+        Assertions.assertEquals(expectedResDescription, actualResDescription);
     }
 }

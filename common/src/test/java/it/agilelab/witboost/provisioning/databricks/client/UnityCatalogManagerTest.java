@@ -135,4 +135,130 @@ public class UnityCatalogManagerTest {
                 "An error occurred while creating unity catalog 'new'. Please try again and if the error persists contact the platform team. Details: Exception creating catalog";
         assertTrue(result.getLeft().problems().get(0).description().contains(expectedError));
     }
+
+    @Test
+    public void testCreateSchemaIfNotExists_UnexistingCatalogFailure() {
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        when(workspaceClient.catalogs().list(any())).thenReturn(List.of()); // No catalogs in the ws
+
+        Either<FailedOperation, Void> actualRes1 =
+                unityCatalogManager.createSchemaIfNotExists("catalog_not_existing", "schema");
+
+        assertTrue(actualRes1.isLeft());
+        String expectedError =
+                "An error occurred trying to search the schema 'schema' in catalog 'catalog_not_existing': catalog 'catalog_not_existing' does not exist!";
+        assertEquals(actualRes1.getLeft().problems().get(0).description(), expectedError);
+    }
+
+    @Test
+    public void testCreateSchemaIfNotExists_SchemaAlreadyExistsSuccess() {
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        when(workspaceClient.catalogs().list(any())).thenReturn(List.of(new CatalogInfo().setName("catalog")));
+        List<SchemaInfo> schemaList =
+                Arrays.asList(new SchemaInfo().setCatalogName("catalog").setName("schema"));
+
+        when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
+        when(workspaceClient.schemas().list("catalog")).thenReturn(schemaList);
+
+        Either<FailedOperation, Void> actualRes = unityCatalogManager.createSchemaIfNotExists("catalog", "schema");
+
+        assertTrue(actualRes.isRight());
+    }
+
+    @Test
+    public void testCreateSchemaIfNotExists_SchemaDoesNotExistSuccess() {
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        when(workspaceClient.catalogs().list(any())).thenReturn(List.of(new CatalogInfo().setName("catalog")));
+
+        List<SchemaInfo> schemaList =
+                Arrays.asList(new SchemaInfo().setCatalogName("catalog").setName("schema"));
+
+        when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
+        when(workspaceClient.schemas().list("catalog")).thenReturn(schemaList);
+
+        Either<FailedOperation, Void> actualRes =
+                unityCatalogManager.createSchemaIfNotExists("catalog", "schema_not_existing");
+
+        assertTrue(actualRes.isRight());
+    }
+
+    @Test
+    public void testCreateCatalogIfNotExists_GenericFailure() {
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        // when(workspaceClient.catalogs().list(any())).thenReturn(List.of(new CatalogInfo().setName("catalog")));
+
+        when(workspaceClient.catalogs().create(anyString()))
+                .thenThrow(new DatabricksException("Exception creating catalog"));
+
+        Either<FailedOperation, Void> result = unityCatalogManager.createCatalogIfNotExists("new");
+        assertTrue(result.isLeft());
+        String expectedError =
+                "An error occurred while creating unity catalog 'new'. Please try again and if the error persists contact the platform team. Details: Exception creating catalog";
+        assertTrue(result.getLeft().problems().get(0).description().contains(expectedError));
+    }
+
+    @Test
+    public void testCheckTableExistence_GenericFailure() {
+
+        when(workspaceClient.tables()).thenThrow(new RuntimeException("Exception"));
+
+        Either<FailedOperation, Boolean> result = unityCatalogManager.checkTableExistence("catalog", "schema", "table");
+        assertTrue(result.isLeft());
+
+        String messageError =
+                "An error occurred while searching table catalog.schema.table. Please try again and if the error persists contact the platform team. Details: Exception";
+
+        assertEquals(messageError, result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testDropTableIfExists_FailureWhileDropping() {
+
+        TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
+        when(tableExistsResponseMock.getTableExists()).thenReturn(true);
+
+        TablesAPI tablesAPIMock = mock(TablesAPI.class);
+        when(workspaceClient.tables()).thenReturn(tablesAPIMock);
+        when(tablesAPIMock.exists("catalog.schema.table")).thenReturn(tableExistsResponseMock);
+
+        doThrow(new RuntimeException("Exception")).when(tablesAPIMock).delete("catalog.schema.table");
+
+        Either<FailedOperation, Void> result = unityCatalogManager.dropTableIfExists("catalog", "schema", "table");
+
+        assertTrue(result.isLeft());
+        String messageError =
+                "An error occurred while dropping table 'catalog.schema.table'. Please try again and if the error persists contact the platform team. Details: Exception";
+        assertEquals(messageError, result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testDropTableIfExists_SuccessTableDoesNotExist() {
+        TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
+        when(tableExistsResponseMock.getTableExists()).thenReturn(false); // table does not exist.
+
+        when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
+        when(workspaceClient.tables().exists("catalog.schema.table")).thenReturn(tableExistsResponseMock);
+
+        Either<FailedOperation, Void> result = unityCatalogManager.dropTableIfExists("catalog", "schema", "table");
+
+        assertTrue(result.isRight());
+    }
+
+    @Test
+    public void testRetrieveColumnNames_GenericFailure() {
+
+        when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
+        when(workspaceClient.tables().get("catalog.schema.table")).thenThrow(new RuntimeException("Exception"));
+        Either<FailedOperation, List<String>> result =
+                unityCatalogManager.retrieveTableColumnsNames("catalog", "schema", "table");
+
+        assertTrue(result.isLeft());
+        String messageError =
+                "An error occurred while retrieving columns for table 'catalog.schema.table' in workspace workspace. Please try again and if the error persists contact the platform team. Details: Exception";
+        assertEquals(messageError, result.getLeft().problems().get(0).description());
+    }
 }

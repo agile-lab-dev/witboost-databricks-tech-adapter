@@ -3,17 +3,18 @@ package it.agilelab.witboost.provisioning.databricks.service.validation;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
-import com.databricks.sdk.service.catalog.ColumnInfo;
-import com.databricks.sdk.service.catalog.TableExistsResponse;
-import com.databricks.sdk.service.catalog.TableInfo;
-import com.databricks.sdk.service.catalog.TablesAPI;
+import com.databricks.sdk.WorkspaceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
+import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,13 +26,15 @@ public class OutputPortValidation {
 
     private static final Logger logger = LoggerFactory.getLogger(OutputPortValidation.class);
     private final MiscConfig miscConfig;
-
-    private final TablesAPI tablesAPI;
+    private final WorkspaceHandler workspaceHandler;
+    private final DatabricksApiClientBean databricksApiClientBean;
 
     @Autowired
-    public OutputPortValidation(MiscConfig miscConfig, TablesAPI tablesAPI) {
+    public OutputPortValidation(
+            MiscConfig miscConfig, WorkspaceHandler workspaceHandler, DatabricksApiClientBean databricksApiClientBean) {
         this.miscConfig = miscConfig;
-        this.tablesAPI = tablesAPI;
+        this.databricksApiClientBean = databricksApiClientBean;
+        this.workspaceHandler = workspaceHandler;
     }
 
     public Either<FailedOperation, Void> validate(
@@ -48,7 +51,41 @@ public class OutputPortValidation {
 
         String tableFullName = catalogName + "." + schemaName + "." + tableName;
 
-        boolean tableExists = checkIfTableExists(tableFullName);
+        String workspaceName = component.getSpecific().getWorkspace();
+
+        Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherWorkspaceExists =
+                workspaceHandler.getWorkspaceInfo(workspaceName);
+        if (eitherWorkspaceExists.isLeft()) {
+            return (left(eitherWorkspaceExists.getLeft()));
+        }
+
+        Optional<DatabricksWorkspaceInfo> databricksWorkspaceInfoOptional = eitherWorkspaceExists.get();
+        if (databricksWorkspaceInfoOptional.isEmpty()) {
+            String errorMessage = String.format("Validation failed. Workspace '%s' not found.", workspaceName);
+            logger.error(errorMessage);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+        }
+
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = databricksWorkspaceInfoOptional.get();
+
+        Either<FailedOperation, WorkspaceClient> eitherWorkspaceClient =
+                workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
+        if (eitherWorkspaceClient.isLeft()) {
+            return (left(eitherWorkspaceClient.getLeft()));
+        }
+
+        WorkspaceClient workspaceClient = eitherWorkspaceClient.get();
+
+        var unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
+
+        Either<FailedOperation, Boolean> eitherTableExists =
+                unityCatalogManager.checkTableExistence(catalogName, schemaName, tableName);
+
+        if (eitherTableExists.isLeft()) {
+            return (left(eitherTableExists.getLeft()));
+        }
+
+        Boolean tableExists = eitherTableExists.get();
 
         if (!tableExists) {
             String errorMessage = String.format(
@@ -66,7 +103,14 @@ public class OutputPortValidation {
         logger.info(String.format(
                 "Checking if the schema provided in the Output Port %s is a subset or, at least, equal to the schema of table '%s'.",
                 component.getName(), tableFullName));
-        List<String> originalTableColumnNames = retrieveTableColumnsNames(tableFullName);
+
+        Either<FailedOperation, List<String>> eitherOriginalTableColumnNames =
+                unityCatalogManager.retrieveTableColumnsNames(catalogName, schemaName, tableName);
+        if (eitherOriginalTableColumnNames.isLeft()) {
+            return (left(eitherOriginalTableColumnNames.getLeft()));
+        }
+
+        List<String> originalTableColumnNames = eitherOriginalTableColumnNames.get();
 
         var schemaValidation = checkViewSchema(component, originalTableColumnNames, tableFullName);
 
@@ -77,26 +121,6 @@ public class OutputPortValidation {
                 component.getName(), component.getId()));
 
         return right(null);
-    }
-
-    private Boolean checkIfTableExists(String tableFullName) {
-
-        TableExistsResponse tableExistsResponse = tablesAPI.exists(tableFullName);
-
-        return tableExistsResponse.getTableExists();
-    }
-
-    private List<String> retrieveTableColumnsNames(String tableFullName) {
-
-        List<String> colNames = new ArrayList<>();
-
-        TableInfo tableInfo = tablesAPI.get(tableFullName);
-
-        for (ColumnInfo column : tableInfo.getColumns()) {
-            colNames.add(column.getName());
-        }
-
-        return colNames;
     }
 
     private Either<FailedOperation, Void> checkViewSchema(

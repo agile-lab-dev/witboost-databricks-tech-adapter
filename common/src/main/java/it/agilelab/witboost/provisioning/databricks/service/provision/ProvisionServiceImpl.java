@@ -1,15 +1,21 @@
 package it.agilelab.witboost.provisioning.databricks.service.provision;
 
+import com.azure.resourcemanager.databricks.AzureDatabricksManager;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
+import com.databricks.sdk.service.catalog.TableInfo;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
+import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
+import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,20 +36,33 @@ public class ProvisionServiceImpl implements ProvisionService {
     private final JobWorkloadHandler jobWorkloadHandler;
     private final DLTWorkloadHandler dltWorkloadHandler;
     private final WorkspaceHandler workspaceHandler;
+    private final OutputPortHandler outputPortHandler;
     private final String WORKLOAD_KIND = "workload";
+    private final String OUTPUTPORT_KIND = "outputport";
     private final Logger logger = LoggerFactory.getLogger(ProvisionServiceImpl.class);
+    private final DatabricksApiClientBean databricksApiClientBean;
+    private final AzureDatabricksManager azureDatabricksManager;
+    private final AzureWorkspaceManager azureWorkspaceManager;
 
     public ProvisionServiceImpl(
             ValidationService validationService,
             JobWorkloadHandler jobWorkloadHandler,
             DLTWorkloadHandler dltWorkloadHandler,
             WorkspaceHandler workspaceHandler,
-            ForkJoinPool forkJoinPool) {
+            OutputPortHandler outputPortHandler,
+            ForkJoinPool forkJoinPool,
+            DatabricksApiClientBean databricksApiClientBean,
+            AzureDatabricksManager azureDatabricksManager,
+            AzureWorkspaceManager azureWorkspaceManager) {
         this.validationService = validationService;
         this.jobWorkloadHandler = jobWorkloadHandler;
         this.workspaceHandler = workspaceHandler;
         this.forkJoinPool = forkJoinPool;
         this.dltWorkloadHandler = dltWorkloadHandler;
+        this.outputPortHandler = outputPortHandler;
+        this.databricksApiClientBean = databricksApiClientBean;
+        this.azureDatabricksManager = azureDatabricksManager;
+        this.azureWorkspaceManager = azureWorkspaceManager;
     }
 
     @Override
@@ -90,15 +109,22 @@ public class ProvisionServiceImpl implements ProvisionService {
 
             var provisionRequest = eitherValidation.get();
 
-            if (provisionRequest.component().getKind().equalsIgnoreCase(WORKLOAD_KIND)) {
-                handleWorkload(token, provisionRequest, isProvisioning);
-            } else {
-                updateStatus(
-                        token,
-                        ProvisioningStatus.StatusEnum.FAILED,
-                        String.format(
-                                "The kind '%s' of the component is not supported by this Specific Provisioner",
-                                provisionRequest.component().getKind()));
+            String componentKindToProvision = provisionRequest.component().getKind();
+
+            switch (componentKindToProvision) {
+                case WORKLOAD_KIND:
+                    handleWorkload(token, provisionRequest, isProvisioning);
+                    break;
+                case OUTPUTPORT_KIND:
+                    handleOutputPort(token, provisionRequest, isProvisioning);
+                    break;
+                default:
+                    updateStatus(
+                            token,
+                            ProvisioningStatus.StatusEnum.FAILED,
+                            String.format(
+                                    "The kind '%s' of the component is not supported by this Specific Provisioner",
+                                    provisionRequest.component().getKind()));
             }
         });
 
@@ -358,5 +384,111 @@ public class ProvisionServiceImpl implements ProvisionService {
                         errors.append("-").append(problem.description()).append("\n"));
         logger.error(errors.toString());
         updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
+    }
+
+    private void handleOutputPort(String token, ProvisionRequest provisionRequest, boolean isProvisioning) {
+        if (provisionRequest.component().getSpecific().getClass().equals(DatabricksOutputPortSpecific.class)) {
+            if (isProvisioning) {
+                provisionOutputPort(provisionRequest, token);
+            } else {
+                unprovisionOutputPort(provisionRequest, token);
+            }
+        } else {
+            updateStatus(
+                    token,
+                    ProvisioningStatus.StatusEnum.FAILED,
+                    String.format(
+                            "The specific section of the component %s is not of type DatabricksOutputPortSpecific",
+                            provisionRequest.component().getName()));
+        }
+    }
+
+    private void provisionOutputPort(ProvisionRequest provisionRequest, String token) {
+        String componentId = provisionRequest.component().getId();
+        String componentName = provisionRequest.component().getName();
+        logger.info(String.format("Start the provision of Output Port Component (id: %s)", componentId));
+
+        // Check if workspace exists or creates it.
+        Either<FailedOperation, DatabricksWorkspaceInfo> eitherCreatedWorkspace =
+                workspaceHandler.provisionWorkspace(provisionRequest);
+        if (eitherCreatedWorkspace.isLeft()) {
+            handleFailure(token, eitherCreatedWorkspace.getLeft());
+            return;
+        }
+
+        var databricksWorkspaceInfo = eitherCreatedWorkspace.get();
+
+        var eitherWorkspaceClient = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
+        if (eitherWorkspaceClient.isLeft()) {
+            handleFailure(token, eitherWorkspaceClient.getLeft());
+            return;
+        }
+
+        Either<FailedOperation, TableInfo> eitherNewOutputPort = outputPortHandler.provisionOutputPort(
+                provisionRequest, eitherWorkspaceClient.get(), databricksWorkspaceInfo);
+        if (eitherNewOutputPort.isLeft()) {
+            handleFailure(token, eitherNewOutputPort.getLeft());
+            return;
+        }
+
+        TableInfo tableInfo = eitherNewOutputPort.get();
+        Map<String, String> provisionResult = new HashMap<>();
+
+        provisionResult.put("Table id", tableInfo.getTableId());
+        provisionResult.put("Table full name", tableInfo.getFullName());
+
+        String tableUrl = "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/explore/data/"
+                + tableInfo.getCatalogName() + "/" + tableInfo.getSchemaName() + "/" + tableInfo.getName();
+        provisionResult.put("Table url", tableUrl);
+
+        logger.info(String.format(
+                "Provisioning of %s completed", provisionRequest.component().getName()));
+
+        updateStatus(
+                token,
+                ProvisioningStatus.StatusEnum.COMPLETED,
+                "",
+                new Info(JsonNodeFactory.instance.objectNode(), provisionResult).publicInfo(provisionResult));
+    }
+
+    private void unprovisionOutputPort(ProvisionRequest provisionRequest, String token) {
+
+        Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherWorkspaceExists =
+                workspaceHandler.getWorkspaceInfo(provisionRequest);
+        if (eitherWorkspaceExists.isLeft()) {
+            handleFailure(token, eitherWorkspaceExists.getLeft());
+            return;
+        }
+
+        var workspaceInfoOpt = eitherWorkspaceExists.get();
+        if (workspaceInfoOpt.isEmpty()) {
+            var specific =
+                    (DatabricksOutputPortSpecific) provisionRequest.component().getSpecific();
+            logger.info(String.format("Unprovision skipped. Workspace %s not found.", specific.getWorkspace()));
+            updateStatus(
+                    token,
+                    ProvisioningStatus.StatusEnum.COMPLETED,
+                    String.format("Unprovision skipped. Workspace %s not found.", specific.getWorkspace()));
+            return;
+        }
+
+        var databricksWorkspaceInfo = workspaceInfoOpt.get();
+
+        var eitherWorkspaceClient = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
+        if (eitherWorkspaceClient.isLeft()) {
+            handleFailure(token, eitherWorkspaceClient.getLeft());
+            return;
+        }
+
+        Either<FailedOperation, String> eitherDeletedOutputPort = outputPortHandler.unprovisionOutputPort(
+                provisionRequest, eitherWorkspaceClient.get(), databricksWorkspaceInfo);
+        if (eitherDeletedOutputPort.isLeft()) {
+            handleFailure(token, eitherDeletedOutputPort.getLeft());
+            return;
+        }
+
+        logger.info(String.format(
+                "Unprovisioning of %s completed", provisionRequest.component().getName()));
+        updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "");
     }
 }

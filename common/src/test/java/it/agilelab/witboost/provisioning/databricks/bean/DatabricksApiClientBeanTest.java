@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.mockito.Mockito.mock;
 
-import com.databricks.sdk.service.catalog.TablesAPI;
+import com.databricks.sdk.core.ApiClient;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
@@ -15,9 +15,9 @@ import org.springframework.context.annotation.Import;
 
 @SpringBootTest
 @Import(TestConfig.class)
-public class DatabricksTableAPIBeanTest {
+public class DatabricksApiClientBeanTest {
 
-    private DatabricksTableAPIBean tableAPIBean;
+    private DatabricksApiClientBean apiClientBean;
 
     String workspaceHost = "https://example.databricks.com";
 
@@ -27,17 +27,17 @@ public class DatabricksTableAPIBeanTest {
         DatabricksAuthConfig databricksAuthConfig = mock(DatabricksAuthConfig.class);
         AzureAuthConfig azureAuthConfig = mock(AzureAuthConfig.class);
 
-        tableAPIBean = new DatabricksTableAPIBean(workspaceHost, databricksAuthConfig, azureAuthConfig);
-        tableAPIBean.setWorkspaceHost(workspaceHost);
+        apiClientBean = new DatabricksApiClientBean(workspaceHost, databricksAuthConfig, azureAuthConfig);
+        apiClientBean.setWorkspaceHost(workspaceHost);
     }
 
     @Test
     public void testGetObject() {
-        assertInstanceOf(TablesAPI.class, tableAPIBean.getObject(workspaceHost));
+        assertInstanceOf(ApiClient.class, apiClientBean.getObject(workspaceHost));
     }
 
     @Test
     public void testGetObjectType() {
-        assertEquals(TablesAPI.class, tableAPIBean.getObjectType());
+        assertEquals(ApiClient.class, apiClientBean.getObjectType());
     }
 }

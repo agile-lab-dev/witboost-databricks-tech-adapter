@@ -12,7 +12,7 @@ import lombok.Setter;
 public class DatabricksOutputPortSpecific extends Specific {
 
     @NotNull
-    private String workspaceHost;
+    private String workspace;
 
     @NotNull
     private String catalogName;
@@ -22,4 +22,19 @@ public class DatabricksOutputPortSpecific extends Specific {
 
     @NotNull
     private String tableName;
+
+    @NotNull
+    private String sqlWarehouseName;
+
+    @NotNull
+    private String workspaceOP;
+
+    @NotNull
+    private String catalogNameOP;
+
+    @NotNull
+    private String schemaNameOP;
+
+    @NotNull
+    private String viewNameOP;
 }
