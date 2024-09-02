@@ -20,7 +20,7 @@ import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -116,7 +116,7 @@ public class DLTProvisionServiceTest {
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
 
-        var provisionRequest = new ProvisionRequest<DatabricksDLTWorkloadSpecific>(null, workload, false);
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
         when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
@@ -124,12 +124,24 @@ public class DLTProvisionServiceTest {
         when(dltWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right("workloadId"));
 
-        var info = new HashMap<String, String>();
-        info.put("Workspace path", "test");
-        info.put("Pipeline path", "https://https://example.com/pipelines/workloadId");
+        var info = Map.of(
+                "workspaceURL",
+                Map.of(
+                        "type", "string",
+                        "label", "Databricks workspace URL",
+                        "value", "Open Azure Databricks Workspace",
+                        "href", "test"),
+                "pipelineURL",
+                Map.of(
+                        "type", "string",
+                        "label", "Pipeline URL",
+                        "value", "Open pipeline details in Databricks",
+                        "href", "https://https://example.com/pipelines/workloadId"));
 
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "")
-                .info(new Info(JsonNodeFactory.instance.objectNode(), info).privateInfo(info));
+                .info(new Info(JsonNodeFactory.instance.objectNode(), info)
+                        .privateInfo(info)
+                        .publicInfo(info));
 
         String token = provisionService.provision(provisioningRequest);
 
@@ -138,6 +150,7 @@ public class DLTProvisionServiceTest {
         assertEquals(expectedRes.getStatus(), actualRes.getStatus());
         assertEquals(expectedRes.getResult(), actualRes.getResult());
         assertEquals(expectedRes.getInfo().getPrivateInfo(), actualRes.getInfo().getPrivateInfo());
+        assertEquals(expectedRes.getInfo().getPublicInfo(), actualRes.getInfo().getPublicInfo());
     }
 
     @Test

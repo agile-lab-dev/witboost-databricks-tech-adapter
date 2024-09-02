@@ -3,7 +3,6 @@ package it.agilelab.witboost.provisioning.databricks.service.provision;
 import com.azure.resourcemanager.databricks.AzureDatabricksManager;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.service.catalog.TableInfo;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
 import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
@@ -17,7 +16,6 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.job.Databri
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -210,17 +208,25 @@ public class ProvisionServiceImpl implements ProvisionService {
         }
 
         String jobUrl = "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/jobs/" + eitherNewJob.get();
-        Map<String, String> provisionResult = new HashMap<>();
-        provisionResult.put("workspace path", databricksWorkspaceInfo.getAzureResourceUrl());
-        provisionResult.put("job path", jobUrl);
 
         logger.info(String.format(
                 "Provisioning of %s completed", provisionRequest.component().getName()));
-        updateStatus(
-                token,
-                ProvisioningStatus.StatusEnum.COMPLETED,
-                "",
-                new Info(JsonNodeFactory.instance.objectNode(), provisionResult).privateInfo(provisionResult));
+
+        var info = Map.of(
+                "workspaceURL",
+                Map.of(
+                        "type", "string",
+                        "label", "Databricks workspace URL",
+                        "value", "Open Azure Databricks Workspace",
+                        "href", databricksWorkspaceInfo.getAzureResourceUrl()),
+                "jobURL",
+                Map.of(
+                        "type", "string",
+                        "label", "Job URL",
+                        "value", "Open job details in Databricks",
+                        "href", jobUrl));
+
+        updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "", new Info(info, info));
     }
 
     private void provisionDLT(ProvisionRequest provisionRequest, String token) {
@@ -258,17 +264,24 @@ public class ProvisionServiceImpl implements ProvisionService {
 
         String pipelineUrl =
                 "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/pipelines/" + eitherNewPipeline.get();
-        Map<String, String> provisionResult = new HashMap<>();
-        provisionResult.put("Workspace path", databricksWorkspaceInfo.getAzureResourceUrl());
-        provisionResult.put("Pipeline path", pipelineUrl);
+
+        var info = Map.of(
+                "workspaceURL",
+                Map.of(
+                        "type", "string",
+                        "label", "Databricks workspace URL",
+                        "value", "Open Azure Databricks Workspace",
+                        "href", databricksWorkspaceInfo.getAzureResourceUrl()),
+                "pipelineURL",
+                Map.of(
+                        "type", "string",
+                        "label", "Pipeline URL",
+                        "value", "Open pipeline details in Databricks",
+                        "href", pipelineUrl));
 
         logger.info(String.format(
                 "Provisioning of %s completed", provisionRequest.component().getName()));
-        updateStatus(
-                token,
-                ProvisioningStatus.StatusEnum.COMPLETED,
-                "",
-                new Info(JsonNodeFactory.instance.objectNode(), provisionResult).privateInfo(provisionResult));
+        updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "", new Info(info, info));
     }
 
     private void unprovisionJob(ProvisionRequest provisionRequest, String token) {
@@ -432,23 +445,32 @@ public class ProvisionServiceImpl implements ProvisionService {
         }
 
         TableInfo tableInfo = eitherNewOutputPort.get();
-        Map<String, String> provisionResult = new HashMap<>();
-
-        provisionResult.put("Table id", tableInfo.getTableId());
-        provisionResult.put("Table full name", tableInfo.getFullName());
 
         String tableUrl = "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/explore/data/"
                 + tableInfo.getCatalogName() + "/" + tableInfo.getSchemaName() + "/" + tableInfo.getName();
-        provisionResult.put("Table url", tableUrl);
 
         logger.info(String.format(
                 "Provisioning of %s completed", provisionRequest.component().getName()));
 
-        updateStatus(
-                token,
-                ProvisioningStatus.StatusEnum.COMPLETED,
-                "",
-                new Info(JsonNodeFactory.instance.objectNode(), provisionResult).publicInfo(provisionResult));
+        var info = Map.of(
+                "tableID",
+                        Map.of(
+                                "type", "string",
+                                "label", "Table ID",
+                                "value", tableInfo.getTableId()),
+                "tableFullName",
+                        Map.of(
+                                "type", "string",
+                                "label", "Table full name",
+                                "value", tableInfo.getFullName()),
+                "tableUrl",
+                        Map.of(
+                                "type", "string",
+                                "label", "Table URL",
+                                "value", "Open table details in Databricks",
+                                "href", tableUrl));
+
+        updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "", new Info(info, info));
     }
 
     private void unprovisionOutputPort(ProvisionRequest provisionRequest, String token) {

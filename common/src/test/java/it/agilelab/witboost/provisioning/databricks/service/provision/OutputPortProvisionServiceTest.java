@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.catalog.TableInfo;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
@@ -23,7 +22,7 @@ import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningSt
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -105,20 +104,34 @@ public class OutputPortProvisionServiceTest {
         when(outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right(tableInfoMock));
 
-        var info = new HashMap<String, String>();
-        info.put("Table id", "tableId");
-        info.put("Table full name", "tableFullName");
-        info.put("Table url", "https://https://example.com/explore/data/null/null/null");
-
         String token = provisionService.provision(provisioningRequest);
 
         ProvisioningStatus actualRes = provisionService.getStatus(token);
 
-        var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "")
-                .info(new Info(JsonNodeFactory.instance.objectNode(), info).publicInfo(info));
+        var info = Map.of(
+                "tableID",
+                        Map.of(
+                                "type", "string",
+                                "label", "Table ID",
+                                "value", "tableId"),
+                "tableFullName",
+                        Map.of(
+                                "type", "string",
+                                "label", "Table full name",
+                                "value", "tableFullName"),
+                "tableUrl",
+                        Map.of(
+                                "type", "string",
+                                "label", "Table URL",
+                                "value", "Open table details in Databricks",
+                                "href", "https://https://example.com/explore/data/null/null/null"));
+
+        var expectedRes =
+                new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "").info(new Info(info, info));
 
         assertEquals(expectedRes.getStatus(), actualRes.getStatus());
         assertEquals(expectedRes.getResult(), actualRes.getResult());
+        assertEquals(expectedRes.getInfo().getPrivateInfo(), actualRes.getInfo().getPrivateInfo());
         assertEquals(expectedRes.getInfo().getPublicInfo(), actualRes.getInfo().getPublicInfo());
     }
 

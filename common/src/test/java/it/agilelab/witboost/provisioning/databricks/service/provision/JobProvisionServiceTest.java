@@ -129,12 +129,32 @@ public class JobProvisionServiceTest {
         when(jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right("workloadId"));
 
-        var info = new HashMap<String, String>();
-        info.put("workspace path", "test");
-        info.put("job path", "https://https://example.com/jobs/workloadId");
+        var info = Map.of(
+                "workspaceURL",
+                Map.of(
+                        "type",
+                        "string",
+                        "label",
+                        "Databricks workspace URL",
+                        "value",
+                        "Open Azure Databricks Workspace",
+                        "href",
+                        "test"),
+                "jobURL",
+                Map.of(
+                        "type",
+                        "string",
+                        "label",
+                        "Job URL",
+                        "value",
+                        "Open job details in Databricks",
+                        "href",
+                        "https://https://example.com/jobs/workloadId"));
 
         var expectedRes = new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "")
-                .info(new Info(JsonNodeFactory.instance.objectNode(), info).privateInfo(info));
+                .info(new Info(JsonNodeFactory.instance.objectNode(), info)
+                        .privateInfo(info)
+                        .publicInfo(info));
 
         String token = provisionService.provision(provisioningRequest);
 
@@ -143,6 +163,7 @@ public class JobProvisionServiceTest {
         assertEquals(expectedRes.getStatus(), actualRes.getStatus());
         assertEquals(expectedRes.getResult(), actualRes.getResult());
         assertEquals(expectedRes.getInfo().getPrivateInfo(), actualRes.getInfo().getPrivateInfo());
+        assertEquals(expectedRes.getInfo().getPublicInfo(), actualRes.getInfo().getPublicInfo());
     }
 
     @Test
