@@ -70,6 +70,9 @@ public class DeltaLiveTablesManagerTest {
         dltClusterSpecific.setDriverType("Driver");
         dltClusterSpecific.setPolicyId("PolicyID");
 
+        HashMap notifications = new HashMap();
+        notifications.put("email@email.com", List.of("alert1", "alert2"));
+
         var result = deltaLiveTablesManager.createDLTPipeline(
                 pipelineName,
                 productEdition,
@@ -79,8 +82,7 @@ public class DeltaLiveTablesManagerTest {
                 catalog,
                 target,
                 photon,
-                notificationsMails,
-                notificationsAlerts,
+                notifications,
                 channel,
                 dltClusterSpecific);
 
@@ -88,7 +90,6 @@ public class DeltaLiveTablesManagerTest {
         assertEquals(createResponse.getPipelineId(), result.get());
     }
 
-    @Test
     public void testCreatePipeline_ENHANCEDAutoscale() {
         String workspaceName = "example_workspace";
         DeltaLiveTablesManager manager = new DeltaLiveTablesManager(workspaceClient, workspaceName);
@@ -121,6 +122,9 @@ public class DeltaLiveTablesManagerTest {
         dltClusterSpecific.setDriverType("Driver");
         dltClusterSpecific.setPolicyId("PolicyID");
 
+        HashMap notifications = new HashMap();
+        notifications.put("email@email.com", List.of("alert1", "alert2"));
+
         var result = deltaLiveTablesManager.createDLTPipeline(
                 pipelineName,
                 productEdition,
@@ -130,8 +134,7 @@ public class DeltaLiveTablesManagerTest {
                 catalog,
                 target,
                 photon,
-                notificationsMails,
-                notificationsAlerts,
+                notifications,
                 channel,
                 dltClusterSpecific);
 
@@ -168,6 +171,9 @@ public class DeltaLiveTablesManagerTest {
         dltClusterSpecific.setDriverType("Driver");
         dltClusterSpecific.setPolicyId("PolicyID");
 
+        HashMap notifications = new HashMap();
+        notifications.put("email@email.com", List.of("alert1", "alert2"));
+
         var result = deltaLiveTablesManager.createDLTPipeline(
                 pipelineName,
                 productEdition,
@@ -177,8 +183,7 @@ public class DeltaLiveTablesManagerTest {
                 catalog,
                 target,
                 photon,
-                notificationsMails,
-                new ArrayList<>(),
+                notifications,
                 channel,
                 dltClusterSpecific);
 
@@ -230,7 +235,10 @@ public class DeltaLiveTablesManagerTest {
         dltClusterSpecific.setDriverType("Driver");
         dltClusterSpecific.setPolicyId("PolicyID");
 
-        var result = deltaLiveTablesManager.createDLTPipeline(
+        Map notifications = new HashMap();
+        notifications.put("email@email.com", List.of("alert1", "alert2"));
+
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createDLTPipeline(
                 pipelineName,
                 productEdition,
                 continuous,
@@ -239,8 +247,7 @@ public class DeltaLiveTablesManagerTest {
                 catalog,
                 target,
                 photon,
-                notificationsMails,
-                notificationsAlerts,
+                notifications,
                 channel,
                 dltClusterSpecific);
 

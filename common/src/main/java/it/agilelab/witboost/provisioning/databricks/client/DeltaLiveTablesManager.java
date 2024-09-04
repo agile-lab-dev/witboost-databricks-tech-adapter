@@ -38,8 +38,7 @@ public class DeltaLiveTablesManager {
             String catalog,
             String target,
             Boolean photon,
-            Collection<String> notificationsMails,
-            Collection<String> notificationsAlerts,
+            Map<String, Collection<String>> notifications,
             PipelineChannel channel,
             DLTClusterSpecific clusterSpecific) {
 
@@ -95,15 +94,17 @@ public class DeltaLiveTablesManager {
                     .setChannel(channel.getValue())
                     .setAllowDuplicateNames(true);
 
-            if (!notificationsAlerts.isEmpty() && !notificationsMails.isEmpty()) {
-                Collection<Notifications> notifications = new ArrayList<>();
-                notifications.add(
-                        new Notifications().setAlerts(notificationsAlerts).setEmailRecipients(notificationsMails));
-                createPipeline.setNotifications(notifications);
-            } else
-                logger.info(String.format(
-                        "No notification for pipeline %s. One of notificationsAlerts or notificationsMails is empty",
-                        pipelineName));
+            if (notifications != null) {
+                Collection<Notifications> not = new ArrayList<>();
+
+                notifications.keySet().forEach(key -> {
+                    not.add(new Notifications()
+                            .setAlerts(notifications.get(key))
+                            .setEmailRecipients(Collections.singletonList(key)));
+                });
+
+                createPipeline.setNotifications(not);
+            }
 
             CreatePipelineResponse createPipelineResponse =
                     workspaceClient.pipelines().create(createPipeline);

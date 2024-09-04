@@ -11,7 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class GitSpecific {
+public class JobGitSpecific {
 
     /**
      * The reference (branch, tag, etc.) in the Git repository.

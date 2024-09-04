@@ -5,15 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitSpecific;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -51,17 +47,15 @@ public class DatabricksDLTWorkloadSpecificTest {
         specific.setCatalog("catalog");
         specific.setTarget("target");
         specific.setPhoton(true);
-        specific.setNotificationsMails(List.of("email1@example.com", "email2@example.com"));
-        specific.setNotificationsAlerts(List.of("alert1", "alert2"));
+        HashMap notifications = new HashMap();
+        notifications.put("email@email.com", Collections.singletonList("on-update-test"));
+        specific.setNotifications(notifications);
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
 
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("/src");
-        gitSpecific.setGitRepoUrl("https://github.com/repo.git");
-        specific.setGit(gitSpecific);
+        DLTGitSpecific dltGitSpecific = new DLTGitSpecific();
+        dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        specific.setGit(dltGitSpecific);
 
         return specific;
     }

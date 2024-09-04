@@ -10,8 +10,8 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobGitSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.SchedulingSpecific;
 import java.util.*;
 import org.slf4j.Logger;
@@ -84,7 +84,7 @@ public class JobManager {
      * @param taskKey            The task key.
      * @param jobClusterSpecific    The parameters for creating a new cluster.
      * @param schedulingSpecific The parameters for scheduling the job.
-     * @param gitSpecific        The parameters including the git details for the task.
+     * @param jobGitSpecific        The parameters including the git details for the task.
      * @return Either a Long representing the job ID if successful, or a FailedOperation.
      */
     public Either<FailedOperation, Long> createJobWithNewCluster(
@@ -93,7 +93,7 @@ public class JobManager {
             String taskKey,
             JobClusterSpecific jobClusterSpecific,
             SchedulingSpecific schedulingSpecific,
-            GitSpecific gitSpecific) {
+            JobGitSpecific jobGitSpecific) {
 
         try {
 
@@ -107,12 +107,12 @@ public class JobManager {
                     .setDescription(description)
                     .setNotebookTask(new NotebookTask()
                             .setBaseParameters(map)
-                            .setNotebookPath(gitSpecific.getGitPath())
+                            .setNotebookPath(jobGitSpecific.getGitPath())
                             .setSource(Source.GIT))
                     .setTaskKey(taskKey)
                     .setNewCluster(getClusterSpecFromSpecific(jobClusterSpecific)));
 
-            GitSource gitLabSource = getGitSourceFromSpecific(gitSpecific);
+            GitSource gitLabSource = getGitSourceFromSpecific(jobGitSpecific);
 
             Collection<JobParameterDefinition> jobParameterDefinitions = new ArrayList<>();
 
@@ -145,14 +145,14 @@ public class JobManager {
         }
     }
 
-    private GitSource getGitSourceFromSpecific(GitSpecific gitSpecific) {
+    private GitSource getGitSourceFromSpecific(JobGitSpecific jobGitSpecific) {
         GitSource gitLabSource =
-                new GitSource().setGitUrl(gitSpecific.getGitRepoUrl()).setGitProvider(GitProvider.GIT_LAB);
+                new GitSource().setGitUrl(jobGitSpecific.getGitRepoUrl()).setGitProvider(GitProvider.GIT_LAB);
 
-        if (gitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.BRANCH.toString()))
-            gitLabSource.setGitBranch(gitSpecific.getGitReference());
-        else if (gitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.TAG.toString())) {
-            gitLabSource.setGitTag(gitSpecific.getGitReference());
+        if (jobGitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.BRANCH.toString()))
+            gitLabSource.setGitBranch(jobGitSpecific.getGitReference());
+        else if (jobGitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.TAG.toString())) {
+            gitLabSource.setGitTag(jobGitSpecific.getGitReference());
         }
 
         return gitLabSource;

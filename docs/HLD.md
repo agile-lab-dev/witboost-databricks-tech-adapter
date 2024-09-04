@@ -98,7 +98,7 @@ In the provisioning phase of the Workload a Job is created inside the Databricks
 
 The Job is configured to point to a specific branch (typical for development environments) or tag (typical for QA/production) of the git repository. The job is named as follows: `$Domain_$DPName_$MajorVersion_$ComponentName_$Environment`
 
-Each Workload's git repository is linked to the Workspace in a folder under "Users/<deploy_user>/<dp_name>_<dp_major_version>/<component_name>" with its own name (normalized). Developers and owner have "CAN_RUN" permissions on this folder. The "run as" user also has "CAN_RUN" permissions, since it can be different from eg the `deploy user`. Finally, the `deploy user` has full permissions since it is a subfolder of his home.
+Each Workload's git repository is linked to the Workspace in a folder under "/Workspace/<dp_name>_<dp_major_version>/<component_name>" with its own name (normalized). Developer and owner have configurable permissions on this folder. Finally, the `deploy user` has full permissions since is the owner of the folder.
 
 ![Job Provisioning](img/hld-workload-job-provisioning.png)
 
@@ -113,7 +113,7 @@ In the provisioning phase of the Workload a DLT Pipeline is created inside the D
 
 The DLT Pipeline is configured to point to a notebook contained in a specific branch (typical for development environments) or tag (typical for QA/production) of the git repository. The pipeline is named as follows: `$Domain_$DPName_$MajorVersion_$ComponentName_$Environment`
 
-Each Workload's git repository is linked to the Workspace in a folder under "Users/<deploy_user>/<dp_name>_<dp_major_version>/<component_name>" with its own name (normalized). Developers and owner have "CAN_RUN" permissions on this folder. The "run as" user also has "CAN_RUN" permissions, since it can be different from eg the `deploy user`. Finally, the `deploy user` has full permissions since it is a subfolder of his home.
+Each Workload's git repository is linked to the Workspace in a folder under "/Workspace/<dp_name>_<dp_major_version>/<component_name>" with its own name (normalized). Developer and owner have configuarble permissions on this folder.  Finally, the `deploy user` has full permissions since is the owner of the folder.
 
 ![DLT Provisioning](img/hld-workload-dlt-provisioning.png)
 
@@ -122,7 +122,7 @@ Each Workload's git repository is linked to the Workspace in a folder under "Use
 A view is used to decouple underlying source table schema from the Output Port schema.
 
 The main operations executed are:
-- Validation: 
+- Validation:
   - the underlying source table must already exist. We can differentiate the error message based on the environment we're actually deploying on:
     - If in Dev environment: to ensure the table exists by either running the DLT Workload that creates it or creating the table manually
     - If not in Dev environment (QA, Prod): to ensure that the DLT Workload is being deployed correctly and that the table name is correct
@@ -180,7 +180,7 @@ This operation is only available for the Output Port component. Three main opera
 2. Map of the Witboost identities requesting access to Databricks identities
 3. Grant proper permissions to mapped users and groups:
    - `USE` permission to Catalog and Schema
-   - `SELECT` permission to View 
-   > We must remove `SELECT` permission for user and groups no more allowed to have access 
+   - `SELECT` permission to View
+   > We must remove `SELECT` permission for user and groups no more allowed to have access
 
 ![Update ACL](img/hld-Output-Port-DLT-Update-ACL.png)

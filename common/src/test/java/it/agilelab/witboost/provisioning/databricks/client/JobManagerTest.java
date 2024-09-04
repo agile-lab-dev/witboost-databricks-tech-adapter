@@ -12,8 +12,8 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobGitSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.SchedulingSpecific;
 import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,17 +102,17 @@ public class JobManagerTest {
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setJavaTimezoneId("UTC");
         schedulingSpecific.setCronExpression("0 0 12 * * ?");
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitRepoUrl("https://github.com/user/repo.git");
-        gitSpecific.setGitProvider(GitProvider.GIT_LAB);
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitRepoUrl("https://github.com/user/repo.git");
+        jobGitSpecific.setGitProvider(GitProvider.GIT_LAB);
+        jobGitSpecific.setGitReference("main");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
 
         CreateResponse createResponse = new CreateResponse().setJobId(123L);
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
 
         Either<FailedOperation, Long> result = jobManager.createJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, gitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
 
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
@@ -141,17 +141,17 @@ public class JobManagerTest {
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setJavaTimezoneId("UTC");
         schedulingSpecific.setCronExpression("0 0 12 * * ?");
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitRepoUrl("https://github.com/user/repo.git");
-        gitSpecific.setGitProvider(GitProvider.GIT_LAB);
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.TAG);
+        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitRepoUrl("https://github.com/user/repo.git");
+        jobGitSpecific.setGitProvider(GitProvider.GIT_LAB);
+        jobGitSpecific.setGitReference("main");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.TAG);
 
         CreateResponse createResponse = new CreateResponse().setJobId(123L);
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
 
         Either<FailedOperation, Long> result = jobManager.createJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, gitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
 
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
@@ -179,16 +179,16 @@ public class JobManagerTest {
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setJavaTimezoneId("UTC");
         schedulingSpecific.setCronExpression("0 0 12 * * ?");
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitRepoUrl("https://github.com/user/repo.git");
-        gitSpecific.setGitProvider(GitProvider.GIT_LAB);
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitRepoUrl("https://github.com/user/repo.git");
+        jobGitSpecific.setGitProvider(GitProvider.GIT_LAB);
+        jobGitSpecific.setGitReference("main");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
 
         when(workspaceClient.jobs().create(any())).thenThrow(new RuntimeException("Failed to create job"));
 
         Either<FailedOperation, Long> result = jobManager.createJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, gitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
 
         assertTrue(result.isLeft());
     }

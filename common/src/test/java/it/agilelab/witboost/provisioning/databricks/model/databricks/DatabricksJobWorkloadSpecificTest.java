@@ -37,12 +37,12 @@ public class DatabricksJobWorkloadSpecificTest {
         workloadSpecific3.setWorkspace("testWorkspace3");
         workloadSpecific3.setJobName("testJob3");
 
-        GitSpecific gitSpecific3 = new GitSpecific();
-        gitSpecific3.setGitReference("main");
-        gitSpecific3.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific3.setGitPath("/src");
-        gitSpecific3.setGitRepoUrl("https://github.com/repo3.git");
-        workloadSpecific3.setGit(gitSpecific3);
+        JobGitSpecific jobGitSpecific3 = new JobGitSpecific();
+        jobGitSpecific3.setGitReference("main");
+        jobGitSpecific3.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific3.setGitPath("/src");
+        jobGitSpecific3.setGitRepoUrl("https://github.com/repo3.git");
+        workloadSpecific3.setGit(jobGitSpecific3);
 
         SchedulingSpecific schedulingSpecific3 = new SchedulingSpecific();
         schedulingSpecific3.setCronExpression("0 0 12 * * ?");
@@ -63,12 +63,12 @@ public class DatabricksJobWorkloadSpecificTest {
         workloadSpecific.setRepoPath("dataproduct/component");
         workloadSpecific.setMetastore("metastore");
 
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("/src");
-        gitSpecific.setGitRepoUrl("https://github.com/repo.git");
-        workloadSpecific.setGit(gitSpecific);
+        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitReference("main");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific.setGitPath("/src");
+        jobGitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        workloadSpecific.setGit(jobGitSpecific);
 
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setCronExpression("0 0 12 * * ?");
@@ -150,11 +150,11 @@ public class DatabricksJobWorkloadSpecificTest {
         workloadSpecific1.setDescription("Test description");
         assertEquals("Test description", workloadSpecific1.getDescription());
 
-        GitSpecific gitSpecific = workloadSpecific1.getGit();
-        assertEquals("main", gitSpecific.getGitReference());
-        assertEquals(GitReferenceType.BRANCH, gitSpecific.getGitReferenceType());
-        assertEquals("/src", gitSpecific.getGitPath());
-        assertEquals("https://github.com/repo.git", gitSpecific.getGitRepoUrl());
+        JobGitSpecific jobGitSpecific = workloadSpecific1.getGit();
+        assertEquals("main", jobGitSpecific.getGitReference());
+        assertEquals(GitReferenceType.BRANCH, jobGitSpecific.getGitReferenceType());
+        assertEquals("/src", jobGitSpecific.getGitPath());
+        assertEquals("https://github.com/repo.git", jobGitSpecific.getGitRepoUrl());
 
         SchedulingSpecific schedulingSpecific = workloadSpecific1.getScheduling();
         assertEquals("0 0 12 * * ?", schedulingSpecific.getCronExpression());

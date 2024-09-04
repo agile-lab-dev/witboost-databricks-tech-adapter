@@ -46,12 +46,21 @@ public class BaseWorkloadHandler {
     }
 
     /**
-     * Creates a repository in the Databricks workspace.
+     * Creates a repository in the Databricks workspace and assigns permissions to the repository.
      *
-     * @param provisionRequest the request containing the details for creating the repository
-     * @param workspaceClient the Databricks workspace client
-     * @param workspaceName the name of the Databricks workspace
-     * @return Either a FailedOperation or Void if successful
+     * This method performs the following operations:
+     * 1. Extracts the Git repository URL and repository path from the provision request.
+     * 2. Creates the necessary directory structure in the Databricks workspace.
+     * 3. Creates the repository in the specified path using the provided Git repository URL.
+     * 4. Uses the IdentityManager to create or update the owner and developer group.
+     * 5. Assigns or removes permissions to the repository for the owner and the developer group based on configuration settings.
+     *
+     * @param provisionRequest the request containing the details for creating the repository, including the Git repository URL and the repository path.
+     * @param workspaceClient the Databricks workspace client used to interact with the workspace.
+     * @param databricksWorkspaceInfo information about the Databricks workspace, including its name.
+     * @param ownerName the name of the owner to whom specific permissions will be assigned.
+     * @param developerGroupName the name of the developer group to whom specific permissions will be assigned.
+     * @return Either a FailedOperation or Void if the operation is successful. If the operation fails, the method returns a FailedOperation with detailed error information.
      */
     protected synchronized Either<FailedOperation, Void> createRepositoryWithPermissions(
             ProvisionRequest<? extends Specific> provisionRequest,
@@ -75,11 +84,9 @@ public class BaseWorkloadHandler {
             }
             int lastIndex = repoPath.lastIndexOf('/');
             String folderPath = repoPath.substring(0, lastIndex);
-            workspaceClient
-                    .workspace()
-                    .mkdirs(String.format("/Users/%s/%s", azureAuthConfig.getClientId(), folderPath));
+            workspaceClient.workspace().mkdirs(String.format("/%s", folderPath));
 
-            repoPath = String.format("/Users/%s/%s", azureAuthConfig.getClientId(), repoPath);
+            repoPath = String.format("/%s", repoPath);
 
             var repoManager = new RepoManager(workspaceClient, databricksWorkspaceInfo.getName());
             Either<FailedOperation, Long> eitherCreatedRepo =

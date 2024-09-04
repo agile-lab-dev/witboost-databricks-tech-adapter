@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobGitSpecific;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -19,26 +19,26 @@ import org.springframework.context.annotation.Import;
 
 @SpringBootTest
 @Import(TestConfig.class)
-public class GitSpecificTest {
+public class JobGitSpecificTest {
 
     private Validator validator;
-    private GitSpecific gitSpecific;
+    private JobGitSpecific jobGitSpecific;
 
     @BeforeEach
     public void setUp() {
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         validator = factory.getValidator();
-        gitSpecific = new GitSpecific();
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("/src");
-        gitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitReference("main");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific.setGitPath("/src");
+        jobGitSpecific.setGitRepoUrl("https://github.com/repo.git");
     }
 
     @Test
     public void testGitReferenceNotBlank() {
-        gitSpecific.setGitReference("");
-        Set<ConstraintViolation<GitSpecific>> violations = validator.validate(gitSpecific);
+        jobGitSpecific.setGitReference("");
+        Set<ConstraintViolation<JobGitSpecific>> violations = validator.validate(jobGitSpecific);
         assertEquals(1, violations.size());
         assertEquals(
                 "gitReference", violations.iterator().next().getPropertyPath().toString());
@@ -46,8 +46,8 @@ public class GitSpecificTest {
 
     @Test
     public void testGitReferenceTypeNotNull() {
-        gitSpecific.setGitReferenceType(null);
-        Set<ConstraintViolation<GitSpecific>> violations = validator.validate(gitSpecific);
+        jobGitSpecific.setGitReferenceType(null);
+        Set<ConstraintViolation<JobGitSpecific>> violations = validator.validate(jobGitSpecific);
         assertEquals(1, violations.size());
         assertEquals(
                 "gitReferenceType",
@@ -56,16 +56,16 @@ public class GitSpecificTest {
 
     @Test
     public void testGitPathNotBlank() {
-        gitSpecific.setGitPath("");
-        Set<ConstraintViolation<GitSpecific>> violations = validator.validate(gitSpecific);
+        jobGitSpecific.setGitPath("");
+        Set<ConstraintViolation<JobGitSpecific>> violations = validator.validate(jobGitSpecific);
         assertEquals(1, violations.size());
         assertEquals("gitPath", violations.iterator().next().getPropertyPath().toString());
     }
 
     @Test
     public void testGitRepoNotBlank() {
-        gitSpecific.setGitRepoUrl("");
-        Set<ConstraintViolation<GitSpecific>> violations = validator.validate(gitSpecific);
+        jobGitSpecific.setGitRepoUrl("");
+        Set<ConstraintViolation<JobGitSpecific>> violations = validator.validate(jobGitSpecific);
         assertEquals(1, violations.size());
         assertEquals(
                 "gitRepoUrl", violations.iterator().next().getPropertyPath().toString());
@@ -73,18 +73,18 @@ public class GitSpecificTest {
 
     @Test
     public void testDefaultValues() {
-        assertNotNull(gitSpecific);
-        assertThat(gitSpecific.getGitReference()).isNotBlank();
-        assertThat(gitSpecific.getGitReferenceType()).isNotNull();
-        assertThat(gitSpecific.getGitPath()).isNotBlank();
-        assertThat(gitSpecific.getGitRepoUrl()).isNotBlank();
+        assertNotNull(jobGitSpecific);
+        assertThat(jobGitSpecific.getGitReference()).isNotBlank();
+        assertThat(jobGitSpecific.getGitReferenceType()).isNotNull();
+        assertThat(jobGitSpecific.getGitPath()).isNotBlank();
+        assertThat(jobGitSpecific.getGitRepoUrl()).isNotBlank();
     }
 
     @Test
     public void testSettersAndGetters() {
-        assertEquals("main", gitSpecific.getGitReference());
-        assertEquals(GitReferenceType.BRANCH, gitSpecific.getGitReferenceType());
-        assertEquals("/src", gitSpecific.getGitPath());
-        assertEquals("https://github.com/repo.git", gitSpecific.getGitRepoUrl());
+        assertEquals("main", jobGitSpecific.getGitReference());
+        assertEquals(GitReferenceType.BRANCH, jobGitSpecific.getGitReferenceType());
+        assertEquals("/src", jobGitSpecific.getGitPath());
+        assertEquals("https://github.com/repo.git", jobGitSpecific.getGitRepoUrl());
     }
 }

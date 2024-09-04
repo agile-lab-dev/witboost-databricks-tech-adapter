@@ -105,17 +105,21 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
 
             var dltManager = new DeltaLiveTablesManager(workspaceClient, databricksWorkspaceInfo.getName());
 
+            List<String> notebooks = new ArrayList<>();
+            databricksDLTWorkloadSpecific
+                    .getNotebooks()
+                    .forEach(notebook -> notebooks.add(String.format("/Workspace/%s", notebook)));
+
             Either<FailedOperation, String> eitherCreatedPipeline = dltManager.createDLTPipeline(
                     databricksDLTWorkloadSpecific.getPipelineName(),
                     databricksDLTWorkloadSpecific.getProductEdition(),
                     databricksDLTWorkloadSpecific.getContinuous(),
-                    databricksDLTWorkloadSpecific.getNotebooks(),
+                    notebooks,
                     databricksDLTWorkloadSpecific.getFiles(),
                     databricksDLTWorkloadSpecific.getCatalog(),
                     databricksDLTWorkloadSpecific.getTarget(),
                     databricksDLTWorkloadSpecific.getPhoton(),
-                    databricksDLTWorkloadSpecific.getNotificationsMails(),
-                    databricksDLTWorkloadSpecific.getNotificationsAlerts(),
+                    databricksDLTWorkloadSpecific.getNotifications(),
                     databricksDLTWorkloadSpecific.getChannel(),
                     databricksDLTWorkloadSpecific.getCluster());
             if (eitherCreatedPipeline.isLeft()) return left(eitherCreatedPipeline.getLeft());
@@ -178,7 +182,7 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
                 var repoManager = new RepoManager(workspaceClient, databricksWorkspaceInfo.getName());
 
                 String repoPath = databricksDLTWorkloadSpecific.getRepoPath();
-                repoPath = String.format("/Users/%s/%s", azureAuthConfig.getClientId(), repoPath);
+                repoPath = String.format("/%s", repoPath);
 
                 Either<FailedOperation, Void> eitherDeletedRepo = repoManager.deleteRepo(
                         provisionRequest.component().getSpecific().getGit().getGitRepoUrl(), repoPath);

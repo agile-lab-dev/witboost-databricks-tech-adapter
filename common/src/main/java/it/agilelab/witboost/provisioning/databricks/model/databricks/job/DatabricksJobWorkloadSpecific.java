@@ -29,7 +29,7 @@ public class DatabricksJobWorkloadSpecific extends Specific {
 
     @Valid
     @NotNull
-    private GitSpecific git;
+    private JobGitSpecific git;
 
     private SchedulingSpecific scheduling;
 

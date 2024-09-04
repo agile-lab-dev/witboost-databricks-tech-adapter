@@ -79,12 +79,12 @@ public class JobWorkloadHandlerTest {
         databricksJobWorkloadSpecific.setJobName("jobName");
         databricksJobWorkloadSpecific.setRepoPath("dataproduct/component");
 
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitRepoUrl("repoUrl");
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("/src");
-        databricksJobWorkloadSpecific.setGit(gitSpecific);
+        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitRepoUrl("repoUrl");
+        jobGitSpecific.setGitReference("main");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific.setGitPath("/src");
+        databricksJobWorkloadSpecific.setGit(jobGitSpecific);
 
         JobClusterSpecific jobClusterSpecific = new JobClusterSpecific();
         jobClusterSpecific.setSpotBidMaxPrice(10D);
@@ -372,15 +372,14 @@ public class JobWorkloadHandlerTest {
         List<ObjectInfo> folderContent = Arrays.asList(
                 new ObjectInfo()
                         .setObjectType(ObjectType.REPO)
-                        .setPath("/Users/testClientId/dataproduct/repo")
+                        .setPath("/dataproduct/repo")
                         .setObjectId(1l),
                 new ObjectInfo()
                         .setObjectType(ObjectType.REPO)
-                        .setPath("/Users/testClientId/dataproduct/repo2")
+                        .setPath("/dataproduct/repo2")
                         .setObjectId(2l));
 
-        when(workspaceClient.workspace().list("/Users/testClientId/dataproduct"))
-                .thenReturn(folderContent);
+        when(workspaceClient.workspace().list("/dataproduct")).thenReturn(folderContent);
 
         Either<FailedOperation, Void> result =
                 jobWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo);

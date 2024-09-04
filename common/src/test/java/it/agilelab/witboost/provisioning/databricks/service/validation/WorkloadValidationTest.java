@@ -9,11 +9,9 @@ import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DLTClusterSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.PipelineChannel;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.ProductEdition;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -40,12 +38,12 @@ public class WorkloadValidationTest {
         workloadSpecific.setJobName("testJob");
         workloadSpecific.setDescription("description");
 
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitReference("master");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("https://git-url.com");
-        gitSpecific.setGitRepoUrl("databricks/notebook");
-        workloadSpecific.setGit(gitSpecific);
+        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitReference("master");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific.setGitPath("https://git-url.com");
+        jobGitSpecific.setGitRepoUrl("databricks/notebook");
+        workloadSpecific.setGit(jobGitSpecific);
 
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setCronExpression("* * * * *");
@@ -90,17 +88,15 @@ public class WorkloadValidationTest {
         specific.setCatalog("catalog");
         specific.setTarget("target");
         specific.setPhoton(true);
-        specific.setNotificationsMails(List.of("email1@example.com", "email2@example.com"));
-        specific.setNotificationsAlerts(List.of("alert1", "alert2"));
+        HashMap notifications = new HashMap();
+        notifications.put("email@email.com", List.of("alert1", "alert2"));
+        specific.setNotifications(notifications);
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
 
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("/src");
-        gitSpecific.setGitRepoUrl("https://github.com/repo.git");
-        specific.setGit(gitSpecific);
+        DLTGitSpecific dltGitSpecific = new DLTGitSpecific();
+        dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        specific.setGit(dltGitSpecific);
 
         Workload<DatabricksDLTWorkloadSpecific> workload = new Workload<>();
         workload.setId("my_workload_id");
@@ -139,12 +135,12 @@ public class WorkloadValidationTest {
         workloadSpecific.setJobName("testJob");
         workloadSpecific.setDescription("description");
 
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitReference("master");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("https://git-url.com");
-        gitSpecific.setGitRepoUrl("databricks/notebook");
-        workloadSpecific.setGit(gitSpecific);
+        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitReference("master");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific.setGitPath("https://git-url.com");
+        jobGitSpecific.setGitRepoUrl("databricks/notebook");
+        workloadSpecific.setGit(jobGitSpecific);
 
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setCronExpression("* * * * *");
@@ -179,12 +175,12 @@ public class WorkloadValidationTest {
         workloadSpecific.setJobName("testJob");
         workloadSpecific.setDescription("description");
 
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitReference("master");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("https://git-url.com");
-        gitSpecific.setGitRepoUrl("databricks/notebook");
-        workloadSpecific.setGit(gitSpecific);
+        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        jobGitSpecific.setGitReference("master");
+        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific.setGitPath("https://git-url.com");
+        jobGitSpecific.setGitRepoUrl("databricks/notebook");
+        workloadSpecific.setGit(jobGitSpecific);
 
         SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
         schedulingSpecific.setCronExpression("* * * * *");

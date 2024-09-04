@@ -30,10 +30,7 @@ import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DLTClusterSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.PipelineChannel;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.ProductEdition;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -143,18 +140,16 @@ public class DLTWorkloadHandlerTest {
         specific.setCatalog("catalog");
         specific.setTarget("target");
         specific.setPhoton(true);
-        specific.setNotificationsMails(List.of("email1@example.com", "email2@example.com"));
-        specific.setNotificationsAlerts(List.of("alert1", "alert2"));
+        HashMap notifications = new HashMap();
+        notifications.put("email@email.com", List.of("alert1", "alert2"));
+        specific.setNotifications(notifications);
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
         specific.setMetastore("metastore");
 
-        GitSpecific gitSpecific = new GitSpecific();
-        gitSpecific.setGitReference("main");
-        gitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
-        gitSpecific.setGitPath("/src");
-        gitSpecific.setGitRepoUrl("https://github.com/repo.git");
-        specific.setGit(gitSpecific);
+        DLTGitSpecific dltGitSpecific = new DLTGitSpecific();
+        dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        specific.setGit(dltGitSpecific);
 
         workload.setSpecific(specific);
         workload.setName("fake_workload");

@@ -1,12 +1,12 @@
 package it.agilelab.witboost.provisioning.databricks.model.databricks.dlt;
 
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitSpecific;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -34,8 +34,9 @@ public class DatabricksDLTWorkloadSpecific extends Specific {
 
     @Valid
     @NotNull
-    private GitSpecific git;
+    private DLTGitSpecific git;
 
+    // Paths of notebooks to be executed
     @NotNull
     private List<@NotBlank String> notebooks;
 
@@ -52,9 +53,7 @@ public class DatabricksDLTWorkloadSpecific extends Specific {
     @NotNull
     private Boolean photon;
 
-    private Collection<@NotBlank String> notificationsMails;
-
-    private Collection<@NotBlank String> notificationsAlerts;
+    private Map<String, Collection<@NotBlank String>> notifications;
 
     @NotNull
     private PipelineChannel channel;

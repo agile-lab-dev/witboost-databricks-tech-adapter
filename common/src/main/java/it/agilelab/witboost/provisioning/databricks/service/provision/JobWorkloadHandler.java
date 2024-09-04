@@ -150,7 +150,7 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
                 var repoManager = new RepoManager(workspaceClient, databricksWorkspaceInfo.getName());
 
                 String repoPath = databricksJobWorkloadSpecific.getRepoPath();
-                repoPath = String.format("/Users/%s/%s", azureAuthConfig.getClientId(), repoPath);
+                repoPath = String.format("/%s", repoPath);
 
                 Either<FailedOperation, Void> eitherDeletedRepo = repoManager.deleteRepo(
                         provisionRequest.component().getSpecific().getGit().getGitRepoUrl(), repoPath);
