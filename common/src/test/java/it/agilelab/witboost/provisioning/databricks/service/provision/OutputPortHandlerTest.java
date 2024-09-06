@@ -13,8 +13,8 @@ import com.databricks.sdk.service.catalog.*;
 import com.databricks.sdk.service.sql.*;
 import com.databricks.sdk.service.workspace.WorkspaceAPI;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksWorkspaceClientBean;
+import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
@@ -27,6 +27,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksO
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -36,7 +37,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
 @SpringBootTest
-// @EnableConfigurationProperties
 class OutputPortHandlerTest {
 
     private DataProduct dataProduct;
@@ -62,16 +62,19 @@ class OutputPortHandlerTest {
     private OutputPortHandler outputPortHandler;
 
     @MockBean
-    private DatabricksApiClientBean databricksApiClientBean;
+    private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
+
+    @Mock
+    ApiClient apiClientMock;
+
+    @MockBean
+    private Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
 
     @Mock
     WorkspaceClient workspaceClient;
 
     @Mock
     WorkspaceAPI workspaceAPI;
-
-    @MockBean
-    private DatabricksWorkspaceClientBean databricksWorkspaceClientBean;
 
     private DatabricksWorkspaceInfo databricksWorkspaceInfo =
             new DatabricksWorkspaceInfo("ws", "123", "https://ws.com", "abc", "test", ProvisioningState.SUCCEEDED);
@@ -110,8 +113,7 @@ class OutputPortHandlerTest {
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        ApiClient apiClientMock = mock(ApiClient.class);
-        when(databricksApiClientBean.getObject("https://ws.com")).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
 
         List<DataSource> dataSourceList =
                 Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
@@ -177,8 +179,7 @@ class OutputPortHandlerTest {
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        ApiClient apiClientMock = mock(ApiClient.class);
-        when(databricksApiClientBean.getObject("https://ws.com")).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
 
         List<DataSource> dataSourceList =
                 Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
@@ -246,8 +247,7 @@ class OutputPortHandlerTest {
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        ApiClient apiClientMock = mock(ApiClient.class);
-        when(databricksApiClientBean.getObject("https://ws.com")).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
 
         List<DataSource> dataSourceList =
                 Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
@@ -507,8 +507,7 @@ class OutputPortHandlerTest {
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        ApiClient apiClientMock = mock(ApiClient.class);
-        when(databricksApiClientBean.getObject("https://ws.com")).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
 
         List<DataSource> dataSourceList =
                 Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
@@ -567,8 +566,7 @@ class OutputPortHandlerTest {
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        ApiClient apiClientMock = mock(ApiClient.class);
-        when(databricksApiClientBean.getObject("https://ws.com")).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
 
         List<DataSource> dataSourceList =
                 Arrays.asList(new DataSource().setName("sql_fake").setWarehouseId("sql_wh_id_fake"));

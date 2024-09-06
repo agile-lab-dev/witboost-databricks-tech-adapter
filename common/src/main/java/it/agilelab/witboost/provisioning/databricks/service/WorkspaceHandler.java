@@ -7,7 +7,7 @@ import com.azure.resourcemanager.AzureResourceManager;
 import com.azure.resourcemanager.authorization.models.PrincipalType;
 import com.databricks.sdk.WorkspaceClient;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksWorkspaceClientBean;
+import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
 import it.agilelab.witboost.provisioning.databricks.client.SkuType;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
@@ -26,6 +26,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.job.Databri
 import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissionsManager;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
 import java.util.*;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,7 +44,7 @@ public class WorkspaceHandler {
     private final AzureResourceManager azureResourceManager;
     private final AzurePermissionsManager azurePermissionsManager;
     private final AzureWorkspaceManager azureWorkspaceManager;
-    private final DatabricksWorkspaceClientBean databricksWorkspaceClientBean;
+    private final Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
 
     @Autowired
     public WorkspaceHandler(
@@ -54,7 +55,7 @@ public class WorkspaceHandler {
             AzureAuthConfig azureAuthConfig,
             AzureMapper azureMapper,
             AzurePermissionsManager azurePermissionsManager,
-            DatabricksWorkspaceClientBean databricksWorkspaceClientBean,
+            Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory,
             AzureResourceManager azureResourceManager) {
         this.azureWorkspaceManager = azureWorkspaceManager;
         this.azurePermissionsConfig = azurePermissionsConfig;
@@ -63,7 +64,7 @@ public class WorkspaceHandler {
         this.azureAuthConfig = azureAuthConfig;
         this.azureMapper = azureMapper;
         this.azurePermissionsManager = azurePermissionsManager;
-        this.databricksWorkspaceClientBean = databricksWorkspaceClientBean;
+        this.workspaceClientFactory = workspaceClientFactory;
         this.azureResourceManager = azureResourceManager;
     }
 
@@ -133,8 +134,16 @@ public class WorkspaceHandler {
     public Either<FailedOperation, WorkspaceClient> getWorkspaceClient(
             DatabricksWorkspaceInfo databricksWorkspaceInfo) {
         try {
-            return right(databricksWorkspaceClientBean.getObject(
-                    databricksWorkspaceInfo.getDatabricksHost(), databricksWorkspaceInfo.getName()));
+
+            WorkspaceClientConfigParams workspaceClientConfigParams = new WorkspaceClientConfigParams(
+                    databricksAuthConfig,
+                    azureAuthConfig,
+                    gitCredentialsConfig,
+                    databricksWorkspaceInfo.getDatabricksHost(),
+                    databricksWorkspaceInfo.getName());
+
+            return right(workspaceClientFactory.apply(workspaceClientConfigParams));
+
         } catch (Exception e) {
             String errorMessage = String.format(
                     "An error occurred while getting Databricks workspaceClient for workspace %s. Please try again and if the error persists contact the platform team. Details: %s",

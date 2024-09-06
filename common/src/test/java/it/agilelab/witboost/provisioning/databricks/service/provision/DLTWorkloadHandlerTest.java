@@ -20,7 +20,6 @@ import com.databricks.sdk.service.pipelines.PipelineStateInfo;
 import com.databricks.sdk.service.pipelines.PipelinesAPI;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksWorkspaceClientBean;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
@@ -31,7 +30,6 @@ import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -57,9 +55,6 @@ public class DLTWorkloadHandlerTest {
     private AzurePermissionsConfig azurePermissionsConfig;
 
     @Autowired
-    private JobWorkloadHandler jobWorkloadHandler;
-
-    @Autowired
     AzureAuthConfig azureAuthConfig;
 
     @Autowired
@@ -74,12 +69,6 @@ public class DLTWorkloadHandlerTest {
     @Mock
     WorkspaceAPI workspaceAPI;
 
-    @Mock
-    ReposAPI reposAPI;
-
-    @MockBean
-    private DatabricksWorkspaceClientBean databricksWorkspaceClientBean;
-
     @MockBean
     private AccountClient accountClient;
 
@@ -87,7 +76,6 @@ public class DLTWorkloadHandlerTest {
     private AzureResourceManager azureResourceManager;
 
     private DLTWorkloadHandler dltWorkloadHandler;
-
     private DataProduct dataProduct;
     private Workload workload;
     private DatabricksDLTWorkloadSpecific databricksDLTWorkloadSpecific;

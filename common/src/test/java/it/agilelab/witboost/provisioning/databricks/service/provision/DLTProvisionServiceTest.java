@@ -38,9 +38,6 @@ public class DLTProvisionServiceTest {
     private ValidationService validationService;
 
     @Mock
-    private JobWorkloadHandler jobWorkloadHandler;
-
-    @Mock
     private DLTWorkloadHandler dltWorkloadHandler;
 
     @Mock
@@ -50,7 +47,7 @@ public class DLTProvisionServiceTest {
     private WorkspaceHandler workspaceHandler;
 
     @Mock
-    ForkJoinPool forkJoinPool;
+    private ForkJoinPool forkJoinPool;
 
     @InjectMocks
     private ProvisionServiceImpl provisionService;

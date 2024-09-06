@@ -8,11 +8,12 @@ import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.catalog.*;
 import com.databricks.sdk.service.sql.*;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
+import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
+import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
@@ -22,6 +23,7 @@ import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissions
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.databricks.DatabricksMapper;
 import java.util.*;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,25 +36,28 @@ public class OutputPortHandler {
 
     private final AzureAuthConfig azureAuthConfig;
     private final GitCredentialsConfig gitCredentialsConfig;
-    private final DatabricksApiClientBean databricksApiClientBean;
+    private final Function<ApiClientConfigParams, ApiClient> apiClientFactory;
     private final AzurePermissionsManager azurePermissionsManager;
     private final MiscConfig miscConfig;
     private final AzureMapper azureMapper;
+    private final DatabricksAuthConfig databricksAuthConfig;
 
     @Autowired
     public OutputPortHandler(
             AzureAuthConfig azureAuthConfig,
             GitCredentialsConfig gitCredentialsConfig,
-            DatabricksApiClientBean databricksApiClientBean,
+            Function<ApiClientConfigParams, ApiClient> apiClientFactory,
             AzurePermissionsManager azurePermissionsManager,
             MiscConfig miscConfig,
-            AzureMapper azureMapper) {
+            AzureMapper azureMapper,
+            DatabricksAuthConfig databricksAuthConfig) {
         this.azureAuthConfig = azureAuthConfig;
         this.gitCredentialsConfig = gitCredentialsConfig;
-        this.databricksApiClientBean = databricksApiClientBean;
+        this.apiClientFactory = apiClientFactory;
         this.azurePermissionsManager = azurePermissionsManager;
         this.miscConfig = miscConfig;
         this.azureMapper = azureMapper;
+        this.databricksAuthConfig = databricksAuthConfig;
     }
 
     /**
@@ -96,10 +101,14 @@ public class OutputPortHandler {
                 return left(eitherCreatedSchema.getLeft());
             }
 
-            // Retrieving databricks host from databricks name
-            String databricksHost = databricksWorkspaceInfo.getDatabricksHost();
+            ApiClientConfigParams apiClientConfigParams = new ApiClientConfigParams(
+                    databricksAuthConfig,
+                    azureAuthConfig,
+                    gitCredentialsConfig,
+                    databricksWorkspaceInfo.getDatabricksHost(),
+                    databricksWorkspaceInfo.getName());
 
-            ApiClient apiClient = databricksApiClientBean.getObject(databricksHost);
+            ApiClient apiClient = apiClientFactory.apply(apiClientConfigParams);
 
             // Retrieving Sql Warehouse id from name
             String sqlWarehouseName = databricksOutputPortSpecific.getSqlWarehouseName();

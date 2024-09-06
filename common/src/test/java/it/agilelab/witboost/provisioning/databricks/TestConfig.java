@@ -1,7 +1,6 @@
 package it.agilelab.witboost.provisioning.databricks;
 
 import com.azure.resourcemanager.AzureResourceManager;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksWorkspaceClientBean;
 import it.agilelab.witboost.provisioning.databricks.client.RepoManager;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -14,9 +13,6 @@ public class TestConfig {
 
     @MockBean
     AzureResourceManager azureResourceManager;
-
-    @MockBean
-    DatabricksWorkspaceClientBean databricksWorkspaceClientBean;
 
     @Bean
     @Primary

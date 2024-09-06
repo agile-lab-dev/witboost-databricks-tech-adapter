@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.catalog.ColumnInfo;
 import com.databricks.sdk.service.catalog.TableExistsResponse;
 import com.databricks.sdk.service.catalog.TableInfo;
@@ -18,7 +19,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
+import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,7 +53,7 @@ public class OutputPortValidationTest {
     private WorkspaceHandler workspaceHandler;
 
     @Mock
-    DatabricksApiClientBean databricksApiClientBean;
+    private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
 
     private OutputPortValidation outputPortValidation;
 
@@ -81,8 +83,6 @@ public class OutputPortValidationTest {
 
         when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
 
-        DatabricksApiClientBean databricksApiClientBeanMock = mock(DatabricksApiClientBean.class);
-
         TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
         when(tableExistsResponseMock.getTableExists()).thenReturn(true);
 
@@ -98,7 +98,7 @@ public class OutputPortValidationTest {
 
         when(tableInfoMock.getColumns()).thenReturn(columnInfos);
 
-        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, databricksApiClientBeanMock);
+        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, apiClientFactory);
 
         var responseActual = outputPortValidation.validate(outputPort, "development");
 
@@ -122,8 +122,6 @@ public class OutputPortValidationTest {
                 .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
         when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
 
-        DatabricksApiClientBean databricksApiClientBeanMock = mock(DatabricksApiClientBean.class);
-
         TableExistsResponse tableExistsResponse = mock(TableExistsResponse.class);
         when(tableExistsResponse.getTableExists()).thenReturn(false);
 
@@ -131,7 +129,7 @@ public class OutputPortValidationTest {
 
         when(workspaceClientMock.tables().exists("catalog.schema.table_1")).thenReturn(tableExistsResponse);
 
-        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, databricksApiClientBeanMock);
+        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, apiClientFactory);
         var responseActual = outputPortValidation.validate(outputPort, "development");
 
         String errorMessage =
@@ -158,15 +156,13 @@ public class OutputPortValidationTest {
                 .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
         when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
 
-        DatabricksApiClientBean databricksApiClientBeanMock = mock(DatabricksApiClientBean.class);
-
         TableExistsResponse tableExistsResponse = mock(TableExistsResponse.class);
         when(tableExistsResponse.getTableExists()).thenReturn(false);
 
         when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
         when(workspaceClientMock.tables().exists("catalog.schema.table_1")).thenReturn(tableExistsResponse);
 
-        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, databricksApiClientBeanMock);
+        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, apiClientFactory);
         var responseActual = outputPortValidation.validate(outputPort, "prod");
 
         String errorMessage =
@@ -194,8 +190,6 @@ public class OutputPortValidationTest {
                 .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
         when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
 
-        DatabricksApiClientBean databricksApiClientBeanMock = mock(DatabricksApiClientBean.class);
-
         TableExistsResponse tableExistsResponse = mock(TableExistsResponse.class);
         when(tableExistsResponse.getTableExists()).thenReturn(true);
 
@@ -212,7 +206,7 @@ public class OutputPortValidationTest {
 
         when(tableInfo.getColumns()).thenReturn(columnInfos);
 
-        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, databricksApiClientBeanMock);
+        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, apiClientFactory);
         var responseActual = outputPortValidation.validate(outputPort, "development");
 
         String errorMessage =

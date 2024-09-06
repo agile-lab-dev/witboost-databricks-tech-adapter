@@ -13,7 +13,7 @@ import com.databricks.sdk.service.catalog.TableExistsResponse;
 import com.databricks.sdk.service.catalog.TableInfo;
 import com.databricks.sdk.service.catalog.TablesAPI;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
+import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
@@ -25,11 +25,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 
 @SpringBootTest
@@ -39,8 +41,11 @@ public class ValidationServiceTest {
     @Autowired
     private TemplatesConfig templatesConfig;
 
+    @MockBean
+    private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
+
     @Mock
-    DatabricksApiClientBean databricksApiClientBean;
+    ApiClient apiClientMock;
 
     @Mock
     WorkspaceHandler workspaceHandler;
@@ -48,8 +53,7 @@ public class ValidationServiceTest {
     @Autowired
     MiscConfig miscConfig;
 
-    private ValidationService service =
-            new ValidationServiceImpl(databricksApiClientBean, miscConfig, workspaceHandler);
+    private ValidationService service = new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandler);
 
     @Test
     public void testValidateWorkloadOk() throws IOException {
@@ -173,8 +177,6 @@ public class ValidationServiceTest {
     public void testValidateOutputPortOk() throws Exception {
         String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_outputport_ok.yml");
 
-        DatabricksApiClientBean databricksApiClientBeanMock = mock(DatabricksApiClientBean.class);
-
         WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
 
         WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
@@ -190,7 +192,7 @@ public class ValidationServiceTest {
 
         ApiClient apiClientMock = mock(ApiClient.class);
 
-        when(databricksApiClientBeanMock.getObject("http://workspace")).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
 
         when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
 
@@ -212,8 +214,7 @@ public class ValidationServiceTest {
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
-        ValidationService service =
-                new ValidationServiceImpl(databricksApiClientBeanMock, miscConfig, workspaceHandlerMock);
+        ValidationService service = new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock);
 
         var actualRes = service.validate(provisioningRequest);
 
@@ -224,8 +225,6 @@ public class ValidationServiceTest {
     public void testValidateOutputPortUnexistingCol() throws Exception {
         String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_outputport_missing.yml");
 
-        DatabricksApiClientBean databricksApiClientBeanMock = mock(DatabricksApiClientBean.class);
-
         WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
 
         WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
@@ -240,7 +239,7 @@ public class ValidationServiceTest {
 
         ApiClient apiClientMock = mock(ApiClient.class);
 
-        when(databricksApiClientBeanMock.getObject("http://workspace")).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
 
         when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
 
@@ -262,8 +261,7 @@ public class ValidationServiceTest {
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
-        ValidationService service =
-                new ValidationServiceImpl(databricksApiClientBeanMock, miscConfig, workspaceHandlerMock);
+        ValidationService service = new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock);
 
         var actualRes = service.validate(provisioningRequest);
 

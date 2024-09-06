@@ -15,7 +15,6 @@ import com.azure.resourcemanager.authorization.models.PrincipalType;
 import com.azure.resourcemanager.authorization.models.RoleAssignmentCreateParameters;
 import com.azure.resourcemanager.authorization.models.RoleAssignments;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksWorkspaceClientBean;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,9 +34,6 @@ class AzurePermissionsManagerTest {
 
     @MockBean
     private AzureResourceManager azureResourceManager;
-
-    @MockBean
-    private DatabricksWorkspaceClientBean databricksWorkspaceClientBean;
 
     @InjectMocks
     @Autowired

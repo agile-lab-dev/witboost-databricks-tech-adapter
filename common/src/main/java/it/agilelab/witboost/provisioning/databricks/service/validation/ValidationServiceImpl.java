@@ -3,9 +3,10 @@ package it.agilelab.witboost.provisioning.databricks.service.validation;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
+import com.databricks.sdk.core.ApiClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
+import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
@@ -21,6 +22,7 @@ import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRe
 import it.agilelab.witboost.provisioning.databricks.parser.Parser;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import java.util.*;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -33,13 +35,15 @@ public class ValidationServiceImpl implements ValidationService {
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
     private final Map<String, List<Class<? extends Specific>>> kindToSpecificClasses = new HashMap<>();
-    private final DatabricksApiClientBean databricksApiClientBean;
+    private final Function<ApiClientConfigParams, ApiClient> apiClientFactory;
     private final WorkspaceHandler workspaceHandler;
     private final MiscConfig miscConfig;
 
     public ValidationServiceImpl(
-            DatabricksApiClientBean databricksApiClientBean, MiscConfig miscConfig, WorkspaceHandler workspaceHandler) {
-        this.databricksApiClientBean = databricksApiClientBean;
+            Function<ApiClientConfigParams, ApiClient> apiClientFactory,
+            MiscConfig miscConfig,
+            WorkspaceHandler workspaceHandler) {
+        this.apiClientFactory = apiClientFactory;
         this.miscConfig = miscConfig;
         this.workspaceHandler = workspaceHandler;
 
@@ -115,8 +119,7 @@ public class ValidationServiceImpl implements ValidationService {
                         componentToProvision.getName(),
                         environment);
 
-                var outputPortValidator =
-                        new OutputPortValidation(miscConfig, workspaceHandler, databricksApiClientBean);
+                var outputPortValidator = new OutputPortValidation(miscConfig, workspaceHandler, apiClientFactory);
                 var outputPortValidation = outputPortValidator.validate(
                         (OutputPort<DatabricksOutputPortSpecific>) componentToProvision, environment);
                 if (outputPortValidation.isLeft()) return left(outputPortValidation.getLeft());

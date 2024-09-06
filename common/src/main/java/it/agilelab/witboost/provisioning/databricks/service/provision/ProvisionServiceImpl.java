@@ -2,9 +2,10 @@ package it.agilelab.witboost.provisioning.databricks.service.provision;
 
 import com.azure.resourcemanager.databricks.AzureDatabricksManager;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
+import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.catalog.TableInfo;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
+import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +40,7 @@ public class ProvisionServiceImpl implements ProvisionService {
     private final String WORKLOAD_KIND = "workload";
     private final String OUTPUTPORT_KIND = "outputport";
     private final Logger logger = LoggerFactory.getLogger(ProvisionServiceImpl.class);
-    private final DatabricksApiClientBean databricksApiClientBean;
+    private final Function<ApiClientConfigParams, ApiClient> apiClientFactory;
     private final AzureDatabricksManager azureDatabricksManager;
     private final AzureWorkspaceManager azureWorkspaceManager;
 
@@ -49,7 +51,7 @@ public class ProvisionServiceImpl implements ProvisionService {
             WorkspaceHandler workspaceHandler,
             OutputPortHandler outputPortHandler,
             ForkJoinPool forkJoinPool,
-            DatabricksApiClientBean databricksApiClientBean,
+            Function<ApiClientConfigParams, ApiClient> apiClientFactory,
             AzureDatabricksManager azureDatabricksManager,
             AzureWorkspaceManager azureWorkspaceManager) {
         this.validationService = validationService;
@@ -58,7 +60,7 @@ public class ProvisionServiceImpl implements ProvisionService {
         this.forkJoinPool = forkJoinPool;
         this.dltWorkloadHandler = dltWorkloadHandler;
         this.outputPortHandler = outputPortHandler;
-        this.databricksApiClientBean = databricksApiClientBean;
+        this.apiClientFactory = apiClientFactory;
         this.azureDatabricksManager = azureDatabricksManager;
         this.azureWorkspaceManager = azureWorkspaceManager;
     }

@@ -4,9 +4,10 @@ import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.ApiClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.DatabricksApiClientBean;
+import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
@@ -16,6 +17,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksO
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import java.util.*;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,13 +29,15 @@ public class OutputPortValidation {
     private static final Logger logger = LoggerFactory.getLogger(OutputPortValidation.class);
     private final MiscConfig miscConfig;
     private final WorkspaceHandler workspaceHandler;
-    private final DatabricksApiClientBean databricksApiClientBean;
+    private final Function<ApiClientConfigParams, ApiClient> apiClientFactory;
 
     @Autowired
     public OutputPortValidation(
-            MiscConfig miscConfig, WorkspaceHandler workspaceHandler, DatabricksApiClientBean databricksApiClientBean) {
+            MiscConfig miscConfig,
+            WorkspaceHandler workspaceHandler,
+            Function<ApiClientConfigParams, ApiClient> apiClientFactory) {
         this.miscConfig = miscConfig;
-        this.databricksApiClientBean = databricksApiClientBean;
+        this.apiClientFactory = apiClientFactory;
         this.workspaceHandler = workspaceHandler;
     }
 
