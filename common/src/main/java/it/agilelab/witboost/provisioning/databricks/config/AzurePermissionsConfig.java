@@ -15,9 +15,11 @@ public class AzurePermissionsConfig {
 
     private String auth_clientSecret;
 
-    private String roleDefinitionId;
-
     private String subscriptionId;
 
     private String resourceGroup;
+
+    private String dpOwnerRoleDefinitionId;
+
+    private String devGroupRoleDefinitionId;
 }

@@ -27,7 +27,8 @@ public class AzurePermissionsConfigTest {
         @Bean
         public AzurePermissionsConfig primaryAzurePermissionsConfig() {
             AzurePermissionsConfig config = new AzurePermissionsConfig();
-            config.setRoleDefinitionId("testRoleDefinitionId");
+            config.setDpOwnerRoleDefinitionId("testRoleDefinitionId");
+            config.setDevGroupRoleDefinitionId("testRoleDefinitionId");
             config.setSubscriptionId("testSubscriptionId");
             config.setResourceGroup("testResourceGroup");
             config.setAuth_clientId("testClientId");
@@ -39,7 +40,8 @@ public class AzurePermissionsConfigTest {
 
     @Test
     public void testConfigurationProperties() {
-        assertEquals("testRoleDefinitionId", azurePermissionsConfig.getRoleDefinitionId());
+        assertEquals("testRoleDefinitionId", azurePermissionsConfig.getDpOwnerRoleDefinitionId());
+        assertEquals("testRoleDefinitionId", azurePermissionsConfig.getDevGroupRoleDefinitionId());
         assertEquals("testSubscriptionId", azurePermissionsConfig.getSubscriptionId());
         assertEquals("testResourceGroup", azurePermissionsConfig.getResourceGroup());
         assertEquals("testClientId", azurePermissionsConfig.getAuth_clientId());

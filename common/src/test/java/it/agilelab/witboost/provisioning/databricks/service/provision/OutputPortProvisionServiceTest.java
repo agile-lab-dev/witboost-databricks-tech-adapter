@@ -16,6 +16,7 @@ import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.Info;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
@@ -85,7 +86,8 @@ public class OutputPortProvisionServiceTest {
 
     @Test
     public void testProvisionOutputPort_Success() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
 
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
@@ -137,7 +139,8 @@ public class OutputPortProvisionServiceTest {
 
     @Test
     public void testProvisionOutputPort_FailureCreatedWorkspace() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
 
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
@@ -161,7 +164,8 @@ public class OutputPortProvisionServiceTest {
 
     @Test
     public void testProvisionOutputPort_FailureWorkspaceClient() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
 
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
@@ -188,7 +192,8 @@ public class OutputPortProvisionServiceTest {
 
     @Test
     public void testUnprovisionOutputPort_Success() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
         outputPort1.setSpecific(databricksOutputPortSpecific);
@@ -214,7 +219,8 @@ public class OutputPortProvisionServiceTest {
 
     @Test
     public void testUnprovisionOutputPort_UnexistingWorkspaceSuccess() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
         outputPort1.setSpecific(databricksOutputPortSpecific);
@@ -236,7 +242,8 @@ public class OutputPortProvisionServiceTest {
 
     @Test
     public void testUnprovisionOutputPort_FailureGetWorkspaceInfo() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
         outputPort1.setSpecific(databricksOutputPortSpecific);
@@ -258,7 +265,8 @@ public class OutputPortProvisionServiceTest {
 
     @Test
     public void testUnprovisionOutputPort_FailureGetWorkspaceClient() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
         outputPort1.setSpecific(databricksOutputPortSpecific);
@@ -283,7 +291,8 @@ public class OutputPortProvisionServiceTest {
 
     @Test
     public void testUnprovisionOutputPort_FailureUnprovisionOutputPort() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
         outputPort1.setSpecific(databricksOutputPortSpecific);

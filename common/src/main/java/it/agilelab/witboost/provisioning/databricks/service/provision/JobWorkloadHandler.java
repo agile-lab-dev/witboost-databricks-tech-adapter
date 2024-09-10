@@ -50,9 +50,7 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
 
             // TODO: This is a temporary solution. Remove or update this logic in the future.
             String devGroup = provisionRequest.dataProduct().getDevGroup();
-            if (!devGroup.startsWith("group:")) {
-                devGroup = "group:" + devGroup;
-            }
+            if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
 
             Map<String, Either<Throwable, String>> eitherMap =
                     databricksMapper.map(Set.of(provisionRequest.dataProduct().getDataProductOwner(), devGroup));
@@ -79,7 +77,6 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
 
             Either<FailedOperation, Void> eitherAttachedMetastore =
                     unityCatalogManager.attachMetastore(databricksJobWorkloadSpecific.getMetastore());
-
             if (eitherAttachedMetastore.isLeft()) return left(eitherAttachedMetastore.getLeft());
 
             Either<FailedOperation, Void> eitherCreatedRepo = createRepositoryWithPermissions(
@@ -88,15 +85,11 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
                     databricksWorkspaceInfo,
                     dpOwnerDatabricksId,
                     dpDevGroupDatabricksId);
-            if (eitherCreatedRepo.isLeft()) {
-                return left(eitherCreatedRepo.getLeft());
-            }
+            if (eitherCreatedRepo.isLeft()) return left(eitherCreatedRepo.getLeft());
 
             Either<FailedOperation, Long> eitherCreatedJob =
                     createJob(provisionRequest, workspaceClient, databricksWorkspaceInfo.getName());
-            if (eitherCreatedJob.isLeft()) {
-                return left(eitherCreatedJob.getLeft());
-            }
+            if (eitherCreatedJob.isLeft()) return left(eitherCreatedJob.getLeft());
 
             logger.info(String.format("Workspace available at: %s", databricksWorkspaceInfo.getDatabricksHost()));
 

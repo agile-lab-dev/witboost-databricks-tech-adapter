@@ -10,7 +10,8 @@ azure.permissions:
     auth_clientSecret: testClientSecret
     resourceId: testResourceId
     roleAssignmentName: testRoleAssignmentName
-    roleDefinitionId: testRoleDefinitionId
+    dpOwnerRoleDefinitionId: testRoleDefinitionId
+    devGroupRoleDefinitionId: testRoleDefinitionId
     principalId: testPrincipalId
     principalType: testPrincipalType
     subscriptionId: testSubscriptionId

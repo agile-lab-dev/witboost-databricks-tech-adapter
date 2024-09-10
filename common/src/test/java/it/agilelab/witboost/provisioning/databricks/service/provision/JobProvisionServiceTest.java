@@ -68,7 +68,7 @@ public class JobProvisionServiceTest {
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         when(validationService.validate(provisioningRequest))
-                .thenReturn(right(new ProvisionRequest<Specific>(null, null, false)));
+                .thenReturn(right(new ProvisionRequest<>(null, null, false)));
         var expectedRes = new ValidationResult(true);
         var actualRes = provisionService.validate(provisioningRequest);
 
@@ -77,7 +77,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testValidateError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("error")));
         when(validationService.validate(provisioningRequest)).thenReturn(left(failedOperation));
         var expectedRes = new ValidationResult(false).error(new ValidationError(List.of("error")));
@@ -89,7 +90,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testProvisionValidationError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("validationServiceError")));
         when(validationService.validate(provisioningRequest)).thenReturn(left(failedOperation));
 
@@ -101,7 +103,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testProvisionUnsupportedKind() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("unsupported");
         when(validationService.validate(provisioningRequest))
@@ -115,7 +118,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testProvisionWorkloadOk() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<DatabricksJobWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -168,7 +172,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testProvisionWorkloadWrongWorkspaceStatus() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<DatabricksJobWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -191,7 +196,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testProvisionWorkloadErrorCreatingJob() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<DatabricksJobWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -208,15 +214,14 @@ public class JobProvisionServiceTest {
 
         String token = provisionService.provision(provisioningRequest);
 
-        ProvisioningStatus actualRes = provisionService.getStatus(token);
-
         assertEquals(
                 "Errors: -jobCreationError\n", provisionService.getStatus(token).getResult());
     }
 
     @Test
     public void testProvisionWorkloadErrorGettingWorkspace() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -231,8 +236,6 @@ public class JobProvisionServiceTest {
 
         String token = provisionService.provision(provisioningRequest);
 
-        ProvisioningStatus actualRes = provisionService.getStatus(token);
-
         assertEquals(
                 "Errors: -getWorkspaceError\n",
                 provisionService.getStatus(token).getResult());
@@ -240,7 +243,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testProvisionWorkloadErrorCreatingWorkspace() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -253,8 +257,6 @@ public class JobProvisionServiceTest {
 
         String token = provisionService.provision(provisioningRequest);
 
-        ProvisioningStatus actualRes = provisionService.getStatus(token);
-
         assertEquals(
                 "Errors: -createWorkspaceError\n",
                 provisionService.getStatus(token).getResult());
@@ -262,7 +264,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testUnprovisionValidationError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("validationServiceError")));
         when(validationService.validate(provisioningRequest)).thenReturn(left(failedOperation));
 
@@ -274,7 +277,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testUnprovisionUnsupportedKind() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> Workload = new Workload<>();
         Workload.setKind("unsupported");
         when(validationService.validate(provisioningRequest))
@@ -337,7 +341,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadWorkspaceNameError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -357,7 +362,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadWorkspaceInfoError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -377,7 +383,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadWorkspaceInfoEmpty() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         var specific = new DatabricksJobWorkloadSpecific();
@@ -401,7 +408,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadWorkspaceClientError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -424,7 +432,8 @@ public class JobProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadUnprovisioningWorkloadError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksJobWorkloadSpecific());
@@ -442,8 +451,6 @@ public class JobProvisionServiceTest {
         when(jobWorkloadHandler.unprovisionWorkload(any(), any(), any())).thenReturn(left(failedOperation));
 
         String token = provisionService.unprovision(provisioningRequest);
-
-        ProvisioningStatus status = provisionService.getStatus(token);
 
         assertEquals(
                 "Errors: -unprovisioningWorkloadError\n",

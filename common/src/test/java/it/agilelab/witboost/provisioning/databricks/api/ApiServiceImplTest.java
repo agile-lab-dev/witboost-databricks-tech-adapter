@@ -33,7 +33,8 @@ public class ApiServiceImplTest {
 
     @Test
     public void testValidateOk() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         when(validationService.validate(provisioningRequest))
                 .thenReturn(Either.right(new ProvisionRequest<Specific>(null, null, false)));
         var expectedRes = new ValidationResult(true);
@@ -45,7 +46,8 @@ public class ApiServiceImplTest {
 
     @Test
     public void testValidateError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("error")));
         when(validationService.validate(provisioningRequest)).thenReturn(Either.left(failedOperation));
         var expectedRes = new ValidationResult(false).error(new ValidationError(List.of("error")));

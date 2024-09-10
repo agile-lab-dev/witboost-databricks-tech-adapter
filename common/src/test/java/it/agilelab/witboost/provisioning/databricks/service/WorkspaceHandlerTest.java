@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.authorization.fluent.models.RoleAssignmentInner;
+import com.azure.resourcemanager.authorization.models.PrincipalType;
 import com.azure.resourcemanager.databricks.AzureDatabricksManager;
 import com.azure.resourcemanager.databricks.implementation.WorkspaceImpl;
 import com.azure.resourcemanager.databricks.implementation.WorkspacesImpl;
@@ -21,6 +23,7 @@ import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
+import it.agilelab.witboost.provisioning.databricks.client.SkuType;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -146,6 +149,7 @@ public class WorkspaceHandlerTest {
 
         Map<String, Either<Throwable, String>> mockres = new HashMap<>();
         mockres.put(dataProduct.getDataProductOwner(), right("azureId"));
+        mockres.put(dataProduct.getDevGroup(), right("azureGroupId"));
         when(azureMapper.map(anySet())).thenReturn(mockres);
 
         when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
@@ -189,6 +193,7 @@ public class WorkspaceHandlerTest {
 
         Map<String, Either<Throwable, String>> mockres = new HashMap<>();
         mockres.put(dataProduct.getDataProductOwner(), right("azureId"));
+        mockres.put(dataProduct.getDevGroup(), right("azureGroupId"));
         when(azureMapper.map(anySet())).thenReturn(mockres);
 
         when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
@@ -419,6 +424,60 @@ public class WorkspaceHandlerTest {
         assertTrue(workspaceHandler.getWorkspaceHost("any").isLeft());
     }
 
+    @Test
+    public void testHandleNoPermissions_Success() {
+        DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
+        RoleAssignmentInner roleAssignmentInner = mock(RoleAssignmentInner.class);
+        when(roleAssignmentInner.id()).thenReturn("/subscriptions/test/workspaces/testWorkspace");
+
+        when(azurePermissionsManager.getPrincipalRoleAssignmentsOnResource(
+                        anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(right(List.of(roleAssignmentInner)));
+
+        when(azurePermissionsManager.deleteRoleAssignment(anyString(), anyString()))
+                .thenReturn(right(null));
+        Either<FailedOperation, Void> result = workspaceHandler.handleNoPermissions(workspaceInfo, "testEntityId");
+
+        assertTrue(result.isRight());
+        verify(azurePermissionsManager, times(1)).deleteRoleAssignment(eq("testWorkspace"), anyString());
+    }
+
+    @Test
+    public void testManageAzurePermissions_ExceptionHandling() {
+        DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
+
+        when(azureMapper.map(anySet())).thenThrow(new RuntimeException("Mapping error"));
+
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
+
+        Either<FailedOperation, Void> result = workspaceHandler.manageAzurePermissions(
+                workspaceInfo, "entityName", "roleDefinitionId", PrincipalType.USER);
+
+        assertTrue(result.isLeft());
+        assertEquals(
+                "An error occurred while handling permissions of entityName for the Azure resource testWorkspace. Details: Mapping error",
+                result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testCreateDatabricksWorkspace_ExceptionHandling() {
+        when(azureWorkspaceManager.createWorkspace(
+                        anyString(), anyString(), anyString(), anyString(), any(SkuType.class)))
+                .thenThrow(new RuntimeException("Workspace creation failed"));
+
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
+
+        Either<FailedOperation, DatabricksWorkspaceInfo> result =
+                workspaceHandler.createDatabricksWorkspace(provisionRequest);
+
+        assertTrue(result.isLeft());
+        assertEquals(
+                "An error occurred while creating workspace for component null. Please try again and if the error persists contact the platform team. Details: Workspace creation failed",
+                result.getLeft().problems().get(0).description());
+    }
+
     private ProvisionRequest<DatabricksJobWorkloadSpecific> createJobProvisionRequest() {
         String workspaceName = "testWorkspace";
         String region = "westeurope";
@@ -453,6 +512,7 @@ public class WorkspaceHandlerTest {
         workload.setSpecific(databricksJobWorkloadSpecific);
 
         dataProduct.setDataProductOwner("user:name.surname@company.it");
+        dataProduct.setDevGroup("group:devGroup");
 
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
@@ -492,6 +552,7 @@ public class WorkspaceHandlerTest {
         workload.setSpecific(specific);
 
         dataProduct.setDataProductOwner("user:name.surname@company.it");
+        dataProduct.setDevGroup("group:devGroup");
 
         ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);

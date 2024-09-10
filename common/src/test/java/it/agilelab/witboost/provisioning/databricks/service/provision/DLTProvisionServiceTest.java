@@ -52,7 +52,7 @@ public class DLTProvisionServiceTest {
     @InjectMocks
     private ProvisionServiceImpl provisionService;
 
-    private DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
+    private final DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
             "workspace", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
 
     @BeforeEach
@@ -67,7 +67,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testProvisionWorkloadWrongSpecific() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new Specific());
@@ -88,7 +89,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadWorkspaceInfoError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
@@ -108,7 +110,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testProvisionWorkloadOk() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<DatabricksDLTWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
@@ -152,7 +155,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testProvisionWorkspaceErrorCreatingPipeline() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<DatabricksDLTWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
@@ -168,8 +172,6 @@ public class DLTProvisionServiceTest {
 
         String token = provisionService.provision(provisioningRequest);
 
-        ProvisioningStatus actualRes = provisionService.getStatus(token);
-
         assertEquals(
                 "Errors: -pipelineCreationError\n",
                 provisionService.getStatus(token).getResult());
@@ -177,12 +179,13 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testProvisionWorkloadWrongWorkspaceStatus() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<DatabricksDLTWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
 
-        var provisionRequest = new ProvisionRequest<DatabricksDLTWorkloadSpecific>(null, workload, false);
+        var provisionRequest = new ProvisionRequest<>(null, workload, false);
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
 
         DatabricksWorkspaceInfo databricksWorkspaceInfoWrong = workspaceInfo;
@@ -200,7 +203,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testProvisionWorkspaceErrorGettingWorkspace() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
@@ -221,7 +225,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testUnprovisionValidationError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("validationServiceError")));
         when(validationService.validate(provisioningRequest)).thenReturn(left(failedOperation));
 
@@ -233,7 +238,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadOk() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<DatabricksDLTWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
@@ -257,7 +263,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testProvisionWorkloadWorkspaceInfoError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
@@ -276,7 +283,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadWorkspaceInfoEmpty() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         var specific = new DatabricksDLTWorkloadSpecific();
@@ -299,7 +307,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadWorkspaceClientError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
@@ -321,7 +330,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadUnprovisioningWorkloadError() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<Specific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());
@@ -339,8 +349,6 @@ public class DLTProvisionServiceTest {
 
         String token = provisionService.unprovision(provisioningRequest);
 
-        ProvisioningStatus status = provisionService.getStatus(token);
-
         assertEquals(
                 "Errors: -unprovisioningWorkloadError\n",
                 provisionService.getStatus(token).getResult());
@@ -348,7 +356,8 @@ public class DLTProvisionServiceTest {
 
     @Test
     public void testUnprovisionWorkloadWrongWorkspaceStatus() {
-        ProvisioningRequest provisioningRequest = new ProvisioningRequest();
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, "", false);
         Workload<DatabricksDLTWorkloadSpecific> workload = new Workload<>();
         workload.setKind("workload");
         workload.setSpecific(new DatabricksDLTWorkloadSpecific());

@@ -14,15 +14,17 @@ azure:
     clientId: ${AZURE_CLIENT_ID}
     tenantId: ${AZURE_TENANT_ID}
     clientSecret: ${AZURE_CLIENT_SECRET}
-    skuType:  '' #allowed only PREMIUM or TRIAL. If different, premium will be set as default
+    skuType:  '' #Allowed only PREMIUM or TRIAL. If different, premium will be set as default
 
   permissions:
     auth_clientId: ${PERMISSIONS_AZURE_CLIENT_ID}
     auth_tenantId: ${PERMISSIONS_AZURE_TENANT_ID}
     auth_clientSecret: ${PERMISSIONS_AZURE_CLIENT_SECRET}
-    roleDefinitionId: ''
     subscriptionId: ${AZURE_SUBSCRIPTION_ID}
     resourceGroup: ${AZURE_RESOURCE_GROUP_NAME}
+    dpOwnerRoleDefinitionId: ""  #Fill with "no_permissions" or one of the IDs defined at https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/general
+    devGroupRoleDefinitionId: "" #Fill with "no_permissions" or one of the IDs at https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/general
+
 
 databricks:
   auth:

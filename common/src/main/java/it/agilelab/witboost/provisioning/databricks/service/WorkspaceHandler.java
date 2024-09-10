@@ -4,6 +4,7 @@ import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
 import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.authorization.fluent.models.RoleAssignmentInner;
 import com.azure.resourcemanager.authorization.models.PrincipalType;
 import com.databricks.sdk.WorkspaceClient;
 import io.vavr.control.Either;
@@ -45,6 +46,8 @@ public class WorkspaceHandler {
     private final AzurePermissionsManager azurePermissionsManager;
     private final AzureWorkspaceManager azureWorkspaceManager;
     private final Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
+    private static final String RESOURCE_ID_FORMAT =
+            "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Databricks/workspaces/%s";
 
     @Autowired
     public WorkspaceHandler(
@@ -78,9 +81,25 @@ public class WorkspaceHandler {
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = eitherNewWorkspace.get();
 
-        Either<FailedOperation, Void> eitherAssignPermissions =
-                assignAzurePermissions(provisionRequest, databricksWorkspaceInfo);
-        if (eitherAssignPermissions.isLeft()) return left(eitherAssignPermissions.getLeft());
+        Either<FailedOperation, Void> dpOwnerAzurePermissions = manageAzurePermissions(
+                databricksWorkspaceInfo,
+                provisionRequest.dataProduct().getDataProductOwner(),
+                azurePermissionsConfig.getDpOwnerRoleDefinitionId(),
+                PrincipalType.USER);
+        if (dpOwnerAzurePermissions.isLeft()) return left(dpOwnerAzurePermissions.getLeft());
+
+        // TODO: This is a temporary solution. Remove or update this logic in the future.
+        String devGroup = provisionRequest.dataProduct().getDevGroup();
+        if (!devGroup.startsWith("group:")) {
+            devGroup = "group:" + devGroup;
+        }
+
+        Either<FailedOperation, Void> devGroupAzurePermissions = manageAzurePermissions(
+                databricksWorkspaceInfo,
+                devGroup,
+                azurePermissionsConfig.getDevGroupRoleDefinitionId(),
+                PrincipalType.GROUP);
+        if (devGroupAzurePermissions.isLeft()) return left(devGroupAzurePermissions.getLeft());
 
         return right(eitherNewWorkspace.get());
     }
@@ -153,7 +172,7 @@ public class WorkspaceHandler {
         }
     }
 
-    private <T extends Specific> Either<FailedOperation, DatabricksWorkspaceInfo> createDatabricksWorkspace(
+    <T extends Specific> Either<FailedOperation, DatabricksWorkspaceInfo> createDatabricksWorkspace(
             ProvisionRequest<T> provisionRequest) {
         try {
 
@@ -165,12 +184,9 @@ public class WorkspaceHandler {
                     "/subscriptions/%s/resourceGroups/%s-rg",
                     azurePermissionsConfig.getSubscriptionId(), workspaceName);
 
-            SkuType skuType;
-            var skuTypeConfig = azureAuthConfig.getSkuType();
-
-            if (skuTypeConfig.equalsIgnoreCase(SkuType.TRIAL.getValue())) {
-                skuType = SkuType.TRIAL;
-            } else skuType = SkuType.PREMIUM;
+            SkuType skuType = azureAuthConfig.getSkuType().equalsIgnoreCase(SkuType.TRIAL.getValue())
+                    ? SkuType.TRIAL
+                    : SkuType.PREMIUM;
 
             Either<FailedOperation, DatabricksWorkspaceInfo> eitherNewWorkspace = azureWorkspaceManager.createWorkspace(
                     workspaceName,
@@ -194,53 +210,96 @@ public class WorkspaceHandler {
         }
     }
 
-    private <T extends Specific> Either<FailedOperation, Void> assignAzurePermissions(
-            ProvisionRequest<T> provisionRequest, DatabricksWorkspaceInfo databricksWorkspaceInfo) {
+    protected <T extends Specific> Either<FailedOperation, Void> manageAzurePermissions(
+            DatabricksWorkspaceInfo databricksWorkspaceInfo,
+            String entity,
+            String roleDefinitionId,
+            PrincipalType principalType) {
+
         try {
-
-            // TODO: Assign permissions to the group!? Now are assigned to the DP owner
-
-            String mail = provisionRequest.dataProduct().getDataProductOwner();
-            Set<String> inputUser = Set.of(mail);
+            Set<String> inputEntity = Set.of(entity);
 
             String message = String.format(
-                    "Assigning permissions to %s for workspace %s", mail, databricksWorkspaceInfo.getName());
+                    "Managing permissions of %s for workspace %s", entity, databricksWorkspaceInfo.getName());
             logger.info(message);
 
-            Map<String, Either<Throwable, String>> res = azureMapper.map(inputUser);
-            Either<Throwable, String> userMap = res.get(mail);
+            Map<String, Either<Throwable, String>> res = azureMapper.map(inputEntity);
+            Either<Throwable, String> entityMap = res.get(entity);
 
-            if (userMap.isLeft()) {
+            if (entityMap.isLeft()) {
                 String errorMessage = String.format(
                         "Failed to get AzureID of: %s. Details:",
-                        mail, userMap.getLeft().getMessage());
-                logger.error(errorMessage, userMap.getLeft());
+                        entity, entityMap.getLeft().getMessage());
+                logger.error(errorMessage, entityMap.getLeft());
                 return left(
-                        new FailedOperation(Collections.singletonList(new Problem(errorMessage, userMap.getLeft()))));
+                        new FailedOperation(Collections.singletonList(new Problem(errorMessage, entityMap.getLeft()))));
             }
 
-            String resourceId = String.format(
-                    "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Databricks/workspaces/%s",
-                    azurePermissionsConfig.getSubscriptionId(),
-                    azurePermissionsConfig.getResourceGroup(),
-                    databricksWorkspaceInfo.getName());
-
-            return azurePermissionsManager.assignPermissions(
-                    resourceId,
-                    UUID.randomUUID().toString(),
-                    azurePermissionsConfig.getRoleDefinitionId(),
-                    userMap.get(),
-                    PrincipalType.USER);
+            if (roleDefinitionId.equalsIgnoreCase("no_permissions")) {
+                return handleNoPermissions(databricksWorkspaceInfo, entityMap.get());
+            } else {
+                return assignPermissionsToEntity(
+                        databricksWorkspaceInfo, entityMap.get(), roleDefinitionId, principalType);
+            }
 
         } catch (Exception e) {
             String errorMessage = String.format(
-                    "An error occurred while assigning permissions to %s at %s. Details: %s",
-                    provisionRequest.dataProduct().getDataProductOwner(),
-                    databricksWorkspaceInfo.getName(),
-                    e.getMessage());
+                    "An error occurred while handling permissions of %s for the Azure resource %s. Details: %s",
+                    entity, databricksWorkspaceInfo.getName(), e.getMessage());
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
+    }
+
+    protected Either<FailedOperation, Void> handleNoPermissions(
+            DatabricksWorkspaceInfo databricksWorkspaceInfo, String entityId) {
+        Either<FailedOperation, List<RoleAssignmentInner>> permissions =
+                azurePermissionsManager.getPrincipalRoleAssignmentsOnResource(
+                        azurePermissionsConfig.getResourceGroup(),
+                        "Microsoft.Databricks",
+                        "workspaces",
+                        databricksWorkspaceInfo.getName(),
+                        entityId);
+
+        if (permissions.isLeft()) {
+            return left(permissions.getLeft());
+        }
+
+        List<Problem> problems = new ArrayList<>();
+
+        permissions.get().forEach(roleAssignmentInner -> {
+            if (roleAssignmentInner.id().contains(databricksWorkspaceInfo.getName())) {
+                Either<FailedOperation, Void> result = azurePermissionsManager.deleteRoleAssignment(
+                        databricksWorkspaceInfo.getName(), roleAssignmentInner.id());
+                if (result.isLeft()) problems.addAll(result.getLeft().problems());
+            }
+        });
+
+        if (!problems.isEmpty()) {
+            return Either.left(new FailedOperation(problems));
+        }
+
+        logger.info(String.format(
+                "Removed permissions of %s on the Azure resource %s", entityId, databricksWorkspaceInfo.getName()));
+
+        return right(null);
+    }
+
+    private Either<FailedOperation, Void> assignPermissionsToEntity(
+            DatabricksWorkspaceInfo databricksWorkspaceInfo,
+            String entityId,
+            String roleDefinitionId,
+            PrincipalType principalType) {
+
+        String resourceId = String.format(
+                RESOURCE_ID_FORMAT,
+                azurePermissionsConfig.getSubscriptionId(),
+                azurePermissionsConfig.getResourceGroup(),
+                databricksWorkspaceInfo.getName());
+
+        String permissionId = UUID.randomUUID().toString();
+        return azurePermissionsManager.assignPermissions(
+                resourceId, permissionId, roleDefinitionId, entityId, principalType);
     }
 
     public <T extends Specific> Either<FailedOperation, String> getWorkspaceName(ProvisionRequest<T> provisionRequest) {
