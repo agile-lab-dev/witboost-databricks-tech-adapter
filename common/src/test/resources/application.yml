@@ -24,6 +24,9 @@ databricks:
         workload:
             owner: "CAN_MANAGE"     #CAN_EDIT, CAN_MANAGE, CAN_READ, CAN_RUN, NO_PERMISSIONS
             developer: "CAN_MANAGE"
+        outputPort:
+            owner: "SELECT"
+            developer: "SELECT"
 
 git:
     username: testUsername

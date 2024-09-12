@@ -26,6 +26,7 @@ class DatabricksOutputPortSpecificTest {
     @Test
     public void testTableNameNotNull() {
         outputPortSpecific.setWorkspace("fake_ws");
+        outputPortSpecific.setMetastore("metastore");
         outputPortSpecific.setCatalogName("fake_catalog");
         outputPortSpecific.setSchemaName("fake_schema");
         outputPortSpecific.setTableName(null);
@@ -43,6 +44,7 @@ class DatabricksOutputPortSpecificTest {
     @Test
     public void testTableNameValid() {
         outputPortSpecific.setWorkspace("fake_ws");
+        outputPortSpecific.setMetastore("metastore");
         outputPortSpecific.setCatalogName("fake_catalog");
         outputPortSpecific.setSchemaName("fake_schema");
         outputPortSpecific.setTableName("table_valid");

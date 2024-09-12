@@ -12,13 +12,13 @@ import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigP
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
-import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
+import it.agilelab.witboost.provisioning.databricks.config.*;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.object.View;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.UpdateAclRequest;
 import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissionsManager;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.databricks.DatabricksMapper;
@@ -41,6 +41,7 @@ public class OutputPortHandler {
     private final MiscConfig miscConfig;
     private final AzureMapper azureMapper;
     private final DatabricksAuthConfig databricksAuthConfig;
+    private final DatabricksPermissionsConfig databricksPermissionsConfig;
 
     @Autowired
     public OutputPortHandler(
@@ -50,7 +51,8 @@ public class OutputPortHandler {
             AzurePermissionsManager azurePermissionsManager,
             MiscConfig miscConfig,
             AzureMapper azureMapper,
-            DatabricksAuthConfig databricksAuthConfig) {
+            DatabricksAuthConfig databricksAuthConfig,
+            DatabricksPermissionsConfig databricksPermissionsConfig) {
         this.azureAuthConfig = azureAuthConfig;
         this.gitCredentialsConfig = gitCredentialsConfig;
         this.apiClientFactory = apiClientFactory;
@@ -58,6 +60,7 @@ public class OutputPortHandler {
         this.miscConfig = miscConfig;
         this.azureMapper = azureMapper;
         this.databricksAuthConfig = databricksAuthConfig;
+        this.databricksPermissionsConfig = databricksPermissionsConfig;
     }
 
     /**
@@ -86,6 +89,11 @@ public class OutputPortHandler {
             String viewFullNameOP = catalogNameOP + "." + schemaNameOP + "." + viewNameOP;
             String tableFullName = databricksOutputPortSpecific.getCatalogName() + "."
                     + databricksOutputPortSpecific.getSchemaName() + "." + databricksOutputPortSpecific.getTableName();
+
+            Either<FailedOperation, Void> eitherAttachedMetastore =
+                    unityCatalogManager.attachMetastore(databricksOutputPortSpecific.getMetastore());
+
+            if (eitherAttachedMetastore.isLeft()) return left(eitherAttachedMetastore.getLeft());
 
             // Catalog
             Either<FailedOperation, Void> eitherCreatedCatalog =
@@ -138,6 +146,9 @@ public class OutputPortHandler {
             String dpOwner = provisionRequest.dataProduct().getDataProductOwner();
             String devGroup = provisionRequest.dataProduct().getDevGroup();
 
+            // TODO: This is a temporary solution. Remove or update this logic in the future.
+            if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
+
             DatabricksMapper databricksMapper = new DatabricksMapper();
 
             Map<String, Either<Throwable, String>> eitherMap = databricksMapper.map(Set.of(dpOwner, devGroup));
@@ -158,29 +169,32 @@ public class OutputPortHandler {
             }
             String dpDevGroupDatabricksId = eitherDpDevGroupDatabricksId.get();
 
-            // List of principals to set permissions to
-            List<String> principalsListPermissions = List.of(dpOwnerDatabricksId, dpDevGroupDatabricksId);
-
             // Retrieve environment
             String environment = provisionRequest.dataProduct().getEnvironment();
 
             if (environment.equalsIgnoreCase(miscConfig.developmentEnvironmentName())) {
-                Either<FailedOperation, Void> eitherAssignedPermissionsCatalogOP =
-                        assignDatabricksPermissionsCatalog(workspaceClient, principalsListPermissions, catalogNameOP);
-                if (eitherAssignedPermissionsCatalogOP.isLeft()) {
-                    return left(eitherAssignedPermissionsCatalogOP.getLeft());
+
+                String ownerPermissionLevelConfig =
+                        databricksPermissionsConfig.getOutputPort().getOwner();
+                String developerPermissionLevelConfig =
+                        databricksPermissionsConfig.getOutputPort().getDeveloper();
+
+                Either<FailedOperation, Void> eitherAssignedPermissionsViewOPToOwner =
+                        unityCatalogManager.assignDatabricksPermissionToTableOrView(
+                                dpOwnerDatabricksId,
+                                Privilege.valueOf(ownerPermissionLevelConfig),
+                                new View(catalogNameOP, schemaNameOP, viewNameOP));
+                if (eitherAssignedPermissionsViewOPToOwner.isLeft()) {
+                    return left(eitherAssignedPermissionsViewOPToOwner.getLeft());
                 }
 
-                Either<FailedOperation, Void> eitherAssignedPermissionsSchemaOP = assignDatabricksPermissionsSchema(
-                        workspaceClient, principalsListPermissions, catalogNameOP, schemaNameOP);
-                if (eitherAssignedPermissionsSchemaOP.isLeft()) {
-                    return left(eitherAssignedPermissionsSchemaOP.getLeft());
-                }
-
-                Either<FailedOperation, Void> eitherAssignedPermissionsViewOP =
-                        assignDatabricksPermissionsView(workspaceClient, principalsListPermissions, viewFullNameOP);
-                if (eitherAssignedPermissionsViewOP.isLeft()) {
-                    return left(eitherAssignedPermissionsViewOP.getLeft());
+                Either<FailedOperation, Void> eitherAssignedPermissionsViewOPToDevGroup =
+                        unityCatalogManager.assignDatabricksPermissionToTableOrView(
+                                dpDevGroupDatabricksId,
+                                Privilege.valueOf(developerPermissionLevelConfig),
+                                new View(catalogNameOP, schemaNameOP, viewNameOP));
+                if (eitherAssignedPermissionsViewOPToDevGroup.isLeft()) {
+                    return left(eitherAssignedPermissionsViewOPToDevGroup.getLeft());
                 }
             }
 
@@ -197,108 +211,6 @@ public class OutputPortHandler {
                     provisionRequest.component().getName(), e.getMessage());
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
-        }
-    }
-
-    private Either<FailedOperation, Void> assignDatabricksPermissionsView(
-            WorkspaceClient workspaceClient, List<String> principalsListPermissions, String viewFullName) {
-        try {
-
-            for (String principal : principalsListPermissions) {
-
-                logger.info(
-                        String.format("Updating permissions on view '%s' for principal %s", viewFullName, principal));
-
-                PermissionsChange permissionChanges = new PermissionsChange()
-                        .setAdd(List.of(Privilege.SELECT))
-                        .setPrincipal(principal);
-
-                UpdatePermissions updatePermission = new UpdatePermissions();
-                updatePermission
-                        .setChanges(List.of(permissionChanges))
-                        .setSecurableType(SecurableType.TABLE)
-                        .setFullName(viewFullName);
-
-                workspaceClient.grants().update(updatePermission);
-                logger.info(
-                        String.format("Permission on view '%s' for principal %s updated.", viewFullName, principal));
-            }
-            return right(null);
-        } catch (Exception e) {
-            String errorMessage = String.format(
-                    "An error occurred while updating permissions for view '%s'. Please try again and if the error persists contact the platform team. Details: %s",
-                    viewFullName, e.getMessage());
-            logger.error(errorMessage);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
-        }
-    }
-
-    private Either<FailedOperation, Void> assignDatabricksPermissionsCatalog(
-            WorkspaceClient workspaceClient, List<String> principalsListPermissions, String catalogNameOP) {
-        try {
-
-            for (String principal : principalsListPermissions) {
-
-                logger.info(String.format(
-                        "Updating permissions on CATALOG '%s' for principal %s", catalogNameOP, principal));
-
-                PermissionsChange permissionChanges = new PermissionsChange()
-                        .setAdd(List.of(Privilege.USE_CATALOG))
-                        .setPrincipal(principal);
-
-                UpdatePermissions updatePermission = new UpdatePermissions();
-                updatePermission
-                        .setChanges(List.of(permissionChanges))
-                        .setSecurableType(SecurableType.CATALOG)
-                        .setFullName(catalogNameOP);
-
-                workspaceClient.grants().update(updatePermission);
-                logger.info(String.format(
-                        "Permission on CATALOG '%s' for principal %s updated.", catalogNameOP, principal));
-            }
-            return right(null);
-        } catch (Exception e) {
-            String errorMessage = String.format(
-                    "An error occurred while updating permissions for CATALOG '%s'. Please try again and if the error persists contact the platform team. Details: %s",
-                    catalogNameOP, e.getMessage());
-            logger.error(errorMessage);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
-        }
-    }
-
-    private Either<FailedOperation, Void> assignDatabricksPermissionsSchema(
-            WorkspaceClient workspaceClient,
-            List<String> principalsListPermissions,
-            String catalogNameOP,
-            String schemaNameOP) {
-        try {
-
-            for (String principal : principalsListPermissions) {
-
-                logger.info(
-                        String.format("Updating permissions on SCHEMA '%s' for principal %s", schemaNameOP, principal));
-
-                PermissionsChange permissionChanges = new PermissionsChange()
-                        .setAdd(List.of(Privilege.USE_SCHEMA))
-                        .setPrincipal(principal);
-
-                UpdatePermissions updatePermission = new UpdatePermissions();
-                updatePermission
-                        .setChanges(List.of(permissionChanges))
-                        .setSecurableType(SecurableType.SCHEMA)
-                        .setFullName(catalogNameOP + "." + schemaNameOP);
-
-                workspaceClient.grants().update(updatePermission);
-                logger.info(
-                        String.format("Permission on SCHEMA '%s' for principal %s updated.", schemaNameOP, principal));
-            }
-            return right(null);
-        } catch (Exception e) {
-            String errorMessage = String.format(
-                    "An error occurred while updating permissions for SCHEMA '%s'. Please try again and if the error persists contact the platform team. Details: %s",
-                    schemaNameOP, e.getMessage());
-            logger.error(errorMessage);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }
     }
 
@@ -449,5 +361,128 @@ public class OutputPortHandler {
             logger.error(errorMessage);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }
+    }
+
+    public Either<FailedOperation, ProvisioningStatus> updateAcl(
+            ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest,
+            UpdateAclRequest updateAclRequest, // only for the refs
+            WorkspaceClient workspaceClient,
+            UnityCatalogManager unityCatalogManager) {
+
+        logger.info("Start retrieving info needed to update Access Control List");
+
+        DatabricksOutputPortSpecific databricksOutputPortSpecific =
+                provisionRequest.component().getSpecific();
+        String catalogNameOP = databricksOutputPortSpecific.getCatalogNameOP();
+        String schemaNameOP = databricksOutputPortSpecific.getSchemaNameOP();
+        String viewNameOP = databricksOutputPortSpecific.getViewNameOP();
+
+        logger.info(String.format(
+                "Start updating Access Control List for %s.%s.%s", catalogNameOP, schemaNameOP, viewNameOP));
+
+        // Mapping of refs entities
+        DatabricksMapper databricksMapper = new DatabricksMapper();
+
+        List<String> refs = updateAclRequest.getRefs();
+        Set<String> refsSet = new HashSet<>(refs);
+
+        Map<String, Either<Throwable, String>> eitherMap = databricksMapper.map(refsSet);
+
+        // Retrieve refs mapped
+        List<String> mappedRefs = new ArrayList<>();
+
+        List<Problem> problemsMapping = new ArrayList<>();
+
+        refs.forEach(ref -> {
+            Either<Throwable, String> eitherDatabricksId = eitherMap.get(ref);
+            if (eitherDatabricksId.isLeft()) {
+                problemsMapping.add(new Problem(eitherDatabricksId.getLeft().toString()));
+            } else {
+                mappedRefs.add(eitherDatabricksId.get());
+            }
+        });
+
+        if (!problemsMapping.isEmpty()) {
+            logger.error(
+                    "An error occurred while mapping Databricks entities. Please try again and if the error persists contact the platform team. ");
+            for (Problem problem : problemsMapping) {
+                logger.error("Problem: {}", problem.description());
+            }
+            return left(new FailedOperation(problemsMapping));
+        }
+
+        // Step 1: remove grants for entities that are no longer in refs
+        logger.info("Retrieving current permissions on output port");
+        String tableFullName = String.format("%s.%s.%s", catalogNameOP, schemaNameOP, viewNameOP);
+        Collection<PrivilegeAssignment> currentPrivilegeAssignments =
+                workspaceClient.grants().get(SecurableType.TABLE, tableFullName).getPrivilegeAssignments();
+
+        List<Problem> problemsRemovingPermissions = new ArrayList<>();
+
+        currentPrivilegeAssignments.forEach(privilegeAssignment -> {
+            String principal = privilegeAssignment.getPrincipal();
+            if (!mappedRefs.contains(principal)) {
+
+                logger.info(String.format(
+                        "Principal %s does not have SELECT permission any longer on table %s. Removing grant.",
+                        principal, tableFullName));
+
+                Either<FailedOperation, Void> eitherUpdatedPermissions =
+                        unityCatalogManager.updateDatabricksPermissions(
+                                principal,
+                                Privilege.SELECT,
+                                Boolean.FALSE,
+                                new View(catalogNameOP, schemaNameOP, viewNameOP));
+
+                if (eitherUpdatedPermissions.isLeft()) {
+                    problemsRemovingPermissions.add(
+                            new Problem(eitherUpdatedPermissions.getLeft().toString()));
+                } else {
+                    logger.info(String.format(
+                            "SELECT permission removed from %s for principal %s successfully!",
+                            tableFullName, principal));
+                }
+            }
+        });
+
+        if (!problemsRemovingPermissions.isEmpty()) {
+            logger.error(
+                    "An error occurred while removing permissions on Databricks entities. Please try again and if the error persists contact the platform team. ");
+            for (Problem problem : problemsRemovingPermissions) {
+                logger.error("Problem: {}", problem.description());
+            }
+            return left(new FailedOperation(problemsRemovingPermissions));
+        }
+
+        // Step 2: assign grants for all entities in refs
+        List<Problem> problemsAddingPermissions = new ArrayList<>();
+
+        mappedRefs.forEach(databricksId -> {
+            logger.info(String.format("Assigning permissions to Databricks entity: %s", databricksId));
+
+            Either<FailedOperation, Void> eitherAssignedPermissions =
+                    unityCatalogManager.assignDatabricksPermissionSelectToTableOrView(
+                            databricksId, new View(catalogNameOP, schemaNameOP, viewNameOP));
+
+            if (eitherAssignedPermissions.isLeft()) {
+                problemsAddingPermissions.addAll(
+                        eitherAssignedPermissions.getLeft().problems());
+            } else {
+                logger.info(String.format(
+                        "SELECT permission on %s added for Databricks Id %s successfully!",
+                        tableFullName, databricksId));
+            }
+        });
+
+        if (!problemsAddingPermissions.isEmpty()) {
+            logger.error(
+                    "An error occurred while adding SELECT grant to Databricks entities. Please try again and if the error persists contact the platform team. ");
+            for (Problem problem : problemsAddingPermissions) {
+                logger.error("Problem: {}", problem.description());
+            }
+            return left(new FailedOperation(problemsAddingPermissions));
+        }
+
+        return right(new ProvisioningStatus(ProvisioningStatus.StatusEnum.COMPLETED, "Update of Acl completed!"));
     }
 }

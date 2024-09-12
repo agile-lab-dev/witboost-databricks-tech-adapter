@@ -1,7 +1,7 @@
 package it.agilelab.witboost.provisioning.databricks.model.databricks;
 
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -11,30 +11,33 @@ import lombok.Setter;
 @NoArgsConstructor
 public class DatabricksOutputPortSpecific extends Specific {
 
-    @NotNull
+    @NotBlank
     private String workspace;
 
-    @NotNull
+    @NotBlank
+    private String metastore;
+
+    @NotBlank
     private String catalogName;
 
-    @NotNull
+    @NotBlank
     private String schemaName;
 
-    @NotNull
+    @NotBlank
     private String tableName;
 
-    @NotNull
+    @NotBlank
     private String sqlWarehouseName;
 
-    @NotNull
+    @NotBlank
     private String workspaceOP;
 
-    @NotNull
+    @NotBlank
     private String catalogNameOP;
 
-    @NotNull
+    @NotBlank
     private String schemaNameOP;
 
-    @NotNull
+    @NotBlank
     private String viewNameOP;
 }

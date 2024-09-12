@@ -9,10 +9,11 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.object.Catalog;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.object.DBObject;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.object.Schema;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.object.View;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -295,5 +296,104 @@ public class UnityCatalogManager {
 
     private String retrieveTableFullName(String catalogName, String schemaName, String tableName) {
         return catalogName + "." + schemaName + "." + tableName;
+    }
+
+    public Either<FailedOperation, Void> assignDatabricksPermissionToTableOrView(
+            String principal, Privilege privilege, View view) {
+
+        // Generic privilege on TABLE
+        Either<FailedOperation, Void> eitherTablePermission =
+                updateDatabricksPermissions(principal, privilege, Boolean.TRUE, view);
+
+        if (eitherTablePermission.isLeft()) {
+            return left(eitherTablePermission.getLeft());
+        }
+
+        // USE_CATALOG on CATALOG
+        Either<FailedOperation, Void> eitherCatalogPermission = updateDatabricksPermissions(
+                principal, Privilege.USE_CATALOG, Boolean.TRUE, new Catalog(view.getCatalogName()));
+        if (eitherCatalogPermission.isLeft()) {
+            return left(eitherCatalogPermission.getLeft());
+        }
+
+        // USE_SCHEMA on SCHEMA
+        Either<FailedOperation, Void> eitherSchemaPermission = updateDatabricksPermissions(
+                principal, Privilege.USE_SCHEMA, Boolean.TRUE, new Schema(view.getCatalogName(), view.getSchemaName()));
+        if (eitherSchemaPermission.isLeft()) {
+            return left(eitherSchemaPermission.getLeft());
+        }
+
+        return right(null);
+    }
+
+    public Either<FailedOperation, Void> assignDatabricksPermissionSelectToTableOrView(String principal, View view) {
+
+        // SELECT on TABLE
+        Either<FailedOperation, Void> eitherTablePermission =
+                updateDatabricksPermissions(principal, Privilege.SELECT, Boolean.TRUE, view);
+
+        if (eitherTablePermission.isLeft()) {
+            return left(eitherTablePermission.getLeft());
+        }
+
+        // USE_CATALOG on CATALOG
+        Either<FailedOperation, Void> eitherCatalogPermission = updateDatabricksPermissions(
+                principal, Privilege.USE_CATALOG, Boolean.TRUE, new Catalog(view.getCatalogName()));
+        if (eitherCatalogPermission.isLeft()) {
+            return left(eitherCatalogPermission.getLeft());
+        }
+
+        // USE_SCHEMA on SCHEMA
+        Either<FailedOperation, Void> eitherSchemaPermission = updateDatabricksPermissions(
+                principal, Privilege.USE_SCHEMA, Boolean.TRUE, new Schema(view.getCatalogName(), view.getSchemaName()));
+        if (eitherSchemaPermission.isLeft()) {
+            return left(eitherSchemaPermission.getLeft());
+        }
+
+        return right(null);
+    }
+
+    public Either<FailedOperation, Void> updateDatabricksPermissions(
+            String principal, Privilege privilege, Boolean isGrantAdded, DBObject object) {
+
+        String objectFullName = object.fullyQualifiedName();
+        logger.info("Databricks Object Fully Qualified Name: " + objectFullName);
+        SecurableType securableType = object.getSecurableType();
+        logger.info("Databricks Object Securable type: " + securableType);
+
+        try {
+
+            logger.info(String.format(
+                    "%s permissions %s on object '%s' for principal %s",
+                    (isGrantAdded) ? "Adding" : "Removing", privilege, objectFullName, principal));
+
+            PermissionsChange permissionChanges = new PermissionsChange().setPrincipal(principal);
+
+            if (isGrantAdded) {
+                permissionChanges.setAdd(List.of(privilege));
+            } else {
+                permissionChanges.setRemove(List.of(privilege));
+            }
+
+            UpdatePermissions updatePermission = new UpdatePermissions();
+            updatePermission
+                    .setChanges(List.of(permissionChanges))
+                    .setSecurableType(securableType)
+                    .setFullName(objectFullName);
+
+            workspaceClient.grants().update(updatePermission);
+
+            logger.info(String.format(
+                    "Permission %s %s on object '%s' for principal %s",
+                    privilege, (isGrantAdded) ? "added" : "removed", objectFullName, principal));
+
+            return right(null);
+        } catch (Exception e) {
+            String errorMessage = String.format(
+                    "An error occurred while %s permission %s for object '%s' for principal %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    (isGrantAdded) ? "adding" : "removing", privilege, objectFullName, principal, e.getMessage());
+            logger.error(errorMessage);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+        }
     }
 }

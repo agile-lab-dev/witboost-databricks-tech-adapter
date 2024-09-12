@@ -15,6 +15,7 @@ import com.databricks.sdk.service.workspace.WorkspaceAPI;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
@@ -25,7 +26,13 @@ import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.object.*;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisionInfo;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.UpdateAclRequest;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,6 +104,14 @@ class OutputPortHandlerTest {
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+        // Mocking metastore attachment
+        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
+
+        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
+        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
 
         // Mocking behaviour on catalogs. The requested catalog exists
         List<CatalogInfo> catalogList =
@@ -163,6 +178,15 @@ class OutputPortHandlerTest {
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        // Mocking metastore attachment
+        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
+
+        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
+        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
 
         // Mocking behaviour on catalogs. The requested catalog exists
         List<CatalogInfo> catalogList =
@@ -232,6 +256,15 @@ class OutputPortHandlerTest {
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
 
+        // Mocking metastore attachment
+        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
+
+        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
+        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
+
         // Mocking behaviour on catalogs. The requested catalog exists
         List<CatalogInfo> catalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog_op"));
@@ -272,6 +305,7 @@ class OutputPortHandlerTest {
         assertTrue(result.isLeft());
         String messageError =
                 "An error occurred while creating view 'catalog_op.schema_op.view'. Please try again and if the error persists contact the platform team. Details: Exception";
+
         assertEquals(messageError, result.getLeft().problems().get(0).description());
     }
 
@@ -280,18 +314,23 @@ class OutputPortHandlerTest {
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
+
+        Iterable<MetastoreInfo> iterableMetastoresList =
+                Arrays.asList(new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
+        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
 
         when(workspaceClient.catalogs()).thenThrow(new DatabricksException("Generic Error"));
 
         Either<FailedOperation, TableInfo> result =
                 outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);
 
-        String errorMessage =
-                "An error occurred trying to search the catalog catalog_op. Please try again and if the error persists contact the platform team. Details: Generic Error";
         assert result.isLeft();
-        assertTrue(result.getLeft().problems().get(0).description().equalsIgnoreCase(errorMessage));
-
-        // assertEquals(result.get(), "table_id");
+        assertEquals(
+                "An error occurred trying to search the catalog catalog_op. Please try again and if the error persists contact the platform team. Details: Generic Error",
+                result.getLeft().problems().get(0).description());
     }
 
     @Test
@@ -299,6 +338,15 @@ class OutputPortHandlerTest {
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        // Mocking metastore attachment
+        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
+
+        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
+        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
 
         // Mocking behaviour on catalogs. The requested catalog exists
         List<CatalogInfo> catalogList =
@@ -487,10 +535,19 @@ class OutputPortHandlerTest {
     }
 
     @Test
-    public void test_pollOnStatementExecutionFailure_CANCELED() {
+    public void pollOnStatementExecutionFailure_CANCELED() {
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        // Mocking metastore attachment
+        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
+
+        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
+        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
 
         // Mocking behaviour on catalogs. The requested catalog exists
         List<CatalogInfo> catalogList =
@@ -551,6 +608,15 @@ class OutputPortHandlerTest {
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
 
+        // Mocking metastore attachment
+        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
+
+        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
+        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
+
         // Mocking behaviour on catalogs. The requested catalog exists
         List<CatalogInfo> catalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog_op"));
@@ -582,8 +648,243 @@ class OutputPortHandlerTest {
         assertEquals(messageError, result.getLeft().problems().get(0).description());
     }
 
+    @Test
+    public void updateAcl_Success() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("user:a_email.com", "group:group_test"),
+                new ProvisionInfo(provisionRequest.toString(), "result"));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(mock(PermissionsList.class));
+
+        UnityCatalogManager unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
+
+        Either<FailedOperation, ProvisioningStatus> result =
+                outputPortHandler.updateAcl(provisionRequest, updateAclRequest, workspaceClient, unityCatalogManager);
+
+        assert result.isRight();
+        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
+        assertEquals(result.get().getResult(), "Update of Acl completed!");
+    }
+
+    @Test
+    public void updateAcl_DatabricksMappingFailure() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("a_email.com", "group:group_test"), new ProvisionInfo(provisionRequest.toString(), "result"));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(mock(PermissionsList.class));
+
+        UnityCatalogManager unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
+
+        Either<FailedOperation, ProvisioningStatus> result =
+                outputPortHandler.updateAcl(provisionRequest, updateAclRequest, workspaceClient, unityCatalogManager);
+
+        assert result.isLeft();
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains("The subject a_email.com is neither a Witboost user nor a group");
+    }
+
+    @Test
+    public void updateAcl_DatabricksMappingAccumulatingFailures() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("a_email.com", "null_email.com", "group_test"),
+                new ProvisionInfo(provisionRequest.toString(), "result"));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(mock(PermissionsList.class));
+
+        UnityCatalogManager unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
+
+        Either<FailedOperation, ProvisioningStatus> result =
+                outputPortHandler.updateAcl(provisionRequest, updateAclRequest, workspaceClient, unityCatalogManager);
+
+        // The subject a_email.com is neither a Witboost user nor a group
+        // The subject null_email.com is neither a Witboost user nor a group
+        // The subject group_test is neither a Witboost user nor a group
+
+        assert result.isLeft();
+        assertEquals(3, result.getLeft().problems().size());
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .equalsIgnoreCase(
+                        "java.lang.Throwable: The subject a_email.com is neither a Witboost user nor a group");
+        assert result.getLeft()
+                .problems()
+                .get(1)
+                .description()
+                .equalsIgnoreCase(
+                        "java.lang.Throwable: The subject null_email.com is neither a Witboost user nor a group");
+        assert result.getLeft()
+                .problems()
+                .get(2)
+                .description()
+                .equalsIgnoreCase("java.lang.Throwable: The subject group_test is neither a Witboost user nor a group");
+    }
+
+    @Test
+    public void updateAcl_AssigningTablePermissionsFailure() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("user:a_email.com", "group:group_test"),
+                new ProvisionInfo(provisionRequest.toString(), "result"));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+
+        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(mock(PermissionsList.class));
+
+        when(grantsAPIMock.update(any(UpdatePermissions.class))).thenThrow(new RuntimeException("PermissionError"));
+
+        UnityCatalogManager unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
+
+        Either<FailedOperation, ProvisioningStatus> result =
+                outputPortHandler.updateAcl(provisionRequest, updateAclRequest, workspaceClient, unityCatalogManager);
+
+        assert result.isLeft();
+        assertEquals(2, result.getLeft().problems().size());
+
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .equalsIgnoreCase(
+                        "An error occurred while adding permission SELECT for object 'catalog_op.schema_op.view' for principal a@email.com. Please try again and if the error persists contact the platform team. Details: PermissionError");
+        assert result.getLeft()
+                .problems()
+                .get(1)
+                .description()
+                .equalsIgnoreCase(
+                        "An error occurred while adding permission SELECT for object 'catalog_op.schema_op.view' for principal group_test. Please try again and if the error persists contact the platform team. Details: PermissionError");
+    }
+
+    @Test
+    public void updateAcl_NoSelectGrantsToRemoveSuccess() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("user:a_email.com", "group:group_test"), new ProvisionInfo(provisionRequest.toString(), ""));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+
+        PermissionsList permissionsListMock = mock(PermissionsList.class);
+
+        // Mock the current grants on the table: lets a@email.com have SELECT grants on op.
+        // Remember that the map of user:a_email.com is a@email.com
+        PrivilegeAssignment privilegeAssignment = new PrivilegeAssignment().setPrincipal("a@email.com");
+
+        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(permissionsListMock);
+        when(permissionsListMock.getPrivilegeAssignments()).thenReturn(Collections.singletonList(privilegeAssignment));
+
+        UnityCatalogManager unityCatalogManagerMock = mock(UnityCatalogManager.class);
+
+        when(unityCatalogManagerMock.assignDatabricksPermissionSelectToTableOrView(any(), any(View.class)))
+                .thenReturn(Either.right(null));
+
+        Either<FailedOperation, ProvisioningStatus> result = outputPortHandler.updateAcl(
+                provisionRequest, updateAclRequest, workspaceClient, unityCatalogManagerMock);
+
+        assert result.isRight();
+        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
+        assertEquals(result.get().getResult(), "Update of Acl completed!");
+
+        // Test that the remove method is NEVER called
+        verify(unityCatalogManagerMock, times(0))
+                .updateDatabricksPermissions(
+                        "a@email.com", Privilege.SELECT, Boolean.FALSE, new View("catalog_op", "schema_op", "view"));
+    }
+
+    @Test
+    public void updateAcl_TwoGrantsToRemoveSuccess() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("user:a_email.com", "group:group_test"), new ProvisionInfo(provisionRequest.toString(), ""));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+
+        PermissionsList permissionsListMock = mock(PermissionsList.class);
+
+        // Mock the current grants on the table: lets a@email.com have SELECT grants on op.
+        // Remember that the map of user:a_email.com is a@email.com
+        PrivilegeAssignment privilegeAssignment1 = new PrivilegeAssignment().setPrincipal("b@email.com");
+        PrivilegeAssignment privilegeAssignment2 =
+                new PrivilegeAssignment().setPrincipal("c@email.com"); // .setPrincipal("c@email.com");
+
+        ArrayList<PrivilegeAssignment> privilegeAssignmentCollection = new ArrayList<>();
+        privilegeAssignmentCollection.add(privilegeAssignment1);
+        privilegeAssignmentCollection.add(privilegeAssignment2);
+
+        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(permissionsListMock);
+        when(permissionsListMock.getPrivilegeAssignments()).thenReturn(privilegeAssignmentCollection);
+
+        UnityCatalogManager unityCatalogManagerMock = mock(UnityCatalogManager.class);
+
+        when(unityCatalogManagerMock.assignDatabricksPermissionSelectToTableOrView(any(), any(View.class)))
+                .thenReturn(Either.right(null));
+
+        when(unityCatalogManagerMock.updateDatabricksPermissions(
+                        eq("b@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class)))
+                .thenReturn(Either.right(null));
+        when(unityCatalogManagerMock.updateDatabricksPermissions(
+                        eq("c@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class)))
+                .thenReturn(Either.right(null));
+
+        Either<FailedOperation, ProvisioningStatus> result = outputPortHandler.updateAcl(
+                provisionRequest, updateAclRequest, workspaceClient, unityCatalogManagerMock);
+
+        assert result.isRight();
+        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
+        assertEquals(result.get().getResult(), "Update of Acl completed!");
+
+        // Test that the remove method is called two times
+
+        verify(unityCatalogManagerMock, times(1))
+                .updateDatabricksPermissions(
+                        eq("b@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class));
+        verify(unityCatalogManagerMock, times(1))
+                .updateDatabricksPermissions(
+                        eq("c@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class));
+    }
+
     private ProvisionRequest<DatabricksOutputPortSpecific> createOPProvisionRequest() {
         databricksOutputPortSpecific.setWorkspace("ws");
+        databricksOutputPortSpecific.setMetastore("metastore");
         databricksOutputPortSpecific.setCatalogName("catalog");
         databricksOutputPortSpecific.setSchemaName("schema");
         databricksOutputPortSpecific.setTableName("t");

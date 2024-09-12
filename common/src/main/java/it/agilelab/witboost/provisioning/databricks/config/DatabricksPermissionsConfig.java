@@ -12,10 +12,18 @@ import org.springframework.context.annotation.Configuration;
 public class DatabricksPermissionsConfig {
 
     private Workload workload;
+    private OutputPort outputPort;
 
     @Getter
     @Setter
     public static class Workload {
+        private String owner;
+        private String developer;
+    }
+
+    @Getter
+    @Setter
+    public static class OutputPort {
         private String owner;
         private String developer;
     }

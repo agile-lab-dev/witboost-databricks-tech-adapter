@@ -3,8 +3,10 @@ package it.agilelab.witboost.provisioning.databricks.controller;
 import it.agilelab.witboost.provisioning.databricks.openapi.controller.V1ApiDelegate;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.UpdateAclRequest;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ValidationResult;
 import it.agilelab.witboost.provisioning.databricks.service.provision.ProvisionService;
+import it.agilelab.witboost.provisioning.databricks.service.updateacl.UpdateAclService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -20,9 +22,11 @@ import org.springframework.stereotype.Service;
 public class SpecificProvisionerController implements V1ApiDelegate {
 
     private final ProvisionService provisionService;
+    private final UpdateAclService updateAclService;
 
-    public SpecificProvisionerController(ProvisionService provisionService) {
+    public SpecificProvisionerController(ProvisionService provisionService, UpdateAclService updateAclService) {
         this.provisionService = provisionService;
+        this.updateAclService = updateAclService;
     }
 
     @Override
@@ -43,5 +47,10 @@ public class SpecificProvisionerController implements V1ApiDelegate {
     @Override
     public ResponseEntity<ValidationResult> validate(ProvisioningRequest provisioningRequest) {
         return ResponseEntity.ok(provisionService.validate(provisioningRequest));
+    }
+
+    @Override
+    public ResponseEntity<ProvisioningStatus> updateacl(UpdateAclRequest updateAclRequest) {
+        return new ResponseEntity<>(updateAclService.updateAcl(updateAclRequest), HttpStatus.ACCEPTED);
     }
 }

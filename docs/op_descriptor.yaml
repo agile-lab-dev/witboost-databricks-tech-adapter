@@ -75,9 +75,15 @@ dataProduct:
       sampleData: {}
       semanticLinking: []
       specific:
+        metastore: metastore
         workspace: healthcare_databricks-test_0_development
         catalogName: my_catalog
         schemaName: my_schema
         tableName: my_table
         viewName: my_view
+        sqlWarehouseName: Serverless Starter Warehouse
+        workspaceOP: healthcare_databricks-test_0_development
+        catalogNameOP: my_catalog_op
+        schemaNameOP: my_schema_op
+        viewNameOP: output_port_name
 componentIdToProvision: urn:dmb:cmp:healthcare:databricks-test-dp:0:vaccinations-output-port
