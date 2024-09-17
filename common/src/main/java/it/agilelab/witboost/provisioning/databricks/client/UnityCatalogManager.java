@@ -396,4 +396,25 @@ public class UnityCatalogManager {
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }
     }
+
+    public Either<FailedOperation, Collection<PrivilegeAssignment>> retrieveDatabricksPermissions(
+            SecurableType securableType, DBObject object) {
+        try {
+
+            Collection<PrivilegeAssignment> currentPrivilegeAssignments = workspaceClient
+                    .grants()
+                    .get(securableType, object.fullyQualifiedName())
+                    .getPrivilegeAssignments();
+
+            return (currentPrivilegeAssignments == null
+                    ? right(Collections.emptyList())
+                    : right(currentPrivilegeAssignments));
+        } catch (Exception e) {
+            String errorMessage = String.format(
+                    "An error occurred while retrieving current permission on '%s'. Please try again and if the error persists contact the platform team. Details: %s",
+                    object.fullyQualifiedName(), e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
 }

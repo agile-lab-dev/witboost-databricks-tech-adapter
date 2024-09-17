@@ -798,16 +798,14 @@ class OutputPortHandlerTest {
         GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
         when(workspaceClient.grants()).thenReturn(grantsAPIMock);
 
-        PermissionsList permissionsListMock = mock(PermissionsList.class);
-
         // Mock the current grants on the table: lets a@email.com have SELECT grants on op.
         // Remember that the map of user:a_email.com is a@email.com
         PrivilegeAssignment privilegeAssignment = new PrivilegeAssignment().setPrincipal("a@email.com");
 
-        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(permissionsListMock);
-        when(permissionsListMock.getPrivilegeAssignments()).thenReturn(Collections.singletonList(privilegeAssignment));
-
         UnityCatalogManager unityCatalogManagerMock = mock(UnityCatalogManager.class);
+
+        when(unityCatalogManagerMock.retrieveDatabricksPermissions(eq(SecurableType.TABLE), any(View.class)))
+                .thenReturn(Either.right(Collections.singletonList(privilegeAssignment)));
 
         when(unityCatalogManagerMock.assignDatabricksPermissionSelectToTableOrView(any(), any(View.class)))
                 .thenReturn(Either.right(null));
@@ -838,22 +836,19 @@ class OutputPortHandlerTest {
         GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
         when(workspaceClient.grants()).thenReturn(grantsAPIMock);
 
-        PermissionsList permissionsListMock = mock(PermissionsList.class);
-
         // Mock the current grants on the table: lets a@email.com have SELECT grants on op.
         // Remember that the map of user:a_email.com is a@email.com
         PrivilegeAssignment privilegeAssignment1 = new PrivilegeAssignment().setPrincipal("b@email.com");
-        PrivilegeAssignment privilegeAssignment2 =
-                new PrivilegeAssignment().setPrincipal("c@email.com"); // .setPrincipal("c@email.com");
+        PrivilegeAssignment privilegeAssignment2 = new PrivilegeAssignment().setPrincipal("c@email.com");
 
         ArrayList<PrivilegeAssignment> privilegeAssignmentCollection = new ArrayList<>();
         privilegeAssignmentCollection.add(privilegeAssignment1);
         privilegeAssignmentCollection.add(privilegeAssignment2);
 
-        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(permissionsListMock);
-        when(permissionsListMock.getPrivilegeAssignments()).thenReturn(privilegeAssignmentCollection);
-
         UnityCatalogManager unityCatalogManagerMock = mock(UnityCatalogManager.class);
+
+        when(unityCatalogManagerMock.retrieveDatabricksPermissions(eq(SecurableType.TABLE), any(View.class)))
+                .thenReturn(Either.right(privilegeAssignmentCollection));
 
         when(unityCatalogManagerMock.assignDatabricksPermissionSelectToTableOrView(any(), any(View.class)))
                 .thenReturn(Either.right(null));
@@ -880,6 +875,142 @@ class OutputPortHandlerTest {
         verify(unityCatalogManagerMock, times(1))
                 .updateDatabricksPermissions(
                         eq("c@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class));
+    }
+
+    @Test
+    public void updateAcl_currentPrivilegeAssignmentsNull() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("user:a_email.com", "group:group_test"),
+                new ProvisionInfo(provisionRequest.toString(), "result"));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+
+        PermissionsList permissionsListMock = mock(PermissionsList.class);
+
+        // The currentPrivilegeAssignement is null.
+        when(permissionsListMock.getPrivilegeAssignments()).thenReturn(null);
+
+        when(grantsAPIMock.get(any(SecurableType.class), anyString())).thenReturn(permissionsListMock);
+
+        UnityCatalogManager unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
+
+        Either<FailedOperation, ProvisioningStatus> result =
+                outputPortHandler.updateAcl(provisionRequest, updateAclRequest, workspaceClient, unityCatalogManager);
+
+        assert result.isRight();
+        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
+        assertEquals(result.get().getResult(), "Update of Acl completed!");
+    }
+
+    @Test
+    public void updateAcl_DpOwnerPermissionsAreNotRemoved_Development() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("user:random@email.com"), new ProvisionInfo(provisionRequest.toString(), ""));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+
+        // Mock the current grants on the table: lets a@email.com and the DataProductOwner have SELECT grants on op.
+        // Remember that the map of user:a_email.com is a@email.com
+        // We expect that grants for the DpOwner NOT TO BE REMOVED, as we are in dev environment
+        ArrayList<PrivilegeAssignment> privilegeAssignmentCollection = new ArrayList<>();
+        privilegeAssignmentCollection.add(new PrivilegeAssignment().setPrincipal("dp.owner@email.com")); // ok
+        privilegeAssignmentCollection.add(new PrivilegeAssignment().setPrincipal("c@email.com")); // must be revoked
+
+        UnityCatalogManager unityCatalogManagerMock = mock(UnityCatalogManager.class);
+
+        when(unityCatalogManagerMock.retrieveDatabricksPermissions(eq(SecurableType.TABLE), any(View.class)))
+                .thenReturn(Either.right(privilegeAssignmentCollection));
+
+        when(unityCatalogManagerMock.updateDatabricksPermissions(
+                        eq("c@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class)))
+                .thenReturn(Either.right(null));
+
+        when(unityCatalogManagerMock.assignDatabricksPermissionSelectToTableOrView(any(), any(View.class)))
+                .thenReturn(Either.right(null));
+
+        Either<FailedOperation, ProvisioningStatus> result = outputPortHandler.updateAcl(
+                provisionRequest, updateAclRequest, workspaceClient, unityCatalogManagerMock);
+
+        assert result.isRight();
+        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
+        assertEquals(result.get().getResult(), "Update of Acl completed!");
+
+        // Test that the remove method is called just 1 time
+        verify(unityCatalogManagerMock, times(1))
+                .updateDatabricksPermissions(
+                        eq("c@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class));
+
+        verify(unityCatalogManagerMock, times(0))
+                .updateDatabricksPermissions(
+                        eq("random@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class));
+    }
+
+    @Test
+    public void updateAcl_DpOwnerPermissionsAreRemoved_QA() {
+
+        dataProduct.setEnvironment("QA");
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        UpdateAclRequest updateAclRequest = new UpdateAclRequest(
+                List.of("user:random@email.com"), new ProvisionInfo(provisionRequest.toString(), ""));
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+
+        GrantsAPI grantsAPIMock = mock(GrantsAPI.class);
+        when(workspaceClient.grants()).thenReturn(grantsAPIMock);
+
+        // Mock the current grants on the table: lets a@email.com and the DataProductOwner have SELECT grants on op.
+        // Remember that the map of user:a_email.com is a@email.com
+        // We expect that grants for the DpOwner TO BE REMOVED, as we are NOT in dev environment
+        ArrayList<PrivilegeAssignment> privilegeAssignmentCollection = new ArrayList<>();
+        privilegeAssignmentCollection.add(
+                new PrivilegeAssignment().setPrincipal("dp.owner@email.com")); // must be revoked
+        privilegeAssignmentCollection.add(new PrivilegeAssignment().setPrincipal("a@email.com")); // must be revoked
+
+        UnityCatalogManager unityCatalogManagerMock = mock(UnityCatalogManager.class);
+
+        when(unityCatalogManagerMock.retrieveDatabricksPermissions(eq(SecurableType.TABLE), any(View.class)))
+                .thenReturn(Either.right(privilegeAssignmentCollection));
+
+        when(unityCatalogManagerMock.updateDatabricksPermissions(
+                        eq("a@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class)))
+                .thenReturn(Either.right(null));
+
+        when(unityCatalogManagerMock.updateDatabricksPermissions(
+                        eq("dp.owner@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class)))
+                .thenReturn(Either.right(null));
+
+        when(unityCatalogManagerMock.assignDatabricksPermissionSelectToTableOrView(any(), any(View.class)))
+                .thenReturn(Either.right(null));
+
+        Either<FailedOperation, ProvisioningStatus> result = outputPortHandler.updateAcl(
+                provisionRequest, updateAclRequest, workspaceClient, unityCatalogManagerMock);
+
+        assert result.isRight();
+        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
+        assertEquals(result.get().getResult(), "Update of Acl completed!");
+
+        // Test that the remove method is called 2 times, 1 for a@email.com and the other for dp.owner@email.com
+        verify(unityCatalogManagerMock, times(1))
+                .updateDatabricksPermissions(
+                        eq("a@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class));
+
+        verify(unityCatalogManagerMock, times(1))
+                .updateDatabricksPermissions(
+                        eq("dp.owner@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class));
     }
 
     private ProvisionRequest<DatabricksOutputPortSpecific> createOPProvisionRequest() {

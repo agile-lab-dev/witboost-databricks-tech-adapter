@@ -154,20 +154,20 @@ public class OutputPortHandler {
             Map<String, Either<Throwable, String>> eitherMap = databricksMapper.map(Set.of(dpOwner, devGroup));
 
             // Map DP OWNER
-            Either<Throwable, String> eitherDpOwnerDatabricksId = eitherMap.get(dpOwner);
-            if (eitherDpOwnerDatabricksId.isLeft()) {
-                var error = eitherDpOwnerDatabricksId.getLeft();
+            Either<Throwable, String> eitherDpOwnerMapped = eitherMap.get(dpOwner);
+            if (eitherDpOwnerMapped.isLeft()) {
+                var error = eitherDpOwnerMapped.getLeft();
                 return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
             }
-            String dpOwnerDatabricksId = eitherDpOwnerDatabricksId.get();
+            String dpOwnerMapped = eitherDpOwnerMapped.get();
 
             // Map DEV GROUP
-            Either<Throwable, String> eitherDpDevGroupDatabricksId = eitherMap.get(devGroup);
-            if (eitherDpDevGroupDatabricksId.isLeft()) {
-                var error = eitherDpDevGroupDatabricksId.getLeft();
+            Either<Throwable, String> eitherDpDevGroupMapped = eitherMap.get(devGroup);
+            if (eitherDpDevGroupMapped.isLeft()) {
+                var error = eitherDpDevGroupMapped.getLeft();
                 return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
             }
-            String dpDevGroupDatabricksId = eitherDpDevGroupDatabricksId.get();
+            String dpDevGroupMapped = eitherDpDevGroupMapped.get();
 
             // Retrieve environment
             String environment = provisionRequest.dataProduct().getEnvironment();
@@ -181,7 +181,7 @@ public class OutputPortHandler {
 
                 Either<FailedOperation, Void> eitherAssignedPermissionsViewOPToOwner =
                         unityCatalogManager.assignDatabricksPermissionToTableOrView(
-                                dpOwnerDatabricksId,
+                                dpOwnerMapped,
                                 Privilege.valueOf(ownerPermissionLevelConfig),
                                 new View(catalogNameOP, schemaNameOP, viewNameOP));
                 if (eitherAssignedPermissionsViewOPToOwner.isLeft()) {
@@ -190,7 +190,7 @@ public class OutputPortHandler {
 
                 Either<FailedOperation, Void> eitherAssignedPermissionsViewOPToDevGroup =
                         unityCatalogManager.assignDatabricksPermissionToTableOrView(
-                                dpDevGroupDatabricksId,
+                                dpDevGroupMapped,
                                 Privilege.valueOf(developerPermissionLevelConfig),
                                 new View(catalogNameOP, schemaNameOP, viewNameOP));
                 if (eitherAssignedPermissionsViewOPToDevGroup.isLeft()) {
@@ -377,6 +377,8 @@ public class OutputPortHandler {
         String schemaNameOP = databricksOutputPortSpecific.getSchemaNameOP();
         String viewNameOP = databricksOutputPortSpecific.getViewNameOP();
 
+        String environment = provisionRequest.dataProduct().getEnvironment();
+
         logger.info(String.format(
                 "Start updating Access Control List for %s.%s.%s", catalogNameOP, schemaNameOP, viewNameOP));
 
@@ -386,7 +388,7 @@ public class OutputPortHandler {
         List<String> refs = updateAclRequest.getRefs();
         Set<String> refsSet = new HashSet<>(refs);
 
-        Map<String, Either<Throwable, String>> eitherMap = databricksMapper.map(refsSet);
+        Map<String, Either<Throwable, String>> eitherMapRefs = databricksMapper.map(refsSet);
 
         // Retrieve refs mapped
         List<String> mappedRefs = new ArrayList<>();
@@ -394,7 +396,7 @@ public class OutputPortHandler {
         List<Problem> problemsMapping = new ArrayList<>();
 
         refs.forEach(ref -> {
-            Either<Throwable, String> eitherDatabricksId = eitherMap.get(ref);
+            Either<Throwable, String> eitherDatabricksId = eitherMapRefs.get(ref);
             if (eitherDatabricksId.isLeft()) {
                 problemsMapping.add(new Problem(eitherDatabricksId.getLeft().toString()));
             } else {
@@ -411,36 +413,75 @@ public class OutputPortHandler {
             return left(new FailedOperation(problemsMapping));
         }
 
+        // Creating Databricks object View
+        View viewOP = new View(catalogNameOP, schemaNameOP, viewNameOP);
+
         // Step 1: remove grants for entities that are no longer in refs
         logger.info("Retrieving current permissions on output port");
-        String tableFullName = String.format("%s.%s.%s", catalogNameOP, schemaNameOP, viewNameOP);
-        Collection<PrivilegeAssignment> currentPrivilegeAssignments =
-                workspaceClient.grants().get(SecurableType.TABLE, tableFullName).getPrivilegeAssignments();
+
+        Either<FailedOperation, Collection<PrivilegeAssignment>> eitherCurrentPermissions =
+                unityCatalogManager.retrieveDatabricksPermissions(SecurableType.TABLE, viewOP);
+
+        if (eitherCurrentPermissions.isLeft()) {
+            return left(eitherCurrentPermissions.getLeft());
+        }
 
         List<Problem> problemsRemovingPermissions = new ArrayList<>();
 
-        currentPrivilegeAssignments.forEach(privilegeAssignment -> {
+        Collection<PrivilegeAssignment> currentPermissions = eitherCurrentPermissions.get();
+
+        // Permissions
+        String dpOwner = provisionRequest.dataProduct().getDataProductOwner();
+        String devGroup = provisionRequest.dataProduct().getDevGroup();
+
+        // TODO: This is a temporary solution. Remove or update this logic in the future.
+        if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
+
+        Map<String, Either<Throwable, String>> eitherMap = databricksMapper.map(Set.of(dpOwner, devGroup));
+
+        // Map DP OWNER
+        Either<Throwable, String> eitherDpOwnerMapped = eitherMap.get(dpOwner);
+        if (eitherDpOwnerMapped.isLeft()) {
+            var error = eitherDpOwnerMapped.getLeft();
+            return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
+        }
+        String dpOwnerMapped = eitherDpOwnerMapped.get();
+
+        // Map DEV GROUP
+        Either<Throwable, String> eitherDpDevGroupMapped = eitherMap.get(devGroup);
+        if (eitherDpDevGroupMapped.isLeft()) {
+            var error = eitherDpDevGroupMapped.getLeft();
+            return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
+        }
+        String dpDevGroupMapped = eitherDpDevGroupMapped.get();
+
+        currentPermissions.forEach(privilegeAssignment -> {
             String principal = privilegeAssignment.getPrincipal();
-            if (!mappedRefs.contains(principal)) {
 
+            if (environment.equalsIgnoreCase(miscConfig.developmentEnvironmentName())
+                    & (Objects.equals(principal, dpOwnerMapped) | Objects.equals(principal, dpDevGroupMapped))) {
                 logger.info(String.format(
-                        "Principal %s does not have SELECT permission any longer on table %s. Removing grant.",
-                        principal, tableFullName));
+                        "Environment is %s and so, privileges of %s (Data Product Owner or Development Group) are not removed",
+                        environment, principal));
+            } else {
+                if (!mappedRefs.contains(principal)) {
 
-                Either<FailedOperation, Void> eitherUpdatedPermissions =
-                        unityCatalogManager.updateDatabricksPermissions(
-                                principal,
-                                Privilege.SELECT,
-                                Boolean.FALSE,
-                                new View(catalogNameOP, schemaNameOP, viewNameOP));
-
-                if (eitherUpdatedPermissions.isLeft()) {
-                    problemsRemovingPermissions.add(
-                            new Problem(eitherUpdatedPermissions.getLeft().toString()));
-                } else {
                     logger.info(String.format(
-                            "SELECT permission removed from %s for principal %s successfully!",
-                            tableFullName, principal));
+                            "Principal %s does not have SELECT permission any longer on table %s. Removing grant.",
+                            principal, viewOP.fullyQualifiedName()));
+
+                    Either<FailedOperation, Void> eitherUpdatedPermissions =
+                            unityCatalogManager.updateDatabricksPermissions(
+                                    principal, Privilege.SELECT, Boolean.FALSE, viewOP);
+
+                    if (eitherUpdatedPermissions.isLeft()) {
+                        problemsRemovingPermissions.add(
+                                new Problem(eitherUpdatedPermissions.getLeft().toString()));
+                    } else {
+                        logger.info(String.format(
+                                "SELECT permission removed from %s for principal %s successfully!",
+                                viewOP.fullyQualifiedName(), principal));
+                    }
                 }
             }
         });
@@ -461,16 +502,15 @@ public class OutputPortHandler {
             logger.info(String.format("Assigning permissions to Databricks entity: %s", databricksId));
 
             Either<FailedOperation, Void> eitherAssignedPermissions =
-                    unityCatalogManager.assignDatabricksPermissionSelectToTableOrView(
-                            databricksId, new View(catalogNameOP, schemaNameOP, viewNameOP));
+                    unityCatalogManager.assignDatabricksPermissionSelectToTableOrView(databricksId, viewOP);
 
             if (eitherAssignedPermissions.isLeft()) {
                 problemsAddingPermissions.addAll(
                         eitherAssignedPermissions.getLeft().problems());
             } else {
                 logger.info(String.format(
-                        "SELECT permission on %s added for Databricks Id %s successfully!",
-                        tableFullName, databricksId));
+                        "SELECT permission on '%s' added for Databricks Id %s successfully!",
+                        viewOP.fullyQualifiedName(), databricksId));
             }
         });
 

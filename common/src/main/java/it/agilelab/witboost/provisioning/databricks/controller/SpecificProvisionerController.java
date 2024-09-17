@@ -51,6 +51,6 @@ public class SpecificProvisionerController implements V1ApiDelegate {
 
     @Override
     public ResponseEntity<ProvisioningStatus> updateacl(UpdateAclRequest updateAclRequest) {
-        return new ResponseEntity<>(updateAclService.updateAcl(updateAclRequest), HttpStatus.ACCEPTED);
+        return new ResponseEntity<>(updateAclService.updateAcl(updateAclRequest), HttpStatus.OK);
     }
 }
