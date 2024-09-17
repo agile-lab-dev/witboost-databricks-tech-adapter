@@ -65,7 +65,7 @@ dataProduct:
       fullyQualifiedName: null
       version: 0.0.0
       infrastructureTemplateId: urn:dmb:itm:databricks-provisioner:0
-      useCaseTemplateId: urn:dmb:utm:databricks-workload-job-template:0.0.0
+      useCaseTemplateId: urn:dmb:utm:wrong:0.0.0
       dependsOn: [ ]
       platform: Azure
       technology: databricks
@@ -95,12 +95,9 @@ dataProduct:
             availability: ON_DEMAND_AZURE
             driverNodeTypeId: Standard_D4ds_v5
             sparkConf:
-              - name: spark.app.name
-                value: test
-              - name: sparkconf2
-                value: test2
+              spark.eventLog.enabled: false
+              spark.app.name: prova
             sparkEnvVars:
-              - name: env_var
-                value: test
+              env_var: 1
             runtimeEngine: PHOTON
 componentIdToProvision: urn:dmb:cmp:healthcare:databricks-provisioner:0:databricks-workload

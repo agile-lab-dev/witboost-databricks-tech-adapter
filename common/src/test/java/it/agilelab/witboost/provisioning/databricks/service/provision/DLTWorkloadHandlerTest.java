@@ -29,10 +29,9 @@ import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -113,9 +112,11 @@ public class DLTWorkloadHandlerTest {
         cluster.setWorkerType("Standard_DS3_v2");
         cluster.setDriverType("Standard_DS3_v2");
         cluster.setPolicyId("policyId");
-        HashMap<String, String> sparkConf = new HashMap<>();
-        sparkConf.put("spark.conf", "value");
-        cluster.setSparkConf(sparkConf);
+
+        SparkConf sparkConf = new SparkConf();
+        sparkConf.setName("spark.conf");
+        sparkConf.setValue("value");
+        cluster.setSparkConf(List.of(sparkConf));
 
         DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
         specific.setWorkspace("workspace");
@@ -128,9 +129,8 @@ public class DLTWorkloadHandlerTest {
         specific.setCatalog("catalog");
         specific.setTarget("target");
         specific.setPhoton(true);
-        HashMap notifications = new HashMap();
-        notifications.put("email@email.com", List.of("alert1", "alert2"));
-        specific.setNotifications(notifications);
+        List notifications = new ArrayList();
+        notifications.add(new PipelineNotification("email@email.com", Collections.singletonList("on-update-test")));
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
         specific.setMetastore("metastore");

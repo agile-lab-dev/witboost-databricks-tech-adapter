@@ -11,7 +11,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -87,8 +87,14 @@ public class JobClusterSpecificTest {
         jobClusterSpecific.setSpotInstances(true);
         jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
         jobClusterSpecific.setDriverNodeTypeId("driverNodeTypeId");
-        jobClusterSpecific.setSparkConf(new HashMap<>());
-        jobClusterSpecific.setSparkEnvVars(new HashMap<>());
+        SparkConf sparkConf = new SparkConf();
+        sparkConf.setName("spark.conf");
+        sparkConf.setValue("value");
+        jobClusterSpecific.setSparkConf(List.of(sparkConf));
+        SparkEnvVar sparkEnvVar = new SparkEnvVar();
+        sparkEnvVar.setName("spark.env.var");
+        sparkEnvVar.setValue("value");
+        jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
         jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
 
         assertEquals(10, jobClusterSpecific.getSpotBidMaxPrice());
@@ -96,8 +102,16 @@ public class JobClusterSpecificTest {
         assertEquals(true, jobClusterSpecific.getSpotInstances());
         assertEquals(AzureAvailability.ON_DEMAND_AZURE, jobClusterSpecific.getAvailability());
         assertEquals("driverNodeTypeId", jobClusterSpecific.getDriverNodeTypeId());
-        assertEquals(new HashMap<>(), jobClusterSpecific.getSparkConf());
-        assertEquals(new HashMap<>(), jobClusterSpecific.getSparkEnvVars());
+        assertEquals(
+                sparkConf.getName(), jobClusterSpecific.getSparkConf().get(0).getName());
+        assertEquals(
+                sparkConf.getValue(), jobClusterSpecific.getSparkConf().get(0).getValue());
+        assertEquals(
+                sparkEnvVar.getName(),
+                jobClusterSpecific.getSparkEnvVars().get(0).getName());
+        assertEquals(
+                sparkEnvVar.getValue(),
+                jobClusterSpecific.getSparkEnvVars().get(0).getValue());
         assertEquals(RuntimeEngine.PHOTON, jobClusterSpecific.getRuntimeEngine());
     }
 }

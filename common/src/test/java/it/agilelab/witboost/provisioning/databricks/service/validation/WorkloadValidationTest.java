@@ -11,9 +11,7 @@ import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -88,9 +86,8 @@ public class WorkloadValidationTest {
         specific.setCatalog("catalog");
         specific.setTarget("target");
         specific.setPhoton(true);
-        HashMap notifications = new HashMap();
-        notifications.put("email@email.com", List.of("alert1", "alert2"));
-        specific.setNotifications(notifications);
+        List notifications = new ArrayList();
+        notifications.add(new PipelineNotification("email@email.com", Collections.singletonList("on-update-test")));
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
 

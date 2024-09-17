@@ -73,34 +73,53 @@ dataProduct:
       connectionType: DataPipeline
       tags: [ ]
       readsFrom: [ ]
+    - kind: workload
+      id: urn:dmb:cmp:healthcare:spark-cdp-test:0:databricksdlt
+      description: prova
+      name: prova12545131
+      fullyQualifiedName: prova2
+      version: 0.0.0
+      infrastructureTemplateId: urn:dmb:itm:databricks-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:databricks-workload-dlt-template:0.0.0
+      dependsOn: []
+      platform: Azure
+      technology: Databricks
+      workloadType: batch
+      connectionType: DataPipeline
+      tags: []
+      readsFrom: []
       specific:
-          workspace: ospt_test
-          jobName: healthcare_sparkcdptest_0_databricksjobwithconf
-          description: null
-          repoPath: dataproductName_1/databricksjob-demo
-          metastore: ospt-metastore2
-          git:
-            gitRepoUrl: https://gitlab.com/AgileFactory/Witboost.Mesh/iac/qa/mesh.repository/healthcare/databrickstestalessia/databricksjob-demo
-            gitReference: masterr
-            gitReferenceType: BRANCH
-            gitPath: notebook/main
-          scheduling: null
-          cluster:
-            clusterSparkVersion: 13.3.x-scala2.12
-            nodeTypeId: Standard_D4ds_v5
-            numWorkers: 8
-            spotBidMaxPrice: -1
-            firstOnDemand: 1
-            spotInstances: null
-            availability: ON_DEMAND_AZURE
-            driverNodeTypeId: Standard_D4ds_v5
-            sparkConf:
-              - name: spark.app.name
-                value: test
-              - name: sparkconf2
-                value: test2
-            sparkEnvVars:
-              - name: env_var
-                value: test
-            runtimeEngine: PHOTON
-componentIdToProvision: urn:dmb:cmp:healthcare:databricks-provisioner:0:databricks-workload
+        workspace: healthcare_databricks-test_0_qa
+        repoPath: databrickstest_0/pipeline-testtemplate
+        pipelineName: healthcare_databricks-test_0_pipeline---test-template
+        git:
+          gitRepoUrl: https://gitlab.com/healthcare/databrickstest/pipeline-testtemplate
+        notebooks:
+          - databrickstest_0/pipeline-testtemplate/notebook/main
+        files: []
+        notifications:
+          - wrong: name.surname@agilelab.it
+            alert:
+              - on-update-success
+          - mail: testmail@agilelab.it
+            alert: []
+        metastore: metastore
+        catalog: databricks-test
+        target: pipeline---test-template
+        photon: true
+        productEdition: ADVANCED
+        continuous: false
+        channel: PREVIEW
+        cluster:
+          numWorkers: 2
+          minWorkers: null
+          maxWorkers: null
+          mode: null
+          workerType: Standard_D4ds_v5
+          driverType: Standard_D4ds_v5
+          sparkConf:
+            - name: spark.app.name
+              value: test
+            - name: sparkconf2
+              value: test2
+componentIdToProvision: urn:dmb:cmp:healthcare:spark-cdp-test:0:databricksdlt

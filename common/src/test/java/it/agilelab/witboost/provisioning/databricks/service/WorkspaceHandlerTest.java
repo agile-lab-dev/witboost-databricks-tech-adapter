@@ -499,8 +499,14 @@ public class WorkspaceHandlerTest {
         jobClusterSpecific.setSpotInstances(true);
         jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
         jobClusterSpecific.setDriverNodeTypeId("driverNodeTypeId");
-        jobClusterSpecific.setSparkConf(new HashMap<>());
-        jobClusterSpecific.setSparkEnvVars(new HashMap<>());
+        SparkConf sparkConf = new SparkConf();
+        sparkConf.setName("spark.conf");
+        sparkConf.setValue("value");
+        jobClusterSpecific.setSparkConf(List.of(sparkConf));
+        SparkEnvVar sparkEnvVar = new SparkEnvVar();
+        sparkEnvVar.setName("spark.env.var");
+        sparkEnvVar.setValue("value");
+        jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
         jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
         databricksJobWorkloadSpecific.setCluster(jobClusterSpecific);
 
@@ -539,9 +545,8 @@ public class WorkspaceHandlerTest {
         specific.setCatalog("catalog");
         specific.setTarget("target");
         specific.setPhoton(true);
-        HashMap notifications = new HashMap();
-        notifications.put("email@email.com", Collections.singletonList("on-update-test"));
-        specific.setNotifications(notifications);
+        List notifications = new ArrayList();
+        notifications.add(new PipelineNotification("email@email.com", Collections.singletonList("on-update-test")));
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
 

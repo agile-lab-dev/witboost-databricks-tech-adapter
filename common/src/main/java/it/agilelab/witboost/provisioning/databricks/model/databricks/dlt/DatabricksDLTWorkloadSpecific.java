@@ -4,9 +4,7 @@ import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -53,7 +51,7 @@ public class DatabricksDLTWorkloadSpecific extends Specific {
     @NotNull
     private Boolean photon;
 
-    private Map<String, Collection<@NotBlank String>> notifications;
+    private List<PipelineNotification> notifications;
 
     @NotNull
     private PipelineChannel channel;

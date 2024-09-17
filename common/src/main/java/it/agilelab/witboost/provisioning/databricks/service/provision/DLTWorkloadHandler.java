@@ -110,6 +110,12 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
                     .getNotebooks()
                     .forEach(notebook -> notebooks.add(String.format("/Workspace/%s", notebook)));
 
+            Map<String, Collection<String>> notifications = new HashMap<>();
+            if (databricksDLTWorkloadSpecific.getNotifications() != null) {
+                databricksDLTWorkloadSpecific.getNotifications().forEach(notification -> {
+                    notifications.put(notification.getMail(), notification.getAlert());
+                });
+            }
             Either<FailedOperation, String> eitherCreatedPipeline = dltManager.createDLTPipeline(
                     databricksDLTWorkloadSpecific.getPipelineName(),
                     databricksDLTWorkloadSpecific.getProductEdition(),
@@ -119,7 +125,7 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
                     databricksDLTWorkloadSpecific.getCatalog(),
                     databricksDLTWorkloadSpecific.getTarget(),
                     databricksDLTWorkloadSpecific.getPhoton(),
-                    databricksDLTWorkloadSpecific.getNotifications(),
+                    notifications,
                     databricksDLTWorkloadSpecific.getChannel(),
                     databricksDLTWorkloadSpecific.getCluster());
             if (eitherCreatedPipeline.isLeft()) return left(eitherCreatedPipeline.getLeft());

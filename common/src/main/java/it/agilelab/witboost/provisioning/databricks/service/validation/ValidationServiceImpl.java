@@ -10,6 +10,7 @@ import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigP
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
+import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.Component;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
@@ -34,18 +35,21 @@ public class ValidationServiceImpl implements ValidationService {
     private final String WORKLOAD_KIND = "workload";
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
-    private final Map<String, List<Class<? extends Specific>>> kindToSpecificClasses = new HashMap<>();
-    private final Function<ApiClientConfigParams, ApiClient> apiClientFactory;
-    private final WorkspaceHandler workspaceHandler;
-    private final MiscConfig miscConfig;
+    private Map<String, List<Class<? extends Specific>>> kindToSpecificClasses = new HashMap<>();
+    private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
+    private WorkspaceHandler workspaceHandler;
+    private MiscConfig miscConfig;
+    private TemplatesConfig templatesConfig;
 
     public ValidationServiceImpl(
             Function<ApiClientConfigParams, ApiClient> apiClientFactory,
             MiscConfig miscConfig,
-            WorkspaceHandler workspaceHandler) {
+            WorkspaceHandler workspaceHandler,
+            TemplatesConfig templatesConfig) {
         this.apiClientFactory = apiClientFactory;
         this.miscConfig = miscConfig;
         this.workspaceHandler = workspaceHandler;
+        this.templatesConfig = templatesConfig;
 
         List<Class<? extends Specific>> classes = new ArrayList<>();
         classes.add(DatabricksJobWorkloadSpecific.class);
@@ -137,32 +141,35 @@ public class ValidationServiceImpl implements ValidationService {
     }
 
     private Either<FailedOperation, Component<? extends Specific>> parseComponent(JsonNode componentToProvisionAsJson) {
-        Component<? extends Specific> componentToProvision;
-        var workloadClasses = kindToSpecificClasses.get(WORKLOAD_KIND);
 
-        List<Problem> problems = new ArrayList<>();
+        String useCaseTemplateId =
+                getUseCaseTemplateId(String.valueOf(componentToProvisionAsJson.get("useCaseTemplateId")));
 
-        for (Class<? extends Specific> workloadClass : workloadClasses) {
-            var eitherWorkloadToProvision = Parser.parseComponent(componentToProvisionAsJson, workloadClass);
-            if (eitherWorkloadToProvision.isRight()) {
-                componentToProvision = eitherWorkloadToProvision.get();
-                return right(componentToProvision);
-            }
+        Either<FailedOperation, ? extends Component<? extends Specific>> eitherWorkloadToProvision;
 
-            var problemsList = eitherWorkloadToProvision.getLeft().problems();
-            if (problemsList != null) for (Problem prob : problemsList) problems.add(prob);
-        }
-
-        if (!problems.isEmpty()) {
-            logger.error(
-                    "An error occurred while parsing the component. Please try again and if the error persists contact the platform team. Errors:");
-            for (Problem problem : problems) {
-                logger.error("Problem: {}", problem.description());
-            }
+        if (templatesConfig.getJob().contains(useCaseTemplateId)) {
+            eitherWorkloadToProvision =
+                    Parser.parseComponent(componentToProvisionAsJson, DatabricksJobWorkloadSpecific.class);
+        } else if (templatesConfig.getDlt().contains(useCaseTemplateId)) {
+            eitherWorkloadToProvision =
+                    Parser.parseComponent(componentToProvisionAsJson, DatabricksDLTWorkloadSpecific.class);
         } else {
-            logger.error("An error occurred while parsing the component but no specific problems were found.");
+            String errorMessage = String.format(
+                    "An error occurred while parsing the component %s. Please try again and if the error persists contact the platform team. Details: unsupported use case template id.",
+                    componentToProvisionAsJson.get("name"));
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }
 
-        return left(new FailedOperation(problems));
+        if (eitherWorkloadToProvision.isRight()) return right(eitherWorkloadToProvision.get());
+
+        return left(eitherWorkloadToProvision.getLeft());
+    }
+
+    private static String getUseCaseTemplateId(String useCaseTemplateIdFull) {
+        String[] parts = useCaseTemplateIdFull.split(":");
+        String[] useCaseTemplateIdParts = Arrays.copyOfRange(parts, 0, parts.length - 1);
+        String useCaseTemplateId = String.join(":", useCaseTemplateIdParts);
+        String cleanUseCaseTemplateId = useCaseTemplateId.replace("\"", "").trim();
+        return cleanUseCaseTemplateId;
     }
 }

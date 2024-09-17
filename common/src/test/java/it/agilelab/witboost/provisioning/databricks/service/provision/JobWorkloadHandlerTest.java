@@ -92,8 +92,14 @@ public class JobWorkloadHandlerTest {
         jobClusterSpecific.setSpotInstances(true);
         jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
         jobClusterSpecific.setDriverNodeTypeId("driverNodeTypeId");
-        jobClusterSpecific.setSparkConf(new HashMap<>());
-        jobClusterSpecific.setSparkEnvVars(new HashMap<>());
+        SparkConf sparkConf = new SparkConf();
+        sparkConf.setName("spark.conf");
+        sparkConf.setValue("value");
+        jobClusterSpecific.setSparkConf(List.of(sparkConf));
+        SparkEnvVar sparkEnvVar = new SparkEnvVar();
+        sparkEnvVar.setName("spark.env.var");
+        sparkEnvVar.setValue("value");
+        jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
         jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
         databricksJobWorkloadSpecific.setCluster(jobClusterSpecific);
 

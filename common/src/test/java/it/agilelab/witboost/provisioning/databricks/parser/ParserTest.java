@@ -30,7 +30,7 @@ public class ParserTest {
         var eitherDescriptor = Parser.parseDescriptor(ymlDescriptor);
         Assertions.assertTrue(eitherDescriptor.isRight());
         Descriptor descriptor = eitherDescriptor.get();
-        String componentIdToProvision = "urn:dmb:cmp:healthcare:dbt-provisioner:0:dbt-transformation-workload";
+        String componentIdToProvision = "urn:dmb:cmp:healthcare:databricks-provisioner:0:databricks-workload";
         var optionalComponent = descriptor.getDataProduct().getComponentToProvision(componentIdToProvision);
         Assertions.assertTrue(optionalComponent.isDefined());
         JsonNode component = optionalComponent.get();

@@ -1,6 +1,7 @@
 package it.agilelab.witboost.provisioning.databricks.service.validation;
 
 import static io.vavr.control.Either.right;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -53,10 +54,11 @@ public class ValidationServiceTest {
     @Autowired
     MiscConfig miscConfig;
 
-    private ValidationService service = new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandler);
+    @Autowired
+    ValidationService service;
 
     @Test
-    public void testValidateWorkloadOk() throws IOException {
+    public void testValidateJobWorkloadOk() throws IOException {
         String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_workload.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
@@ -64,6 +66,46 @@ public class ValidationServiceTest {
         var actualRes = service.validate(provisioningRequest);
 
         assertTrue(actualRes.isRight());
+    }
+
+    @Test
+    public void testValidateDLTWorkloadOk() throws IOException {
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_dlt_workload.yml");
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
+
+        var actualRes = service.validate(provisioningRequest);
+        assertTrue(actualRes.isRight());
+    }
+
+    @Test
+    public void testValidateDLTWorkloadWrongDescriptor() throws IOException {
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_dlt_wrong_workload.yml");
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
+
+        var actualRes = service.validate(provisioningRequest);
+
+        String expectedError = "Failed to deserialize the component. Details: Unrecognized field \"wrong\"";
+        assertTrue(actualRes.isLeft());
+        assertEquals(1, actualRes.getLeft().problems().size());
+        assertTrue(actualRes.getLeft().problems().get(0).description().contains(expectedError));
+    }
+
+    @Test
+    public void testValidateUnsupportedUseCaseTemplateId() throws IOException {
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_unsupported_workload.yml");
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
+
+        String expectedError =
+                "An error occurred while parsing the component \"Databricks Workload\". Please try again and if the error persists contact the platform team. Details: unsupported use case template id.";
+
+        var actualRes = service.validate(provisioningRequest);
+
+        assertTrue(actualRes.isLeft());
+        assertEquals(1, actualRes.getLeft().problems().size());
+        assertTrue(actualRes.getLeft().problems().get(0).description().contains(expectedError));
     }
 
     @Test
@@ -77,9 +119,9 @@ public class ValidationServiceTest {
         var actualResult = service.validate(provisioningRequest);
 
         Assertions.assertTrue(actualResult.isLeft());
-        Assertions.assertEquals(1, actualResult.getLeft().problems().size());
+        assertEquals(1, actualResult.getLeft().problems().size());
         actualResult.getLeft().problems().forEach(p -> {
-            Assertions.assertEquals(expectedDesc, p.description());
+            assertEquals(expectedDesc, p.description());
             Assertions.assertTrue(p.cause().isEmpty());
         });
     }
@@ -94,7 +136,7 @@ public class ValidationServiceTest {
         var actualRes = service.validate(provisioningRequest);
 
         Assertions.assertTrue(actualRes.isLeft());
-        Assertions.assertEquals(1, actualRes.getLeft().problems().size());
+        assertEquals(1, actualRes.getLeft().problems().size());
         actualRes.getLeft().problems().forEach(p -> {
             Assertions.assertTrue(p.description().startsWith(expectedDesc));
             Assertions.assertTrue(p.cause().isPresent());
@@ -112,9 +154,9 @@ public class ValidationServiceTest {
         var actualRes = service.validate(provisioningRequest);
 
         Assertions.assertTrue(actualRes.isLeft());
-        Assertions.assertEquals(1, actualRes.getLeft().problems().size());
+        assertEquals(1, actualRes.getLeft().problems().size());
         actualRes.getLeft().problems().forEach(p -> {
-            Assertions.assertEquals(expectedDesc, p.description());
+            assertEquals(expectedDesc, p.description());
             Assertions.assertTrue(p.cause().isEmpty());
         });
     }
@@ -130,9 +172,9 @@ public class ValidationServiceTest {
         var actualResult = service.validate(provisioningRequest);
 
         Assertions.assertTrue(actualResult.isLeft());
-        Assertions.assertEquals(1, actualResult.getLeft().problems().size());
+        assertEquals(1, actualResult.getLeft().problems().size());
         actualResult.getLeft().problems().forEach(p -> {
-            Assertions.assertEquals(expectedDesc, p.description());
+            assertEquals(expectedDesc, p.description());
             Assertions.assertTrue(p.cause().isEmpty());
         });
     }
@@ -148,9 +190,9 @@ public class ValidationServiceTest {
         var actualRes = service.validate(provisioningRequest);
 
         Assertions.assertTrue(actualRes.isLeft());
-        Assertions.assertEquals(1, actualRes.getLeft().problems().size());
+        assertEquals(1, actualRes.getLeft().problems().size());
         actualRes.getLeft().problems().forEach(p -> {
-            Assertions.assertEquals(expectedDesc, p.description());
+            assertEquals(expectedDesc, p.description());
             Assertions.assertTrue(p.cause().isEmpty());
         });
     }
@@ -166,9 +208,9 @@ public class ValidationServiceTest {
         var actualRes = service.validate(provisioningRequest);
 
         Assertions.assertTrue(actualRes.isLeft());
-        Assertions.assertEquals(1, actualRes.getLeft().problems().size());
+        assertEquals(1, actualRes.getLeft().problems().size());
         actualRes.getLeft().problems().forEach(p -> {
-            Assertions.assertEquals(expectedDesc, p.description());
+            assertEquals(expectedDesc, p.description());
             Assertions.assertTrue(p.cause().isEmpty());
         });
     }
@@ -214,7 +256,8 @@ public class ValidationServiceTest {
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
-        ValidationService service = new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock);
+        ValidationService service =
+                new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock, templatesConfig);
 
         var actualRes = service.validate(provisioningRequest);
 
@@ -261,17 +304,18 @@ public class ValidationServiceTest {
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
-        ValidationService service = new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock);
+        ValidationService service =
+                new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock, templatesConfig);
 
         var actualRes = service.validate(provisioningRequest);
 
         assertTrue(actualRes.isLeft());
-        Assertions.assertEquals(1, actualRes.getLeft().problems().size());
+        assertEquals(1, actualRes.getLeft().problems().size());
 
         String actualResDescription = actualRes.getLeft().problems().get(0).description();
         String expectedResDescription =
                 "Check for Output Port test-op: the column 'unexisting_col' cannot be found in the table 'catalog_name.schema_name.table_name'.";
 
-        Assertions.assertEquals(expectedResDescription, actualResDescription);
+        assertEquals(expectedResDescription, actualResDescription);
     }
 }

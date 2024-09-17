@@ -47,8 +47,8 @@ public class DatabricksDLTWorkloadSpecificTest {
         specific.setCatalog("catalog");
         specific.setTarget("target");
         specific.setPhoton(true);
-        HashMap notifications = new HashMap();
-        notifications.put("email@email.com", Collections.singletonList("on-update-test"));
+        List notifications = new ArrayList();
+        notifications.add(new PipelineNotification("email@email.com", Collections.singletonList("on-update-test")));
         specific.setNotifications(notifications);
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);

@@ -2,9 +2,11 @@ package it.agilelab.witboost.provisioning.databricks.model.databricks.job;
 
 import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkEnvVar;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import java.util.Map;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -28,7 +30,7 @@ public class JobClusterSpecific {
     private Boolean spotInstances;
     private AzureAvailability availability;
     private String driverNodeTypeId;
-    private Map<String, String> sparkConf;
-    private Map<String, String> sparkEnvVars;
+    private List<SparkConf> sparkConf;
+    private List<SparkEnvVar> sparkEnvVars;
     private RuntimeEngine runtimeEngine;
 }

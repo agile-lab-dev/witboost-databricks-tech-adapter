@@ -53,15 +53,11 @@ public class DeltaLiveTablesManager {
 
             Collection<PipelineCluster> clusters = new ArrayList<>();
 
-            //      Temporary functionality. Dots had to be replaced with underscores in the template
             Map<String, String> sparkConfNew = new HashMap<>();
             if (clusterSpecific.getSparkConf() != null)
-                clusterSpecific.getSparkConf().keySet().forEach(key -> {
-                    sparkConfNew.put(
-                            key.replace("_", "."),
-                            clusterSpecific.getSparkConf().get(key));
-                });
-            // ----
+                clusterSpecific
+                        .getSparkConf()
+                        .forEach(sparkConf -> sparkConfNew.put(sparkConf.getName(), sparkConf.getValue()));
 
             PipelineCluster pipelineCluster = new PipelineCluster()
                     .setPolicyId(clusterSpecific.getPolicyId())
