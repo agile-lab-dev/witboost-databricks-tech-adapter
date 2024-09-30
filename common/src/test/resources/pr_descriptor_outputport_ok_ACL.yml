@@ -46,6 +46,7 @@ dataProduct:
         tableName: table_name
         sqlWarehouseName: a
         workspaceOP: .
+        metastore: metastore
         catalogNameOP: .
         schemaNameOP: .
         viewNameOP: .

@@ -7,12 +7,14 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.catalog.*;
 import com.databricks.sdk.service.sql.*;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.*;
+import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
@@ -86,9 +88,12 @@ public class OutputPortHandler {
             String catalogNameOP = databricksOutputPortSpecific.getCatalogNameOP();
             String schemaNameOP = databricksOutputPortSpecific.getSchemaNameOP();
             String viewNameOP = databricksOutputPortSpecific.getViewNameOP();
-            String viewFullNameOP = catalogNameOP + "." + schemaNameOP + "." + viewNameOP;
-            String tableFullName = databricksOutputPortSpecific.getCatalogName() + "."
-                    + databricksOutputPortSpecific.getSchemaName() + "." + databricksOutputPortSpecific.getTableName();
+            String viewFullNameOP = String.format("`%s`.`%s`.`%s`", catalogNameOP, schemaNameOP, viewNameOP);
+            String tableFullName = String.format(
+                    "`%s`.`%s`.`%s`",
+                    databricksOutputPortSpecific.getCatalogName(),
+                    databricksOutputPortSpecific.getSchemaName(),
+                    databricksOutputPortSpecific.getTableName());
 
             Either<FailedOperation, Void> eitherAttachedMetastore =
                     unityCatalogManager.attachMetastore(databricksOutputPortSpecific.getMetastore());
@@ -124,9 +129,17 @@ public class OutputPortHandler {
 
             if (sqlWarehouseId.isLeft()) return left(sqlWarehouseId.getLeft());
 
+            String columnsListString = createColumnsListForSelectStatement(provisionRequest);
+
             // Create OP
             Either<FailedOperation, String> eitherExecutedStatementCreateOutputPort = executeStatementCreateOutputPort(
-                    apiClient, catalogNameOP, schemaNameOP, viewNameOP, tableFullName, sqlWarehouseId.get());
+                    apiClient,
+                    catalogNameOP,
+                    schemaNameOP,
+                    viewNameOP,
+                    tableFullName,
+                    columnsListString,
+                    sqlWarehouseId.get());
 
             if (eitherExecutedStatementCreateOutputPort.isLeft()) {
                 return left(eitherExecutedStatementCreateOutputPort.getLeft());
@@ -214,17 +227,37 @@ public class OutputPortHandler {
         }
     }
 
+    private String createColumnsListForSelectStatement(ProvisionRequest provisionRequest) {
+        OutputPort component = (OutputPort) provisionRequest.component();
+
+        JsonNode viewSchemaNode = component.getDataContract().get("schema");
+
+        if (viewSchemaNode.isEmpty()) {
+            return "*";
+        } else {
+            List<String> columnsList = new ArrayList<>();
+
+            for (JsonNode viewColumn : viewSchemaNode) {
+                String viewColumnName = viewColumn.get("name").asText();
+                columnsList.add(viewColumnName);
+            }
+
+            return String.join(",", columnsList);
+        }
+    }
+
     private Either<FailedOperation, String> executeStatementCreateOutputPort(
             ApiClient apiClient,
             String catalogNameOP,
             String schemaNameOP,
             String viewNameOP,
             String tableFullName,
+            String columnsList,
             String sqlWarehouseId) {
 
         try {
-            String queryToCreateOP =
-                    String.format("CREATE OR REPLACE VIEW %s AS SELECT * FROM %s;", viewNameOP, tableFullName);
+            String queryToCreateOP = String.format(
+                    "CREATE OR REPLACE VIEW `%s` AS SELECT %s FROM %s;", viewNameOP, columnsList, tableFullName);
 
             logger.info("Query: {}", queryToCreateOP);
 

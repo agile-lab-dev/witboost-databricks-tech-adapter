@@ -3,7 +3,6 @@ package it.agilelab.witboost.provisioning.databricks.bean;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.workspace.CreateCredentials;
-import com.databricks.sdk.service.workspace.CredentialInfo;
 import com.databricks.sdk.service.workspace.UpdateCredentials;
 import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -11,6 +10,7 @@ import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,34 +68,41 @@ public class DatabricksWorkspaceClientConfig {
             WorkspaceClient workspaceClient, GitCredentialsConfig gitCredentialsConfig, String workspaceName) {
 
         try {
-            Optional<CredentialInfo> optionalCredentialInfo = StreamSupport.stream(
-                            workspaceClient.gitCredentials().list().spliterator(), false)
+
+            Optional.ofNullable(workspaceClient.gitCredentials().list())
+                    .map(credentials -> StreamSupport.stream(credentials.spliterator(), false))
+                    .orElse(Stream.empty()) // If list of gitCredentials is null, use an empty stream
                     .filter(credentialInfo ->
                             credentialInfo.getGitProvider().equalsIgnoreCase(gitCredentialsConfig.getProvider()))
-                    .findFirst();
+                    .findFirst()
+                    .ifPresentOrElse(
+                            credentialInfo -> {
+                                // If credentials already exist, update them
+                                logger.warn(
+                                        "Credentials for {} for the workspace {} already exist. Updating them with the ones provided",
+                                        gitCredentialsConfig.getProvider().toUpperCase(),
+                                        workspaceName);
 
-            if (optionalCredentialInfo.isEmpty()) {
-                workspaceClient
-                        .gitCredentials()
-                        .create(new CreateCredentials()
-                                .setPersonalAccessToken(gitCredentialsConfig.getToken())
-                                .setGitUsername(gitCredentialsConfig.getUsername())
-                                .setGitProvider(gitCredentialsConfig.getProvider()));
-            } else {
-                logger.warn(
-                        "Credentials for {} for the workspace {} already exists. Updating them with the ones provided",
-                        gitCredentialsConfig.getProvider().toUpperCase(),
-                        workspaceName);
+                                workspaceClient
+                                        .gitCredentials()
+                                        .update(new UpdateCredentials()
+                                                .setCredentialId(credentialInfo.getCredentialId())
+                                                .setGitUsername(gitCredentialsConfig.getUsername())
+                                                .setPersonalAccessToken(gitCredentialsConfig.getToken())
+                                                .setGitProvider(gitCredentialsConfig
+                                                        .getProvider()
+                                                        .toUpperCase()));
+                            },
+                            () -> {
+                                // If credentials don't exist or gitCredentials().list() is null, create new ones
+                                workspaceClient
+                                        .gitCredentials()
+                                        .create(new CreateCredentials()
+                                                .setPersonalAccessToken(gitCredentialsConfig.getToken())
+                                                .setGitUsername(gitCredentialsConfig.getUsername())
+                                                .setGitProvider(gitCredentialsConfig.getProvider()));
+                            });
 
-                workspaceClient
-                        .gitCredentials()
-                        .update(new UpdateCredentials()
-                                .setCredentialId(optionalCredentialInfo.get().getCredentialId())
-                                .setGitUsername(gitCredentialsConfig.getUsername())
-                                .setPersonalAccessToken(gitCredentialsConfig.getToken())
-                                .setGitProvider(
-                                        gitCredentialsConfig.getProvider().toUpperCase()));
-            }
         } catch (Exception e) {
             // Catching possible exceptions generated by Databricks
             String errorMessage = String.format(

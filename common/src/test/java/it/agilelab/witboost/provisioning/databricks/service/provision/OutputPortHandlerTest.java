@@ -12,6 +12,9 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.service.catalog.*;
 import com.databricks.sdk.service.sql.*;
 import com.databricks.sdk.service.workspace.WorkspaceAPI;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
@@ -139,7 +142,80 @@ class OutputPortHandlerTest {
         ExecuteStatementRequest request = new ExecuteStatementRequest()
                 .setCatalog("catalog_op")
                 .setSchema("schema_op")
-                .setStatement("CREATE OR REPLACE VIEW view AS SELECT * FROM catalog.schema.t;")
+                .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
+                .setWarehouseId("sql_wh_id");
+
+        ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
+        when(executeStatementResponseMock.getStatementId()).thenReturn("id");
+        when(new StatementExecutionAPI(apiClientMock).executeStatement(request))
+                .thenReturn(executeStatementResponseMock);
+
+        // Mocking method inside pollOnStatementExecution
+        GetStatementResponse getStatementResponseMockPoll = mock(GetStatementResponse.class);
+        when(new StatementExecutionAPI(apiClientMock).getStatement("id")).thenReturn(getStatementResponseMockPoll);
+
+        StatementStatus statementStatusMockPoll = mock(StatementStatus.class);
+        when(statementStatusMockPoll.getState()).thenReturn(StatementState.SUCCEEDED);
+
+        when(getStatementResponseMockPoll.getStatus()).thenReturn(statementStatusMockPoll);
+
+        // Mocking method inside retrieve tableInfo
+        TableInfo tableInfoMock = mock(TableInfo.class);
+        when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
+        when(workspaceClient.tables().get("catalog_op.schema_op.view")).thenReturn(tableInfoMock);
+        when(tableInfoMock.getTableId()).thenReturn("table_id");
+
+        // Mocking permissions call
+        when(workspaceClient.grants()).thenReturn(mock(GrantsAPI.class));
+
+        Either<FailedOperation, TableInfo> result =
+                outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);
+
+        assert result.isRight();
+        assertEquals(result.get().getTableId(), "table_id");
+    }
+
+    @Test
+    public void provisionOutputPort_SuccessWithEmptySchema() {
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequestEmptySchema();
+
+        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
+        // Mocking metastore attachment
+        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
+
+        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
+        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
+
+        // Mocking behaviour on catalogs. The requested catalog exists
+        List<CatalogInfo> catalogList =
+                Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog_op"));
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
+
+        // Mocking schema_op in catalog_op
+        List<SchemaInfo> schemaInfoList =
+                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
+
+        when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
+        when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
+
+        // Mock the search of sqlWareHouseId
+        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
+
+        List<DataSource> dataSourceList =
+                Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
+
+        when(new DataSourcesAPI(apiClientMock).list()).thenReturn(dataSourceList);
+
+        // Mock classes and methods inside createOrReplaceOutputPortView
+        ExecuteStatementRequest request = new ExecuteStatementRequest()
+                .setCatalog("catalog_op")
+                .setSchema("schema_op")
+                .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT * FROM `catalog`.`schema`.`t`;")
                 .setWarehouseId("sql_wh_id");
 
         ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
@@ -214,7 +290,7 @@ class OutputPortHandlerTest {
         ExecuteStatementRequest request = new ExecuteStatementRequest()
                 .setCatalog("catalog_op")
                 .setSchema("schema_op")
-                .setStatement("CREATE OR REPLACE VIEW view AS SELECT * FROM catalog.schema.t;")
+                .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
                 .setWarehouseId("sql_wh_id");
 
         ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
@@ -291,7 +367,7 @@ class OutputPortHandlerTest {
         ExecuteStatementRequest request = new ExecuteStatementRequest()
                 .setCatalog("catalog_op")
                 .setSchema("schema_op")
-                .setStatement("CREATE OR REPLACE VIEW view AS SELECT * FROM catalog.schema.t;")
+                .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
                 .setWarehouseId("sql_wh_id");
 
         ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
@@ -575,7 +651,7 @@ class OutputPortHandlerTest {
         ExecuteStatementRequest request = new ExecuteStatementRequest()
                 .setCatalog("catalog_op")
                 .setSchema("schema_op")
-                .setStatement("CREATE OR REPLACE VIEW view AS SELECT * FROM catalog.schema.t;")
+                .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
                 .setWarehouseId("sql_wh_id");
 
         ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
@@ -1013,6 +1089,34 @@ class OutputPortHandlerTest {
                         eq("dp.owner@email.com"), eq(Privilege.SELECT), eq(Boolean.FALSE), any(View.class));
     }
 
+    private ProvisionRequest<DatabricksOutputPortSpecific> createOPProvisionRequestEmptySchema() {
+        databricksOutputPortSpecific.setWorkspace("ws");
+        databricksOutputPortSpecific.setMetastore("metastore");
+        databricksOutputPortSpecific.setCatalogName("catalog");
+        databricksOutputPortSpecific.setSchemaName("schema");
+        databricksOutputPortSpecific.setTableName("t");
+        databricksOutputPortSpecific.setSqlWarehouseName("sql_wh");
+        databricksOutputPortSpecific.setWorkspaceOP("ws_op");
+        databricksOutputPortSpecific.setCatalogNameOP("catalog_op");
+        databricksOutputPortSpecific.setSchemaNameOP("schema_op");
+        databricksOutputPortSpecific.setViewNameOP("view");
+
+        outputPort.setSpecific(databricksOutputPortSpecific);
+
+        // Creating schema
+        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectNode schemaNode = objectMapper.createObjectNode();
+
+        ArrayNode colsNode = objectMapper.createArrayNode();
+
+        schemaNode.set("schema", colsNode);
+
+        outputPort.setDataContract(schemaNode);
+
+        ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, outputPort, false);
+        return provisionRequest;
+    }
+
     private ProvisionRequest<DatabricksOutputPortSpecific> createOPProvisionRequest() {
         databricksOutputPortSpecific.setWorkspace("ws");
         databricksOutputPortSpecific.setMetastore("metastore");
@@ -1026,6 +1130,26 @@ class OutputPortHandlerTest {
         databricksOutputPortSpecific.setViewNameOP("view");
 
         outputPort.setSpecific(databricksOutputPortSpecific);
+
+        // Creating schema
+        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectNode schemaNode = objectMapper.createObjectNode();
+
+        ObjectNode col1Node = objectMapper.createObjectNode();
+        col1Node.put("name", "col_1");
+        col1Node.put("dataType", "TEXT");
+
+        ObjectNode col2Node = objectMapper.createObjectNode();
+        col2Node.put("name", "col_2");
+        col2Node.put("dataType", "TEXT");
+
+        ArrayNode colsNode = objectMapper.createArrayNode();
+        colsNode.add(col1Node);
+        colsNode.add(col2Node);
+
+        schemaNode.set("schema", colsNode);
+
+        outputPort.setDataContract(schemaNode);
 
         ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, outputPort, false);
         return provisionRequest;

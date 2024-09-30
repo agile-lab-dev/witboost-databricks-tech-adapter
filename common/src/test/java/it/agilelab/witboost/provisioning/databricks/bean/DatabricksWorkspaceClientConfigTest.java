@@ -144,4 +144,26 @@ public class DatabricksWorkspaceClientConfigTest {
                 () -> databricksWorkspaceClientConfig.setGitCredentials(
                         workspaceClient, gitCredentialsConfig, "test-workspace"));
     }
+
+    @Test
+    public void testSetGitCredentials_NullCred() {
+        GitCredentialsConfig gitCredentialsConfig = mock(GitCredentialsConfig.class);
+
+        when(gitCredentialsConfig.getProvider()).thenReturn("github");
+        when(gitCredentialsConfig.getToken()).thenReturn("token");
+        when(gitCredentialsConfig.getUsername()).thenReturn("username");
+
+        when(workspaceClient.gitCredentials()).thenReturn(gitCredentialsAPI);
+
+        when(gitCredentialsAPI.list()).thenReturn(null);
+        databricksWorkspaceClientConfig.setGitCredentials(workspaceClient, gitCredentialsConfig, "test-workspace");
+        ArgumentCaptor<CreateCredentials> captor = ArgumentCaptor.forClass(CreateCredentials.class);
+
+        verify(gitCredentialsAPI, times(1)).create(captor.capture());
+        CreateCredentials capturedCredentials = captor.getValue();
+
+        assertEquals("github", capturedCredentials.getGitProvider());
+        assertEquals("token", capturedCredentials.getPersonalAccessToken());
+        assertEquals("username", capturedCredentials.getGitUsername());
+    }
 }
