@@ -9,13 +9,17 @@ The source diagrams can be found and edited in the [accompanying draw.io file](h
   - [Workspace Provisioning](#workspace-provisioning)
   - [Catalog and Schema Provisioning](#catalog-and-schema-provisioning)
   - [Job Provisioning](#job-provisioning)
+  - [Workflow Provisioning](#workflow-provisioning)
   - [Delta Live Tables (DLT) Pipeline Provisioning](#Delta-Live-Tables-DLT-Pipeline-Provisioning)
   - [Output Port Provisioning](#output-port-provisioning)
 - [Unprovisioning](#unprovisioning)
   - [Job Unprovisioning](#job-unprovisioning)
+  - [Workflow Unprovisioning](#workflow-unprovisioning)
   - [DLT Pipeline Unprovisioning](#DLT-Pipeline-Unprovisioning)
   - [Output Port Unprovisioning](#Output-Port-Unprovisioning)
 - [Update Acl](#update-acl)
+- [Reverse Provisioning](#reverse-provisioning)
+  - [Workflow Reverse Provisioning](#workflow-reverse-provisioning)
 
 ## Overview
 
@@ -98,9 +102,29 @@ In the provisioning phase of the Workload a Job is created inside the Databricks
 
 The Job is configured to point to a specific branch (typical for development environments) or tag (typical for QA/production) of the git repository. The job is named as follows: `$Domain_$DPName_$MajorVersion_$ComponentName_$Environment`
 
-Each Workload's git repository is linked to the Workspace in a folder under "/Workspace/<dp_name>_<dp_major_version>/<component_name>" with its own name (normalized). Developer and owner have configurable permissions on this folder. Finally, the `deploy user` has full permissions since is the owner of the folder.
+Each Workload's git repository is linked to the Workspace in a folder under `/Workspace/<dp_name>_<dp_major_version>/<component_name>` with its own name (normalized). Developer and owner have configurable permissions on this folder. Finally, the `deploy user` has full permissions since is the owner of the folder.
 
 ![Job Provisioning](img/hld-workload-job-provisioning.png)
+
+### Workflow Provisioning
+
+After the Workspace has been provisioned, if a Workload of type workflow is to be provisioned, the provisioner proceeds to set up the needed resources: the integration between the component repository and the Databricks Workspace and the workflow that will run the code defined in the Workload.
+
+#### Workflow Validation
+
+Before proceeding with the workflow deployment, the request is validated according to the diagram shown in the diagram below. During this phase, it is checked that no workflow is unintentionally overwritten. The request will also contain an `override` field, which is automatically set to `false` after each reverse provisioning operation and is used to enable or disable overwriting.
+
+![hld-workload-workflow-validation-for-provisioning.png](img%2Fhld-workload-workflow-validation-for-provisioning.png)
+
+#### Workflow Deployment
+
+In the provisioning phase of the Workload a workflow is created inside the Databricks Workspace based on the configuration set by the user (entry point, run as user, scheduling, compute resources, etc).
+
+The workflow is named as follows: `$Domain_$DPName_$MajorVersion_$ComponentName_$Environment`
+
+Each Workload's git repository is linked to the Workspace in a folder under `/Workspace/<dp_name>_<dp_major_version>/<component_name>` with its own name (normalized). Developer and owner have configurable permissions on this folder. Finally, the `deploy user` has full permissions since is the owner of the folder.
+
+![Workflow Provisioning](img/hld-workload-workflow-provisioning.png)
 
 ### Delta Live Tables (DLT) Pipeline Provisioning
 
@@ -113,7 +137,7 @@ In the provisioning phase of the Workload a DLT Pipeline is created inside the D
 
 The DLT Pipeline is configured to point to a notebook contained in a specific branch (typical for development environments) or tag (typical for QA/production) of the git repository. The pipeline is named as follows: `$Domain_$DPName_$MajorVersion_$ComponentName_$Environment`
 
-Each Workload's git repository is linked to the Workspace in a folder under "/Workspace/<dp_name>_<dp_major_version>/<component_name>" with its own name (normalized). Developer and owner have configuarble permissions on this folder.  Finally, the `deploy user` has full permissions since is the owner of the folder.
+Each Workload's git repository is linked to the Workspace in a folder under `/Workspace/<dp_name>_<dp_major_version>/<component_name>` with its own name (normalized). Developer and owner have configuarble permissions on this folder.  Finally, the `deploy user` has full permissions since is the owner of the folder.
 
 ![DLT Provisioning](img/hld-workload-dlt-provisioning.png)
 
@@ -155,6 +179,18 @@ The operation is idempotent, and does not fail if the resources it tries to remo
 ![Job Unprovisioning](img/hld-workload-job-unprovisioning.png)
 
 
+### Workflow Unprovisioning
+
+When a Workload component of workflow type is unprovisioned, the provisioner proceeds to do the following:
+
+- Remove any workflow associated to the component
+
+- If `removeData` for the component is set to true in the request then remove the repo from the Workspace
+
+The operation is idempotent, and does not fail if the resources it tries to remove are missing.
+
+![Workflow Unprovisioning](img/hld-workload-workflow-unprovisioning.png)
+
 ### DLT Pipeline Unprovisioning
 
 When a Workload component of DLT Pipeline type is unprovisioned, the provisioner proceeds to do the following:
@@ -184,3 +220,16 @@ This operation is only available for the Output Port component. Three main opera
    > We must remove `SELECT` permission for user and groups no more allowed to have access
 
 ![Update ACL](img/hld-Output-Port-DLT-Update-ACL.png)
+
+## Reverse Provisioning
+To be filled after merging WIT-3095
+
+### Workflow Reverse Provisioning
+
+In this specific case, the `params` field is not needed.
+
+The Provisioner execute a validation step to make sure the request is valid and all the required fields are present. Then it checks for the existence of the workflow.
+
+If the validation succeeds, the workflow details are retrieved from Databricks and added to the `specific.workflow` section of the `catalog-info.yaml` file associated with the component, which is then updated accordingly.
+
+![Workflow Reverse Provisioning](img/hld-workflow-reverse-provisioning.png)
