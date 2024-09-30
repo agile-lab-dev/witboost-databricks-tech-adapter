@@ -32,48 +32,50 @@ public class JobManager {
     }
 
     /**
-     * Creates a Databricks job using an existing cluster.
+     * Creates or updates a Databricks job with a new dedicated cluster.
+     * If a job with the specified name does not exist, a new job is created.
+     * If the job exists and is unique, the existing job is updated.
+     * Returns an error if more than one job with the same name exists.
      *
-     * @param jobName           The name of the job to be created.
-     * @param description       The description of the job.
-     * @param existingClusterId The ID of the existing cluster to run the job on.
-     * @param notebookPath      The path to the notebook to be executed by the job.
-     * @param taskKey           The task key.
-     * @return Either a Long representing the job ID if successful, or a FailedOperation.
+     * @param jobName            The name of the job.
+     * @param description        The description of the job.
+     * @param taskKey            The task key.
+     * @param jobClusterSpecific The cluster configuration details.
+     * @param schedulingSpecific The scheduling parameters.
+     * @param jobGitSpecific     The Git-related parameters for the task.
+     * @return Either a Long representing the job ID if successful, or a FailedOperation if an error occurs.
      */
-    public Either<FailedOperation, Long> createJobWithExistingCluster(
-            String jobName, String description, String existingClusterId, String notebookPath, String taskKey) {
+    public Either<FailedOperation, Long> createOrUpdateJobWithNewCluster(
+            String jobName,
+            String description,
+            String taskKey,
+            JobClusterSpecific jobClusterSpecific,
+            SchedulingSpecific schedulingSpecific,
+            JobGitSpecific jobGitSpecific) {
 
-        try {
-            logger.info(String.format("Creating job with name %s in %s", jobName, workspaceName));
+        Either<FailedOperation, Iterable<BaseJob>> eitherGetJobs = listJobsWithGivenName(jobName);
 
-            // Parameters for the notebook
-            Map<String, String> map = Map.of("", "");
+        if (eitherGetJobs.isLeft()) return left(eitherGetJobs.getLeft());
 
-            // Creating a collection of tasks (only one task in this case)
-            Collection<Task> tasks = Collections.singletonList(new Task()
-                    .setDescription(description)
-                    .setExistingClusterId(existingClusterId)
-                    .setNotebookTask(new NotebookTask()
-                            .setBaseParameters(map)
-                            .setNotebookPath(notebookPath)
-                            .setSource(Source.WORKSPACE))
-                    .setTaskKey(taskKey));
+        Iterable<BaseJob> jobs = eitherGetJobs.get();
+        List<BaseJob> jobList = new ArrayList<>();
+        jobs.forEach(jobList::add);
 
-            CreateResponse j = workspaceClient
-                    .jobs()
-                    .create(new CreateJob().setName(jobName).setTasks(tasks));
+        if (jobList.isEmpty())
+            return createJobWithNewCluster(
+                    jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
 
-            logger.info(String.format(
-                    "Created new job in %s with name: %s and ID: %d.", workspaceName, jobName, j.getJobId()));
-            return right(j.getJobId());
-        } catch (Exception e) {
+        if (jobList.size() != 1) {
             String errorMessage = String.format(
-                    "An error occurred while creating the job %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
-                    jobName, workspaceName, e.getMessage());
-            logger.error(errorMessage, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+                    "Error trying to update the job '%s'. The job name is not unique in %s.", jobName, workspaceName);
+            FailedOperation failedOperation = new FailedOperation(Collections.singletonList(new Problem(errorMessage)));
+            return left(failedOperation);
         }
+
+        BaseJob job = jobList.get(0);
+
+        return updateJobWithNewCluster(
+                job.getJobId(), jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
     }
 
     /**
@@ -87,7 +89,7 @@ public class JobManager {
      * @param jobGitSpecific        The parameters including the git details for the task.
      * @return Either a Long representing the job ID if successful, or a FailedOperation.
      */
-    public Either<FailedOperation, Long> createJobWithNewCluster(
+    private Either<FailedOperation, Long> createJobWithNewCluster(
             String jobName,
             String description,
             String taskKey,
@@ -116,7 +118,6 @@ public class JobManager {
 
             Collection<JobParameterDefinition> jobParameterDefinitions = new ArrayList<>();
 
-            // Create job with scheduling if enabled
             CreateJob createJob = new CreateJob()
                     .setName(jobName)
                     .setTasks(tasks)
@@ -128,7 +129,6 @@ public class JobManager {
                         .setTimezoneId(schedulingSpecific.getJavaTimezoneId())
                         .setQuartzCronExpression(schedulingSpecific.getCronExpression()));
 
-            // Create the job with the specified parameters
             CreateResponse j = workspaceClient.jobs().create(createJob);
 
             logger.info(String.format(
@@ -145,45 +145,72 @@ public class JobManager {
         }
     }
 
-    private GitSource getGitSourceFromSpecific(JobGitSpecific jobGitSpecific) {
-        GitSource gitLabSource =
-                new GitSource().setGitUrl(jobGitSpecific.getGitRepoUrl()).setGitProvider(GitProvider.GIT_LAB);
+    /**
+     * Updates an existing Databricks job with a new dedicated cluster.
+     *
+     * @param jobId              The ID of the job to update.
+     * @param jobName            The new name of the job.
+     * @param description        The updated description of the job.
+     * @param taskKey            The task key.
+     * @param jobClusterSpecific The updated cluster configuration details.
+     * @param schedulingSpecific The updated scheduling parameters.
+     * @param jobGitSpecific     The updated Git-related parameters for the task.
+     * @return Either a Long representing the job ID if successful, or a FailedOperation if an error occurs.
+     */
+    private Either<FailedOperation, Long> updateJobWithNewCluster(
+            Long jobId,
+            String jobName,
+            String description,
+            String taskKey,
+            JobClusterSpecific jobClusterSpecific,
+            SchedulingSpecific schedulingSpecific,
+            JobGitSpecific jobGitSpecific) {
 
-        if (jobGitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.BRANCH.toString()))
-            gitLabSource.setGitBranch(jobGitSpecific.getGitReference());
-        else if (jobGitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.TAG.toString())) {
-            gitLabSource.setGitTag(jobGitSpecific.getGitReference());
+        try {
+            logger.info(String.format("Updating job %s in %s", jobName, workspaceName));
+
+            Map<String, String> map = Map.of("", "");
+
+            Collection<Task> tasks = Collections.singletonList(new Task()
+                    .setDescription(description)
+                    .setNotebookTask(new NotebookTask()
+                            .setBaseParameters(map)
+                            .setNotebookPath(jobGitSpecific.getGitPath())
+                            .setSource(Source.GIT))
+                    .setTaskKey(taskKey)
+                    .setNewCluster(getClusterSpecFromSpecific(jobClusterSpecific)));
+
+            GitSource gitLabSource = getGitSourceFromSpecific(jobGitSpecific);
+
+            Collection<JobParameterDefinition> jobParameterDefinitions = new ArrayList<>();
+
+            JobSettings jobSettings = new JobSettings();
+            jobSettings
+                    .setName(jobName)
+                    .setTasks(tasks)
+                    .setParameters(jobParameterDefinitions)
+                    .setGitSource(gitLabSource);
+
+            if (schedulingSpecific != null)
+                jobSettings.setSchedule(new CronSchedule()
+                        .setTimezoneId(schedulingSpecific.getJavaTimezoneId())
+                        .setQuartzCronExpression(schedulingSpecific.getCronExpression()));
+
+            workspaceClient.jobs().update(new UpdateJob().setJobId(jobId).setNewSettings(jobSettings));
+
+            logger.info(String.format("Updated job in %s with name: %s and ID: %d.", workspaceName, jobName, jobId));
+
+            return right(jobId);
+
+        } catch (Exception e) {
+            String errorMessage = String.format(
+                    "An error occurred while updating the job %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    jobName, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
-
-        return gitLabSource;
     }
 
-    private com.databricks.sdk.service.compute.ClusterSpec getClusterSpecFromSpecific(
-            JobClusterSpecific jobClusterSpecific) {
-
-        Map<String, String> sparkConfNew = new HashMap<>();
-        if (jobClusterSpecific.getSparkConf() != null)
-            jobClusterSpecific
-                    .getSparkConf()
-                    .forEach(sparkConf -> sparkConfNew.put(sparkConf.getName(), sparkConf.getValue()));
-
-        Map<String, String> envVarNew = new HashMap<>();
-        if (jobClusterSpecific.getSparkEnvVars() != null)
-            jobClusterSpecific.getSparkEnvVars().forEach(envVar -> envVarNew.put(envVar.getName(), envVar.getValue()));
-
-        return new com.databricks.sdk.service.compute.ClusterSpec()
-                .setSparkVersion(jobClusterSpecific.getClusterSparkVersion())
-                .setNodeTypeId(jobClusterSpecific.getNodeTypeId())
-                .setNumWorkers(jobClusterSpecific.getNumWorkers())
-                .setAzureAttributes(new AzureAttributes()
-                        .setFirstOnDemand(jobClusterSpecific.getFirstOnDemand())
-                        .setAvailability(jobClusterSpecific.getAvailability())
-                        .setSpotBidMaxPrice(jobClusterSpecific.getSpotBidMaxPrice()))
-                .setDriverNodeTypeId(jobClusterSpecific.getDriverNodeTypeId())
-                .setSparkConf(sparkConfNew)
-                .setSparkEnvVars(envVarNew)
-                .setRuntimeEngine(jobClusterSpecific.getRuntimeEngine());
-    }
     /**
      * Exports a job given its ID.
      *
@@ -240,5 +267,90 @@ public class JobManager {
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
+    }
+
+    /**
+     * Creates a Databricks job using an existing cluster.
+     *
+     * @param jobName           The name of the job to be created.
+     * @param description       The description of the job.
+     * @param existingClusterId The ID of the existing cluster to run the job on.
+     * @param notebookPath      The path to the notebook to be executed by the job.
+     * @param taskKey           The task key.
+     * @return Either a Long representing the job ID if successful, or a FailedOperation.
+     */
+    public Either<FailedOperation, Long> createJobWithExistingCluster(
+            String jobName, String description, String existingClusterId, String notebookPath, String taskKey) {
+
+        try {
+            logger.info(String.format("Creating job with name %s in %s", jobName, workspaceName));
+
+            // Parameters for the notebook
+            Map<String, String> map = Map.of("", "");
+
+            // Creating a collection of tasks (only one task in this case)
+            Collection<Task> tasks = Collections.singletonList(new Task()
+                    .setDescription(description)
+                    .setExistingClusterId(existingClusterId)
+                    .setNotebookTask(new NotebookTask()
+                            .setBaseParameters(map)
+                            .setNotebookPath(notebookPath)
+                            .setSource(Source.WORKSPACE))
+                    .setTaskKey(taskKey));
+
+            CreateResponse j = workspaceClient
+                    .jobs()
+                    .create(new CreateJob().setName(jobName).setTasks(tasks));
+
+            logger.info(String.format(
+                    "Created new job in %s with name: %s and ID: %d.", workspaceName, jobName, j.getJobId()));
+            return right(j.getJobId());
+        } catch (Exception e) {
+            String errorMessage = String.format(
+                    "An error occurred while creating the job %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    jobName, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    private GitSource getGitSourceFromSpecific(JobGitSpecific jobGitSpecific) {
+        GitSource gitLabSource =
+                new GitSource().setGitUrl(jobGitSpecific.getGitRepoUrl()).setGitProvider(GitProvider.GIT_LAB);
+
+        if (jobGitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.BRANCH.toString()))
+            gitLabSource.setGitBranch(jobGitSpecific.getGitReference());
+        else if (jobGitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.TAG.toString())) {
+            gitLabSource.setGitTag(jobGitSpecific.getGitReference());
+        }
+
+        return gitLabSource;
+    }
+
+    private com.databricks.sdk.service.compute.ClusterSpec getClusterSpecFromSpecific(
+            JobClusterSpecific jobClusterSpecific) {
+
+        Map<String, String> sparkConfNew = new HashMap<>();
+        if (jobClusterSpecific.getSparkConf() != null)
+            jobClusterSpecific
+                    .getSparkConf()
+                    .forEach(sparkConf -> sparkConfNew.put(sparkConf.getName(), sparkConf.getValue()));
+
+        Map<String, String> envVarNew = new HashMap<>();
+        if (jobClusterSpecific.getSparkEnvVars() != null)
+            jobClusterSpecific.getSparkEnvVars().forEach(envVar -> envVarNew.put(envVar.getName(), envVar.getValue()));
+
+        return new com.databricks.sdk.service.compute.ClusterSpec()
+                .setSparkVersion(jobClusterSpecific.getClusterSparkVersion())
+                .setNodeTypeId(jobClusterSpecific.getNodeTypeId())
+                .setNumWorkers(jobClusterSpecific.getNumWorkers())
+                .setAzureAttributes(new AzureAttributes()
+                        .setFirstOnDemand(jobClusterSpecific.getFirstOnDemand())
+                        .setAvailability(jobClusterSpecific.getAvailability())
+                        .setSpotBidMaxPrice(jobClusterSpecific.getSpotBidMaxPrice()))
+                .setDriverNodeTypeId(jobClusterSpecific.getDriverNodeTypeId())
+                .setSparkConf(sparkConfNew)
+                .setSparkEnvVars(envVarNew)
+                .setRuntimeEngine(jobClusterSpecific.getRuntimeEngine());
     }
 }

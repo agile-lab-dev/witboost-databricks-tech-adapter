@@ -463,7 +463,7 @@ public class DLTWorkloadHandlerTest {
 
         assert result.isLeft();
         String expectedError =
-                "An error occurred while creating the DLT Pipeline pipelineName. Please try again and if the error persists contact the platform team. Details: Cannot invoke \"com.databricks.sdk.service.pipelines.CreatePipelineResponse";
+                "An error occurred while creating the DLT Pipeline pipelineName in workspace. Please try again and if the error persists contact the platform team. Details: Cannot invoke \"com.databricks.sdk.service.pipelines.CreatePipelineResponse";
         assertTrue(result.getLeft().problems().get(0).description().contains(expectedError));
     }
 

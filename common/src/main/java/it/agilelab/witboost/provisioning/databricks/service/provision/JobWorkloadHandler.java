@@ -180,7 +180,7 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
 
             var jobManager = new JobManager(workspaceClient, workspaceName);
 
-            return jobManager.createJobWithNewCluster(
+            return jobManager.createOrUpdateJobWithNewCluster(
                     databricksJobWorkloadSpecific.getJobName(),
                     databricksJobWorkloadSpecific.getDescription(),
                     UUID.randomUUID().toString(),

@@ -249,13 +249,11 @@ public class JobWorkloadHandlerTest {
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
 
         assert result.isLeft();
-        assertTrue(
-                result.getLeft()
-                        .problems()
-                        .get(0)
-                        .description()
-                        .contains(
-                                "Cannot invoke \"com.databricks.sdk.service.jobs.JobsAPI.create(com.databricks.sdk.service.jobs.CreateJob)\" because the return value of \"com.databricks.sdk.WorkspaceClient.jobs()\" is null"));
+        assertTrue(result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains("because the return value of \"com.databricks.sdk.WorkspaceClient.jobs()\" is null"));
     }
 
     @Test

@@ -5,6 +5,8 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.error.platform.ResourceConflict;
 import com.databricks.sdk.core.error.platform.ResourceDoesNotExist;
 import com.databricks.sdk.service.pipelines.*;
 import io.vavr.control.Either;
@@ -34,46 +36,52 @@ public class DeltaLiveTablesManagerTest {
 
     DatabricksConfig mockDatabricksConfig;
 
-    @BeforeEach
-    public void setUp() {
-        deltaLiveTablesManager = new DeltaLiveTablesManager(workspaceClient, "workspace");
-        PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
-        when(workspaceClient.pipelines()).thenReturn(mockPipelines);
-    }
+    private static final String workspaceName = "example_workspace";
+    private final DeltaLiveTablesManager manager = new DeltaLiveTablesManager(workspaceClient, workspaceName);
+    private static final String pipelineId = "pipelineId";
+    private static final String pipelineName = "example_pipeline";
+    private static final ProductEdition productEdition = ProductEdition.CORE;
+    private static final Boolean continuous = true;
+    private static final List<String> notebooks = Arrays.asList("/Workspace/Notebook1", "/Workspace/Notebook2");
+    private static final List<String> files = Arrays.asList("/Workspace/File1", "/Workspace/File2");
+    private static final String catalog = "example_catalog";
+    private static final String target = "example_target";
+    private static final Boolean photon = true;
+    private static final Collection<String> notificationsMails = Arrays.asList("user@example.com");
+    private static final Collection<String> notificationsAlerts = Arrays.asList("alert1", "alert2");
+    private static final PipelineChannel channel = PipelineChannel.CURRENT;
+    private static final CreatePipelineResponse createResponse =
+            new CreatePipelineResponse().setPipelineId("pipelineId");
+    private static final Map<String, Collection<String>> notifications = new HashMap<>();
 
-    @Test
-    public void testCreatePipeline_LEGACYAutoscale() {
-        String workspaceName = "example_workspace";
-        DeltaLiveTablesManager manager = new DeltaLiveTablesManager(workspaceClient, workspaceName);
-
-        String pipelineName = "example_pipeline";
-        ProductEdition productEdition = ProductEdition.CORE;
-        Boolean continuous = true;
-        List<String> notebooks = Arrays.asList("/Workspace/Notebook1", "/Workspace/Notebook2");
-        List<String> files = Arrays.asList("/Workspace/File1", "/Workspace/File2");
-        String catalog = "example_catalog";
-        String target = "example_target";
-        Boolean photon = true;
-        Collection<String> notificationsMails = Arrays.asList("user@example.com");
-        Collection<String> notificationsAlerts = Arrays.asList("alert1", "alert2");
-        PipelineChannel channel = PipelineChannel.CURRENT;
-
-        CreatePipelineResponse createResponse = new CreatePipelineResponse().setPipelineId("pipelineId");
-
-        when(workspaceClient.pipelines().create(any())).thenReturn(createResponse);
-
+    private DLTClusterSpecific createDLTClusterSpecific(PipelineClusterAutoscaleMode pipelineClusterAutoscaleMode) {
         DLTClusterSpecific dltClusterSpecific = new DLTClusterSpecific();
-        dltClusterSpecific.setMode(PipelineClusterAutoscaleMode.LEGACY);
+        dltClusterSpecific.setMode(pipelineClusterAutoscaleMode);
         dltClusterSpecific.setMinWorkers(1l);
         dltClusterSpecific.setMaxWorkers(3l);
         dltClusterSpecific.setWorkerType("Worker");
         dltClusterSpecific.setDriverType("Driver");
         dltClusterSpecific.setPolicyId("PolicyID");
+        return dltClusterSpecific;
+    }
 
-        HashMap notifications = new HashMap();
-        notifications.put("email@email.com", List.of("alert1", "alert2"));
+    @BeforeEach
+    public void setUp() {
+        deltaLiveTablesManager = new DeltaLiveTablesManager(workspaceClient, "workspace");
+        PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(mockPipelines);
 
-        var result = deltaLiveTablesManager.createDLTPipeline(
+        notifications.clear();
+        notifications.put("email@example.com", List.of("alert1", "alert2"));
+    }
+
+    @Test
+    public void testCreatePipeline_LEGACYAutoscale() {
+        when(workspaceClient.pipelines().create(any())).thenReturn(createResponse);
+
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.LEGACY);
+
+        var result = deltaLiveTablesManager.createOrUpdateDltPipeline(
                 pipelineName,
                 productEdition,
                 continuous,
@@ -91,41 +99,11 @@ public class DeltaLiveTablesManagerTest {
     }
 
     public void testCreatePipeline_ENHANCEDAutoscale() {
-        String workspaceName = "example_workspace";
-        DeltaLiveTablesManager manager = new DeltaLiveTablesManager(workspaceClient, workspaceName);
-
-        String pipelineName = "example_pipeline";
-        ProductEdition productEdition = ProductEdition.CORE;
-        Boolean continuous = true;
-
-        List<String> notebooks = Arrays.asList("/Workspace/Notebook1", "/Workspace/Notebook2");
-        List<String> files = Arrays.asList("/Workspace/File1", "/Workspace/File2");
-
-        String catalog = "example_catalog";
-        String target = "example_target";
-        Boolean photon = true;
-
-        Collection<String> notificationsMails = Arrays.asList("user@example.com");
-        Collection<String> notificationsAlerts = Arrays.asList("alert1", "alert2");
-
-        PipelineChannel channel = PipelineChannel.CURRENT;
-
-        CreatePipelineResponse createResponse = new CreatePipelineResponse().setPipelineId("pipelineId");
-
         when(workspaceClient.pipelines().create(any())).thenReturn(createResponse);
 
-        DLTClusterSpecific dltClusterSpecific = new DLTClusterSpecific();
-        dltClusterSpecific.setMode(PipelineClusterAutoscaleMode.ENHANCED);
-        dltClusterSpecific.setMinWorkers(1l);
-        dltClusterSpecific.setMaxWorkers(3l);
-        dltClusterSpecific.setWorkerType("Worker");
-        dltClusterSpecific.setDriverType("Driver");
-        dltClusterSpecific.setPolicyId("PolicyID");
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
 
-        HashMap notifications = new HashMap();
-        notifications.put("email@email.com", List.of("alert1", "alert2"));
-
-        var result = deltaLiveTablesManager.createDLTPipeline(
+        var result = deltaLiveTablesManager.createOrUpdateDltPipeline(
                 pipelineName,
                 productEdition,
                 continuous,
@@ -144,37 +122,14 @@ public class DeltaLiveTablesManagerTest {
 
     @Test
     public void testCreatePipeline_AutoscaleNull() {
-        String workspaceName = "example_workspace";
-        DeltaLiveTablesManager manager = new DeltaLiveTablesManager(workspaceClient, workspaceName);
-        String pipelineName = "example_pipeline";
-        ProductEdition productEdition = ProductEdition.CORE;
-        Boolean continuous = true;
-        List<String> notebooks = Arrays.asList("/Workspace/Notebook1", "/Workspace/Notebook2");
-        List<String> files = Arrays.asList("/Workspace/File1", "/Workspace/File2");
-        String catalog = "example_catalog";
-        String target = "example_target";
-        Boolean photon = true;
-        Map<String, String> cluster_tags = new HashMap<>();
-        cluster_tags.put("env", "test");
-        Collection<String> notificationsMails = Arrays.asList("user@example.com");
-        PipelineChannel channel = PipelineChannel.CURRENT;
-
-        CreatePipelineResponse createResponse = new CreatePipelineResponse().setPipelineId("pipelineId");
 
         when(workspaceClient.pipelines().create(any())).thenReturn(createResponse);
 
-        DLTClusterSpecific dltClusterSpecific = new DLTClusterSpecific();
-        dltClusterSpecific.setMode(null);
-        dltClusterSpecific.setMinWorkers(1l);
-        dltClusterSpecific.setMaxWorkers(3l);
-        dltClusterSpecific.setWorkerType("Worker");
-        dltClusterSpecific.setDriverType("Driver");
-        dltClusterSpecific.setPolicyId("PolicyID");
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(null);
 
-        HashMap notifications = new HashMap();
         notifications.put("email@email.com", List.of("alert1", "alert2"));
 
-        var result = deltaLiveTablesManager.createDLTPipeline(
+        var result = deltaLiveTablesManager.createOrUpdateDltPipeline(
                 pipelineName,
                 productEdition,
                 continuous,
@@ -193,52 +148,10 @@ public class DeltaLiveTablesManagerTest {
 
     @Test
     public void testCreatePipeline_Exception() {
-        String workspaceName = "example_workspace";
-        DeltaLiveTablesManager manager = new DeltaLiveTablesManager(workspaceClient, workspaceName);
-
-        String pipelineName = "example_pipeline";
-        ProductEdition productEdition = ProductEdition.CORE;
-        Boolean continuous = true;
-
-        List<String> notebooks = Arrays.asList("/Workspace/Notebook1", "/Workspace/Notebook2");
-        List<String> files = Arrays.asList("/Workspace/File1", "/Workspace/File2");
-
-        String catalog = "example_catalog";
-        String target = "example_target";
-        String cluster_policyId = "example_policy_id";
-        PipelineClusterAutoscaleMode cluster_mode = PipelineClusterAutoscaleMode.ENHANCED;
-        Long cluster_minWorkers = 2L;
-        Long cluster_maxWorkers = 10L;
-        Long cluster_workers = 5L;
-        Boolean photon = true;
-        Map<String, String> cluster_tags = new HashMap<>();
-        cluster_tags.put("env", "test");
-
-        Collection<String> notificationsMails = Arrays.asList("user@example.com");
-        Collection<String> notificationsAlerts = Arrays.asList("alert1", "alert2");
-
-        PipelineChannel channel = PipelineChannel.CURRENT;
-        String workerType = "worker_type_id";
-        String driverType = "driver_type_id";
-        Map<String, String> sparkConf = new HashMap<>();
-        sparkConf.put("spark.executor.memory", "4g");
-
-        CreatePipelineResponse createResponse = new CreatePipelineResponse().setPipelineId("pipelineId");
-
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
         when(workspaceClient.pipelines().create(any())).thenThrow(new RuntimeException("Exception"));
 
-        DLTClusterSpecific dltClusterSpecific = new DLTClusterSpecific();
-        dltClusterSpecific.setMode(PipelineClusterAutoscaleMode.ENHANCED);
-        dltClusterSpecific.setMinWorkers(1l);
-        dltClusterSpecific.setMaxWorkers(3l);
-        dltClusterSpecific.setWorkerType("Worker");
-        dltClusterSpecific.setDriverType("Driver");
-        dltClusterSpecific.setPolicyId("PolicyID");
-
-        Map notifications = new HashMap();
-        notifications.put("email@email.com", List.of("alert1", "alert2"));
-
-        Either<FailedOperation, String> result = deltaLiveTablesManager.createDLTPipeline(
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createOrUpdateDltPipeline(
                 pipelineName,
                 productEdition,
                 continuous,
@@ -254,14 +167,12 @@ public class DeltaLiveTablesManagerTest {
         verify(workspaceClient.pipelines(), times(1)).create(any());
         assertTrue(result.isLeft());
         assertEquals(
-                "An error occurred while creating the DLT Pipeline example_pipeline. Please try again and if the error persists contact the platform team. Details: Exception",
+                "An error occurred while creating the DLT Pipeline example_pipeline in workspace. Please try again and if the error persists contact the platform team. Details: Exception",
                 result.getLeft().problems().get(0).description());
     }
 
     @Test
     public void testdeletePipeline() {
-        String pipelineId = "pipelineId";
-
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(mockPipelines);
         doNothing().when(mockPipelines).delete(pipelineId);
@@ -272,7 +183,6 @@ public class DeltaLiveTablesManagerTest {
 
     @Test
     public void testdeleteResourceDoesNotExists() {
-        String pipelineId = "pipelineId";
         String expectedError = "resource does not exists";
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(mockPipelines);
@@ -288,28 +198,25 @@ public class DeltaLiveTablesManagerTest {
 
     @Test
     public void testdeletePipeline_Exception() {
-        String pipelineId = "pipelineId";
-
         when(workspaceClient.pipelines()).thenThrow(new RuntimeException("Exception"));
 
         Either<FailedOperation, Void> result = deltaLiveTablesManager.deletePipeline(pipelineId);
         assertTrue(result.isLeft());
         assertEquals(
-                "An error occurred while deleting the DLT Pipeline pipelineId. Please try again and if the error persists contact the platform team. Details: Exception",
+                "An error occurred while deleting the DLT Pipeline pipelineId in workspace. Please try again and if the error persists contact the platform team. Details: Exception",
                 result.getLeft().problems().get(0).description());
     }
 
     @Test
     public void testListPipelines() {
         List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(new PipelineStateInfo().setName("pipelineName"));
-        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
 
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(mockPipelines);
-        when(workspaceClient.pipelines().listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+        when(workspaceClient.pipelines().listPipelines(any())).thenReturn(pipelineStateInfos);
 
         var result = deltaLiveTablesManager.listPipelinesWithGivenName("pipelineName");
-        assertEquals(pipelineStateInfoIterable, result.get());
+        assertEquals(pipelineStateInfos, result.get());
     }
 
     @Test
@@ -320,7 +227,226 @@ public class DeltaLiveTablesManagerTest {
                 deltaLiveTablesManager.listPipelinesWithGivenName("pipelineName");
         assertTrue(result.isLeft());
         assertEquals(
-                "An error occurred while getting the list of DLT Pipelines named pipelineName. Please try again and if the error persists contact the platform team. Details: Exception",
+                "An error occurred while getting the list of DLT Pipelines named pipelineName in workspace. Please try again and if the error persists contact the platform team. Details: Exception",
+                result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testUpdatePipeline() {
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
+
+        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+                new PipelineStateInfo().setName("example_pipeline").setPipelineId(pipelineId));
+
+        PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(mockPipelines);
+        when(workspaceClient.pipelines().listPipelines(any())).thenReturn(pipelineStateInfos);
+
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createOrUpdateDltPipeline(
+                pipelineName,
+                productEdition,
+                continuous,
+                notebooks,
+                files,
+                catalog,
+                target,
+                photon,
+                notifications,
+                channel,
+                dltClusterSpecific);
+
+        verify(workspaceClient.pipelines(), times(1)).update(any(EditPipeline.class));
+        assertTrue(result.isRight());
+        assertEquals(pipelineId, result.get());
+    }
+
+    @Test
+    public void testUpdatePipeline_Exception() {
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
+
+        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+                new PipelineStateInfo().setName("example_pipeline").setPipelineId(pipelineId));
+
+        PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(mockPipelines);
+        when(workspaceClient.pipelines().listPipelines(any())).thenReturn(pipelineStateInfos);
+        doThrow(new DatabricksException("Exception")).when(mockPipelines).update(any(EditPipeline.class));
+
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createOrUpdateDltPipeline(
+                pipelineName,
+                productEdition,
+                continuous,
+                notebooks,
+                files,
+                catalog,
+                target,
+                photon,
+                notifications,
+                channel,
+                dltClusterSpecific);
+
+        verify(workspaceClient.pipelines(), times(1)).update(any(EditPipeline.class));
+        assertTrue(result.isLeft());
+        assertEquals(
+                "An error occurred while updating the DLT Pipeline example_pipeline in workspace. Please try again and if the error persists contact the platform team. Details: Exception",
+                result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testDeletePipeline_InvalidId() {
+        String invalidPipelineId = "invalid_pipelineId";
+
+        PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(mockPipelines);
+        doThrow(new ResourceDoesNotExist("Pipeline not found", new ArrayList<>()))
+                .when(mockPipelines)
+                .delete(invalidPipelineId);
+
+        Either<FailedOperation, Void> result = deltaLiveTablesManager.deletePipeline(invalidPipelineId);
+        assertTrue(result.isRight());
+    }
+
+    @Test
+    public void testUpdatePipeline_NotUnique() {
+
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
+        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+                new PipelineStateInfo().setName("example_pipeline").setPipelineId(pipelineId),
+                new PipelineStateInfo().setName("example_pipeline").setPipelineId("id2"));
+
+        PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(mockPipelines);
+        when(workspaceClient.pipelines().listPipelines(any())).thenReturn(pipelineStateInfos);
+
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createOrUpdateDltPipeline(
+                pipelineName,
+                productEdition,
+                continuous,
+                notebooks,
+                files,
+                catalog,
+                target,
+                photon,
+                notifications,
+                channel,
+                dltClusterSpecific);
+
+        assertTrue(result.isLeft());
+        assertEquals(
+                "Error trying to update the pipeline 'example_pipeline'. The pipeline name is not unique in workspace.",
+                result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testCreatePipeline_EmptyLibrary() {
+        List<String> notebooks = null;
+        List<String> files = null;
+
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(null);
+        PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(mockPipelines);
+
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createOrUpdateDltPipeline(
+                pipelineName,
+                productEdition,
+                continuous,
+                notebooks,
+                files,
+                catalog,
+                target,
+                photon,
+                notifications,
+                channel,
+                dltClusterSpecific);
+
+        assertTrue(result.isLeft());
+        assertEquals(
+                "An error occurred while creating the DLT Pipeline example_pipeline in workspace, Details: it is mandatory to have at least one notebook or file.",
+                result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testCreatePipeline_ResourceConflictException_PipelineNotUnique() {
+        when(workspaceClient.pipelines().create(any()))
+                .thenThrow(new ResourceConflict(
+                        "This check can be skipped by setting `allow_duplicate_names = true` in the request.",
+                        List.of()));
+
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
+
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createOrUpdateDltPipeline(
+                pipelineName,
+                productEdition,
+                continuous,
+                notebooks,
+                files,
+                catalog,
+                target,
+                photon,
+                notifications,
+                channel,
+                dltClusterSpecific);
+
+        verify(workspaceClient.pipelines(), times(1)).create(any());
+        assertTrue(result.isLeft());
+        assertEquals(
+                "Error creating the pipeline 'example_pipeline'. The pipeline name is not unique in workspace.",
+                result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testCreatePipeline_ResourceConflictException() {
+        when(workspaceClient.pipelines().create(any())).thenThrow(new ResourceConflict("Exception", List.of()));
+
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createOrUpdateDltPipeline(
+                pipelineName,
+                productEdition,
+                continuous,
+                notebooks,
+                files,
+                catalog,
+                target,
+                photon,
+                notifications,
+                channel,
+                dltClusterSpecific);
+
+        verify(workspaceClient.pipelines(), times(1)).create(any());
+        assertTrue(result.isLeft());
+        assertEquals(
+                "An error occurred while creating the DLT Pipeline example_pipeline in workspace. Please try again and if the error persists contact the platform team. Details: Exception",
+                result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testUpdatePipeline_EmptyLibrary() {
+        List<String> notebooks = null;
+        List<String> files = null;
+        Boolean photon = true;
+
+        DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
+        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+                new PipelineStateInfo().setName("example_pipeline").setPipelineId(pipelineId));
+
+        when(workspaceClient.pipelines().listPipelines(any())).thenReturn(pipelineStateInfos);
+
+        Either<FailedOperation, String> result = deltaLiveTablesManager.createOrUpdateDltPipeline(
+                pipelineName,
+                productEdition,
+                continuous,
+                notebooks,
+                files,
+                catalog,
+                target,
+                photon,
+                notifications,
+                channel,
+                dltClusterSpecific);
+
+        assertTrue(result.isLeft());
+        assertEquals(
+                "An error occurred while updating the DLT Pipeline example_pipeline in workspace, Details: it is mandatory to have at least one notebook or file.",
                 result.getLeft().problems().get(0).description());
     }
 }

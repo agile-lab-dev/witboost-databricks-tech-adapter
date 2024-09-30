@@ -106,9 +106,9 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
             var dltManager = new DeltaLiveTablesManager(workspaceClient, databricksWorkspaceInfo.getName());
 
             List<String> notebooks = new ArrayList<>();
-            databricksDLTWorkloadSpecific
-                    .getNotebooks()
-                    .forEach(notebook -> notebooks.add(String.format("/Workspace/%s", notebook)));
+
+            Optional.ofNullable(databricksDLTWorkloadSpecific.getNotebooks())
+                    .ifPresent(nbs -> nbs.forEach(notebook -> notebooks.add(String.format("/Workspace/%s", notebook))));
 
             Map<String, Collection<String>> notifications = new HashMap<>();
             if (databricksDLTWorkloadSpecific.getNotifications() != null) {
@@ -116,7 +116,8 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
                     notifications.put(notification.getMail(), notification.getAlert());
                 });
             }
-            Either<FailedOperation, String> eitherCreatedPipeline = dltManager.createDLTPipeline(
+
+            Either<FailedOperation, String> eitherCreatedPipeline = dltManager.createOrUpdateDltPipeline(
                     databricksDLTWorkloadSpecific.getPipelineName(),
                     databricksDLTWorkloadSpecific.getProductEdition(),
                     databricksDLTWorkloadSpecific.getContinuous(),
