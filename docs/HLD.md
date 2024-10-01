@@ -20,6 +20,7 @@ The source diagrams can be found and edited in the [accompanying draw.io file](h
 - [Update Acl](#update-acl)
 - [Reverse Provisioning](#reverse-provisioning)
   - [Workflow Reverse Provisioning](#workflow-reverse-provisioning)
+  - [Output Port Reverse Provisioning](#output-port-reverse-provisioning)
 
 ## Overview
 
@@ -222,7 +223,14 @@ This operation is only available for the Output Port component. Three main opera
 ![Update ACL](img/hld-Output-Port-DLT-Update-ACL.png)
 
 ## Reverse Provisioning
-To be filled after merging WIT-3095
+
+In a standard provisioning workflow, users on Witboost define and update the components and their metadata by working on the `catalog-info.yaml` file in the component's git repository. Specific Provisioners receive instructions to align the target infrastructure based on the content of that file.
+
+However, often developers and data engineers prefer to directly interact with the target infrastructure service. Say you have a table on Databricks and a Witboost component that references it: with the reverse provisioning feature, if you want to update the table schema, you can directly update the Databricks table. Once you are ready, you can just trigger a reverse provisioning operation on the Witboost component to automatically reflect the new changes into the `catalog-info.yaml`.
+
+The Specific Provisioner receives a [Reverse Provision request](https://docs.witboost.com/docs/p3_tech/p3_customizations/p3_7_reverse_provisioning/p3_7_3_specific_provisioner_setup) that contains in the `params` object (coming from the Reverse Provisioning Wizard and defined in the [Reverse Provisioning Template](https://docs.witboost.com/docs/p3_tech/p3_customizations/p3_7_reverse_provisioning/p3_7_2_template)) the information needed to execute the operation.
+
+The field `useCaseTemplateId` of the request can be checked to see if the specific template is compatible with the Provisioner itself, but also to support different reverse provision operations for different kind of components.
 
 ### Workflow Reverse Provisioning
 
@@ -233,3 +241,25 @@ The Provisioner execute a validation step to make sure the request is valid and 
 If the validation succeeds, the workflow details are retrieved from Databricks and added to the `specific.workflow` section of the `catalog-info.yaml` file associated with the component, which is then updated accordingly.
 
 ![Workflow Reverse Provisioning](img/hld-workflow-reverse-provisioning.png)
+
+### Output Port Reverse Provisioning
+
+In the specific case, the `params` object consist of:
+- catalog name of the source table/view
+- schema name of the source table/view
+- name of the source table/view.
+- flag to choose between:
+  - schema inheritance only
+  - schema inheritance and table details (catalog, schema, name of the table used as source for the output port)
+
+The Provisioner executes a validation step to make sure the request is valid and all the required fields are present. Then it checks for the existence of the source table/view. If the user chose to also inherit table details, we must also ensure that the params received correspond to a **table** and not to a view.
+
+If the validation succeeds, the schema information is retrieved from the source table/view. The data must include, for all columns:
+- name
+- data type (along with details like length, precision, scale when applicable)
+- constraints
+
+The returned schema must be converted to be compatible with [open-metadata](https://docs.open-metadata.org/latest/main-concepts/metadata-standard/schemas/entity/data/table) specification: the `dataContract.schema` section of the `catalog-info.yaml` file will be updated.
+Additionally, if the user chose to inherit also table details, those details are returned to make sure that the source table used for the reverse provisioning is the same defined in the Output Port: specifically, the reverse provisioning information will update the keys (`catalogName`, `schemaName`, `tableName`) of the table used as source of the output port.
+
+![OP Reverse Provisioning](img/hld-Output-Port-Reverse-Provisioning.png)
