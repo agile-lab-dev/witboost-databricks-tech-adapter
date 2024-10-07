@@ -92,4 +92,14 @@ class DatabricksMapperTest {
 
         assertEquals(0, res.size());
     }
+
+    @Test
+    void testGetAndMapUserException() {
+
+        Either<Throwable, String> result = mapper.getAndMapUser(null);
+        assert result.isLeft();
+        assert result.getLeft()
+                .getMessage()
+                .contains("An unexpected error occurred while mapping the the Witboost user null");
+    }
 }

@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.service.provision;
+package it.agilelab.witboost.provisioning.databricks.service.provision.handler;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -145,13 +145,14 @@ class OutputPortHandlerTest {
                 .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
                 .setWarehouseId("sql_wh_id");
 
-        ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
-        when(executeStatementResponseMock.getStatementId()).thenReturn("id");
+        StatementResponse executeStatementResponseMock = mock(StatementResponse.class);
+
         when(new StatementExecutionAPI(apiClientMock).executeStatement(request))
                 .thenReturn(executeStatementResponseMock);
+        when(executeStatementResponseMock.getStatementId()).thenReturn("id");
 
         // Mocking method inside pollOnStatementExecution
-        GetStatementResponse getStatementResponseMockPoll = mock(GetStatementResponse.class);
+        StatementResponse getStatementResponseMockPoll = mock(StatementResponse.class);
         when(new StatementExecutionAPI(apiClientMock).getStatement("id")).thenReturn(getStatementResponseMockPoll);
 
         StatementStatus statementStatusMockPoll = mock(StatementStatus.class);
@@ -218,19 +219,19 @@ class OutputPortHandlerTest {
                 .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT * FROM `catalog`.`schema`.`t`;")
                 .setWarehouseId("sql_wh_id");
 
-        ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
-        when(executeStatementResponseMock.getStatementId()).thenReturn("id");
+        StatementResponse executestatementResponseMock = mock(StatementResponse.class);
+        when(executestatementResponseMock.getStatementId()).thenReturn("id");
         when(new StatementExecutionAPI(apiClientMock).executeStatement(request))
-                .thenReturn(executeStatementResponseMock);
+                .thenReturn(executestatementResponseMock);
 
         // Mocking method inside pollOnStatementExecution
-        GetStatementResponse getStatementResponseMockPoll = mock(GetStatementResponse.class);
-        when(new StatementExecutionAPI(apiClientMock).getStatement("id")).thenReturn(getStatementResponseMockPoll);
+        StatementResponse getstatementResponseMockPoll = mock(StatementResponse.class);
+        when(new StatementExecutionAPI(apiClientMock).getStatement("id")).thenReturn(getstatementResponseMockPoll);
 
         StatementStatus statementStatusMockPoll = mock(StatementStatus.class);
         when(statementStatusMockPoll.getState()).thenReturn(StatementState.SUCCEEDED);
 
-        when(getStatementResponseMockPoll.getStatus()).thenReturn(statementStatusMockPoll);
+        when(getstatementResponseMockPoll.getStatus()).thenReturn(statementStatusMockPoll);
 
         // Mocking method inside retrieve tableInfo
         TableInfo tableInfoMock = mock(TableInfo.class);
@@ -249,81 +250,20 @@ class OutputPortHandlerTest {
     }
 
     @Test
-    public void provisionOutputPort_SuccesspollOnStatementExecutionRUNNING() {
-
-        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
-
-        WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
-
-        // Mocking metastore attachment
-        MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
-
-        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
-
-        when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
-        when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
-
-        // Mocking behaviour on catalogs. The requested catalog exists
-        List<CatalogInfo> catalogList =
-                Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog_op"));
-
-        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
-        when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
-
-        // Mocking schema_op in catalog_op
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
-
-        when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
-        when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
-
-        // Mock the search of sqlWareHouseId
-        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
-
-        List<DataSource> dataSourceList =
-                Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
-
-        when(new DataSourcesAPI(apiClientMock).list()).thenReturn(dataSourceList);
-
-        // Mock classes and methods inside createOrReplaceOutputPortView
-        ExecuteStatementRequest request = new ExecuteStatementRequest()
-                .setCatalog("catalog_op")
-                .setSchema("schema_op")
-                .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
-                .setWarehouseId("sql_wh_id");
-
-        ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
-        when(executeStatementResponseMock.getStatementId()).thenReturn("id");
-        when(new StatementExecutionAPI(apiClientMock).executeStatement(request))
-                .thenReturn(executeStatementResponseMock);
-
-        // Mocking method inside pollOnStatementExecution
-        GetStatementResponse getStatementResponseMockPoll = mock(GetStatementResponse.class);
-        when(new StatementExecutionAPI(apiClientMock).getStatement("id")).thenReturn(getStatementResponseMockPoll);
-
-        StatementStatus statementStatusMockPoll = mock(StatementStatus.class);
-        when(statementStatusMockPoll.getState())
-                .thenReturn(StatementState.PENDING)
-                .thenReturn(StatementState.RUNNING)
-                .thenReturn(StatementState.SUCCEEDED);
-
-        when(getStatementResponseMockPoll.getStatus()).thenReturn(statementStatusMockPoll);
-
-        // Mocking method inside retrieve tableInfo
-        TableInfo tableInfoMock = mock(TableInfo.class);
-        when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
-        when(workspaceClient.tables().get("catalog_op.schema_op.view")).thenReturn(tableInfoMock);
-        when(tableInfoMock.getTableId()).thenReturn("table_id");
-
-        // Mocking permissions call
-        when(workspaceClient.grants()).thenReturn(mock(GrantsAPI.class));
-
+    public void provisionOutputPort_Exception() {
+        OutputPort op = new OutputPort();
+        op.setName("op");
+        ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, op, false);
         Either<FailedOperation, TableInfo> result =
                 outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);
 
-        assert result.isRight();
-        assertEquals(result.get().getTableId(), "table_id");
+        assert result.isLeft();
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains(
+                        "An error occurred while provisioning component op. Please try again and if the error persists contact the platform team.");
     }
 
     @Test
@@ -370,8 +310,8 @@ class OutputPortHandlerTest {
                 .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
                 .setWarehouseId("sql_wh_id");
 
-        ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
-        when(executeStatementResponseMock.getStatementId()).thenReturn("statement_id");
+        StatementResponse statementResponseMock = mock(StatementResponse.class);
+        when(statementResponseMock.getStatementId()).thenReturn("statement_id");
         when(new StatementExecutionAPI(apiClientMock).executeStatement(request))
                 .thenThrow(new RuntimeException("Exception"));
 
@@ -654,21 +594,20 @@ class OutputPortHandlerTest {
                 .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
                 .setWarehouseId("sql_wh_id");
 
-        ExecuteStatementResponse executeStatementResponseMock = mock(ExecuteStatementResponse.class);
-        when(executeStatementResponseMock.getStatementId()).thenReturn("id");
-        when(new StatementExecutionAPI(apiClientMock).executeStatement(request))
-                .thenReturn(executeStatementResponseMock);
+        StatementResponse statementResponseMock = mock(StatementResponse.class);
+        when(statementResponseMock.getStatementId()).thenReturn("id");
+        when(new StatementExecutionAPI(apiClientMock).executeStatement(request)).thenReturn(statementResponseMock);
 
         // Mocking method inside pollOnStatementExecution
-        GetStatementResponse getStatementResponseMockPoll = mock(GetStatementResponse.class);
-        when(new StatementExecutionAPI(apiClientMock).getStatement("id")).thenReturn(getStatementResponseMockPoll);
+        StatementResponse getstatementResponseMockPoll = mock(StatementResponse.class);
+        when(new StatementExecutionAPI(apiClientMock).getStatement("id")).thenReturn(getstatementResponseMockPoll);
 
         StatementStatus statementStatusMockPoll = mock(StatementStatus.class);
 
         // poll returns CANCELED state
         when(statementStatusMockPoll.getState()).thenReturn(StatementState.CANCELED);
 
-        when(getStatementResponseMockPoll.getStatus()).thenReturn(statementStatusMockPoll);
+        when(getstatementResponseMockPoll.getStatus()).thenReturn(statementStatusMockPoll);
 
         Either<FailedOperation, TableInfo> result =
                 outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);

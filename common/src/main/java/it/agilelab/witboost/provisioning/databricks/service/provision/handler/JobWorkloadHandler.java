@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.service.provision;
+package it.agilelab.witboost.provisioning.databricks.service.provision.handler;
 
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
@@ -9,7 +9,6 @@ import com.databricks.sdk.service.jobs.BaseJob;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.client.JobManager;
 import it.agilelab.witboost.provisioning.databricks.client.RepoManager;
-import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -18,7 +17,6 @@ import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
-import it.agilelab.witboost.provisioning.databricks.principalsmapping.databricks.DatabricksMapper;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,45 +37,28 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
         super(azureAuthConfig, gitCredentialsConfig, databricksPermissionsConfig, accountClient);
     }
 
+    /**
+     * Provisions a new Databricks job for the given component.
+     *
+     * @param provisionRequest the request containing the specifics for the job to be provisioned
+     * @param workspaceClient the Databricks workspace client
+     * @param databricksWorkspaceInfo information about the Databricks workspace
+     * @return Either a failed operation or the ID of the provisioned job as a String
+     */
     public Either<FailedOperation, String> provisionWorkload(
             ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest,
             WorkspaceClient workspaceClient,
             DatabricksWorkspaceInfo databricksWorkspaceInfo) {
 
         try {
+            Either<FailedOperation, Map<String, String>> eitherUserMapping = mapUsers(provisionRequest);
+            if (eitherUserMapping.isLeft()) return left(eitherUserMapping.getLeft());
 
-            DatabricksMapper databricksMapper = new DatabricksMapper();
-
-            // TODO: This is a temporary solution. Remove or update this logic in the future.
-            String devGroup = provisionRequest.dataProduct().getDevGroup();
-            if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
-
-            Map<String, Either<Throwable, String>> eitherMap =
-                    databricksMapper.map(Set.of(provisionRequest.dataProduct().getDataProductOwner(), devGroup));
-
-            Either<Throwable, String> eitherDpOwnerDatabricksId =
-                    eitherMap.get(provisionRequest.dataProduct().getDataProductOwner());
-            if (eitherDpOwnerDatabricksId.isLeft()) {
-                var error = eitherDpOwnerDatabricksId.getLeft();
-                return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
-            }
-            String dpOwnerDatabricksId = eitherDpOwnerDatabricksId.get();
-
-            Either<Throwable, String> eitherDpDevGroupDatabricksId = eitherMap.get(devGroup);
-            if (eitherDpDevGroupDatabricksId.isLeft()) {
-                var error = eitherDpDevGroupDatabricksId.getLeft();
-                return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
-            }
-            String dpDevGroupDatabricksId = eitherDpDevGroupDatabricksId.get();
-
-            var unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
-
-            DatabricksJobWorkloadSpecific databricksJobWorkloadSpecific =
-                    provisionRequest.component().getSpecific();
-
-            Either<FailedOperation, Void> eitherAttachedMetastore =
-                    unityCatalogManager.attachMetastore(databricksJobWorkloadSpecific.getMetastore());
-            if (eitherAttachedMetastore.isLeft()) return left(eitherAttachedMetastore.getLeft());
+            Map<String, String> userMapping = eitherUserMapping.get();
+            String dpOwnerDatabricksId =
+                    userMapping.get(provisionRequest.dataProduct().getDataProductOwner());
+            String dpDevGroupDatabricksId =
+                    userMapping.get(provisionRequest.dataProduct().getDevGroup());
 
             Either<FailedOperation, Void> eitherCreatedRepo = createRepositoryWithPermissions(
                     provisionRequest,
@@ -110,6 +91,14 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
         }
     }
 
+    /**
+     * Unprovisions a previously provisioned Databricks job, deleting the associated job and repository if requested.
+     *
+     * @param provisionRequest the request containing the specifics for the job to be unprovisioned
+     * @param workspaceClient the Databricks workspace client
+     * @param databricksWorkspaceInfo information about the Databricks workspace
+     * @return Either a failed operation or void if successful
+     */
     public Either<FailedOperation, Void> unprovisionWorkload(
             ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest,
             WorkspaceClient workspaceClient,
@@ -122,7 +111,6 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
 
             Either<FailedOperation, Iterable<BaseJob>> eitherGetJobs =
                     jobManager.listJobsWithGivenName(databricksJobWorkloadSpecific.getJobName());
-
             if (eitherGetJobs.isLeft()) return left(eitherGetJobs.getLeft());
 
             Iterable<BaseJob> jobs = eitherGetJobs.get();
@@ -130,34 +118,29 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
 
             jobs.forEach(job -> {
                 Either<FailedOperation, Void> result = jobManager.deleteJob(job.getJobId());
-                if (result.isLeft()) {
-                    problems.addAll(result.getLeft().problems());
-                }
+                if (result.isLeft()) problems.addAll(result.getLeft().problems());
             });
 
-            if (!problems.isEmpty()) {
-                return Either.left(new FailedOperation(problems));
-            }
+            if (!problems.isEmpty()) return left(new FailedOperation(problems));
 
             if (provisionRequest.removeData()) {
                 var repoManager = new RepoManager(workspaceClient, databricksWorkspaceInfo.getName());
 
                 String repoPath = databricksJobWorkloadSpecific.getRepoPath();
-                repoPath = String.format("/%s", repoPath);
+                if (!repoPath.startsWith("/")) repoPath = "/" + repoPath;
 
                 Either<FailedOperation, Void> eitherDeletedRepo = repoManager.deleteRepo(
                         provisionRequest.component().getSpecific().getGit().getGitRepoUrl(), repoPath);
-
                 if (eitherDeletedRepo.isLeft()) return left(eitherDeletedRepo.getLeft());
 
-            } else {
-                String repoUrl =
-                        (provisionRequest.component().getSpecific()).getGit().getGitRepoUrl();
-
+            } else
                 logger.info(
-                        "The repo with URL {} will not be removed from the Workspace because removeData is set to ‘false’.",
-                        repoUrl);
-            }
+                        "The repository with URL '{}' associated with component '{}' will not be removed from the Workspace because the 'removeData' flag is set to 'false'. Provision request details: [Component: {}, Repo URL: {}, Remove Data: {}].",
+                        provisionRequest.component().getSpecific().getGit().getGitRepoUrl(),
+                        provisionRequest.component().getName(),
+                        provisionRequest.component().getName(),
+                        provisionRequest.component().getSpecific().getGit().getGitRepoUrl(),
+                        provisionRequest.removeData());
 
             return right(null);
 
@@ -170,6 +153,14 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
         }
     }
 
+    /**
+     * Creates a new job in the Databricks workspace.
+     *
+     * @param provisionRequest the request containing the specifics for the job to be created
+     * @param workspaceClient the Databricks workspace client
+     * @param workspaceName the name of the Databricks workspace
+     * @return Either a failed operation or the ID of the created job as a Long
+     */
     private Either<FailedOperation, Long> createJob(
             ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest,
             WorkspaceClient workspaceClient,

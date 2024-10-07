@@ -18,6 +18,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksW
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
+import it.agilelab.witboost.provisioning.databricks.service.provision.handler.DLTWorkloadHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.Collections;
 import java.util.Map;
@@ -81,8 +82,7 @@ public class DLTProvisionServiceTest {
         ProvisioningStatus actualRes = provisionService.getStatus(token);
         var expectedRes = new ProvisioningStatus(
                 ProvisioningStatus.StatusEnum.FAILED,
-                "The specific section of the component test_workload is not of type DatabricksJobWorkloadSpecific or DatabricksDLTWorkloadSpecific");
-
+                "The specific section of the component 'test_workload' is not a valid type. Only the following types are accepted: DatabricksJobWorkloadSpecific, DatabricksDLTWorkloadSpecific, DatabricksOutputPortSpecific, DatabricksWorkflowWorkloadSpecific");
         assertEquals(expectedRes.getStatus(), actualRes.getStatus());
         assertEquals(expectedRes.getResult(), actualRes.getResult());
     }
@@ -198,7 +198,7 @@ public class DLTProvisionServiceTest {
         ProvisioningStatus actualRes = provisionService.getStatus(token);
 
         assertEquals(ProvisioningStatus.StatusEnum.FAILED, actualRes.getStatus());
-        assert (actualRes.getResult().contains("The status of null workspace is different from 'ACTIVE'."));
+        assert (actualRes.getResult().contains("The status of workspace workspace is different from 'ACTIVE'."));
     }
 
     @Test
@@ -232,7 +232,7 @@ public class DLTProvisionServiceTest {
 
         String token = provisionService.unprovision(provisioningRequest);
         assertEquals(
-                "Errors: -validationServiceError\n",
+                "Errors: validationServiceError;\n",
                 provisionService.getStatus(token).getResult());
     }
 
@@ -299,7 +299,8 @@ public class DLTProvisionServiceTest {
 
         ProvisioningStatus actualRes = provisionService.getStatus(token);
         var expectedRes = new ProvisioningStatus(
-                ProvisioningStatus.StatusEnum.COMPLETED, "Unprovision skipped. Workspace test not found.");
+                ProvisioningStatus.StatusEnum.COMPLETED,
+                "Unprovision skipped for component null. Workspace test not found.");
 
         assertEquals(expectedRes.getStatus(), actualRes.getStatus());
         assertEquals(expectedRes.getResult(), actualRes.getResult());

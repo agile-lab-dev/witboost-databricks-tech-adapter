@@ -24,6 +24,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksO
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissionsManager;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
 import java.util.*;
@@ -313,9 +314,11 @@ public class WorkspaceHandler {
                 workspaceName = ((DatabricksDLTWorkloadSpecific) specific).getWorkspace();
             } else if (specific instanceof DatabricksOutputPortSpecific) {
                 workspaceName = ((DatabricksOutputPortSpecific) specific).getWorkspaceOP();
+            } else if (specific instanceof DatabricksWorkflowWorkloadSpecific) {
+                workspaceName = ((DatabricksWorkflowWorkloadSpecific) specific).getWorkspace();
             } else {
                 String errorMessage = String.format(
-                        "The specific section of the component %s is not of type DatabricksJobWorkloadSpecific or DatabricksDLTWorkloadSpecific",
+                        "The specific section of the component '%s' is not a valid type. Only the following types are accepted: DatabricksJobWorkloadSpecific, DatabricksDLTWorkloadSpecific, DatabricksOutputPortSpecific, DatabricksWorkflowWorkloadSpecific",
                         provisionRequest.component().getName());
                 logger.error(errorMessage);
                 return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));

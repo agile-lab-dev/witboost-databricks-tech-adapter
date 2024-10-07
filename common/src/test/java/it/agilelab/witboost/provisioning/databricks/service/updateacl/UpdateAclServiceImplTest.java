@@ -19,7 +19,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksO
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
-import it.agilelab.witboost.provisioning.databricks.service.provision.OutputPortHandler;
+import it.agilelab.witboost.provisioning.databricks.service.provision.handler.OutputPortHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationServiceImpl;
 import java.util.List;
 import java.util.Optional;

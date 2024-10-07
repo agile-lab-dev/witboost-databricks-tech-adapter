@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -53,7 +54,7 @@ public class DatabricksDLTWorkloadSpecificTest {
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
 
-        DLTGitSpecific dltGitSpecific = new DLTGitSpecific();
+        GitSpecific dltGitSpecific = new GitSpecific();
         dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(dltGitSpecific);
 

@@ -18,6 +18,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksW
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
+import it.agilelab.witboost.provisioning.databricks.service.provision.handler.JobWorkloadHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
@@ -97,7 +98,7 @@ public class JobProvisionServiceTest {
 
         var token = provisionService.provision(provisioningRequest);
         assertEquals(
-                "Errors: -validationServiceError\n",
+                "Errors: validationServiceError;\n",
                 provisionService.getStatus(token).getResult());
     }
 
@@ -191,7 +192,7 @@ public class JobProvisionServiceTest {
         ProvisioningStatus actualRes = provisionService.getStatus(token);
 
         assertEquals(ProvisioningStatus.StatusEnum.FAILED, actualRes.getStatus());
-        assert actualRes.getResult().contains("The status of null workspace is different from 'ACTIVE'.");
+        assert actualRes.getResult().contains("The status of workspace workspace is different from 'ACTIVE'.");
     }
 
     @Test
@@ -271,7 +272,7 @@ public class JobProvisionServiceTest {
 
         String token = provisionService.unprovision(provisioningRequest);
         assertEquals(
-                "Errors: -validationServiceError\n",
+                "Errors: validationServiceError;\n",
                 provisionService.getStatus(token).getResult());
     }
 
@@ -400,7 +401,8 @@ public class JobProvisionServiceTest {
 
         ProvisioningStatus actualRes = provisionService.getStatus(token);
         var expectedRes = new ProvisioningStatus(
-                ProvisioningStatus.StatusEnum.COMPLETED, "Unprovision skipped. Workspace test not found.");
+                ProvisioningStatus.StatusEnum.COMPLETED,
+                "Unprovision skipped for component null. Workspace test not found.");
 
         assertEquals(expectedRes.getStatus(), actualRes.getStatus());
         assertEquals(expectedRes.getResult(), actualRes.getResult());

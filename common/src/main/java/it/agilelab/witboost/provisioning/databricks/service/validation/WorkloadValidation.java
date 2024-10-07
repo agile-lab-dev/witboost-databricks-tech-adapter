@@ -6,12 +6,15 @@ import static io.vavr.control.Either.right;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.Component;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import jakarta.validation.constraints.NotNull;
 import java.util.Arrays;
 import java.util.Collections;
@@ -24,10 +27,15 @@ public class WorkloadValidation {
 
     private static final Logger logger = LoggerFactory.getLogger(WorkloadValidation.class);
     private static TemplatesConfig templatesConfig;
+    private final MiscConfig miscConfig;
+    private final WorkspaceHandler workspaceHandler;
 
     @Autowired
-    public WorkloadValidation(TemplatesConfig templatesConfig) {
+    public WorkloadValidation(
+            TemplatesConfig templatesConfig, MiscConfig miscConfig, WorkspaceHandler workspaceHandler) {
         this.templatesConfig = templatesConfig;
+        this.miscConfig = miscConfig;
+        this.workspaceHandler = workspaceHandler;
     }
 
     public static Either<FailedOperation, Void> validate(Component<? extends Specific> component) {
@@ -58,6 +66,19 @@ public class WorkloadValidation {
             }
             logger.info("Validation of Workload {} completed successfully", component.getName());
             return right(null);
+        } else if (templatesConfig.getWorkflow().contains(useCaseTemplateId)) {
+            logger.info(
+                    "Checking specific section of component {} is of type DatabricksWorkflowWorkloadSpecific",
+                    component.getName());
+            if (!(component.getSpecific() instanceof DatabricksWorkflowWorkloadSpecific)) {
+                String errorMessage = String.format(
+                        "The specific section of the component %s is not of type DatabricksWorkflowWorkloadSpecific",
+                        component.getName());
+                logger.error(errorMessage);
+                return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+            }
+            logger.info("Validation of Workload {} completed successfully", component.getName());
+            return right(null);
         } else if (templatesConfig.getDlt().contains(useCaseTemplateId)) {
             logger.info(
                     "Checking specific section of component {} is of type DatabricksDLTWorkloadSpecific",
@@ -72,7 +93,6 @@ public class WorkloadValidation {
             logger.info("Validation of Workload {} completed successfully", component.getName());
             return right(null);
         }
-
         String errorMessage = String.format(
                 "%s (component %s) is not an accepted useCaseTemplateId for Databricks jobs or DLT pipelines.",
                 ((Workload<? extends Specific>) component).getUseCaseTemplateId(), component.getName());

@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.model.databricks.dlt;
+package it.agilelab.witboost.provisioning.databricks.model.databricks;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -8,7 +8,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class DLTGitSpecific {
+public class GitSpecific {
 
     /**
      * The URL or identifier of the Git repository.

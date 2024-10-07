@@ -59,7 +59,7 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateJobWorkloadOk() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_workload.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/job_workload.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
@@ -70,7 +70,7 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateDLTWorkloadOk() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_dlt_workload.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/dlt_workload.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
@@ -79,8 +79,19 @@ public class ValidationServiceTest {
     }
 
     @Test
+    public void testValidateWorkflowWorkloadOk() throws IOException {
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/workflow_workload.yml");
+        ProvisioningRequest provisioningRequest =
+                new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
+
+        var actualRes = service.validate(provisioningRequest);
+
+        assertTrue(actualRes.isRight());
+    }
+
+    @Test
     public void testValidateDLTWorkloadWrongDescriptor() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_dlt_wrong_workload.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/dlt_wrong_workload.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
@@ -94,7 +105,8 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateUnsupportedUseCaseTemplateId() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_unsupported_workload.yml");
+        String ymlDescriptor =
+                ResourceUtils.getContentFromResource("/descriptors/pr_descriptor_unsupported_workload.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
@@ -110,7 +122,7 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateWrongDescriptorKind() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_outputport.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/pr_descriptor_outputport.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.DATAPRODUCT_DESCRIPTOR, ymlDescriptor, false);
         String expectedDesc =
@@ -145,8 +157,8 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateMissingComponentIdToProvision() throws IOException {
-        String ymlDescriptor =
-                ResourceUtils.getContentFromResource("/pr_descriptor_storage_missing_componentIdToProvision.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource(
+                "/descriptors/pr_descriptor_storage_missing_componentIdToProvision.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
         String expectedDesc = "Component with ID null not found in the Descriptor";
@@ -163,7 +175,8 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateMissingComponentToProvision() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_storage_missing_component.yml");
+        String ymlDescriptor =
+                ResourceUtils.getContentFromResource("/descriptors/pr_descriptor_storage_missing_component.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
         String expectedDesc =
@@ -181,7 +194,8 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateMissingComponentKindToProvision() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_storage_missing_componentKind.yml");
+        String ymlDescriptor =
+                ResourceUtils.getContentFromResource("/descriptors/pr_descriptor_storage_missing_componentKind.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
         String expectedDesc =
@@ -199,7 +213,8 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateWrongComponentKindToProvision() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_storage_wrong_componentKind.yml");
+        String ymlDescriptor =
+                ResourceUtils.getContentFromResource("/descriptors/pr_descriptor_storage_wrong_componentKind.yml");
         ProvisioningRequest provisioningRequest =
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
         String expectedDesc =
@@ -217,7 +232,7 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateOutputPortOk() throws Exception {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_outputport_ok.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/outputport_ok.yml");
 
         WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
 
@@ -266,7 +281,7 @@ public class ValidationServiceTest {
 
     @Test
     public void testValidateOutputPortUnexistingCol() throws Exception {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_outputport_missing.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/outputport_missing.yml");
 
         WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
 

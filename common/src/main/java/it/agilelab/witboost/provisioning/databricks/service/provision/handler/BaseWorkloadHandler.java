@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.service.provision;
+package it.agilelab.witboost.provisioning.databricks.service.provision.handler;
 
 import static io.vavr.control.Either.left;
 
@@ -18,7 +18,12 @@ import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.principalsmapping.databricks.DatabricksMapper;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -81,7 +86,12 @@ public class BaseWorkloadHandler {
                 DatabricksJobWorkloadSpecific jobSpecific = (DatabricksJobWorkloadSpecific) specific;
                 gitRepo = jobSpecific.getGit().getGitRepoUrl();
                 repoPath = jobSpecific.getRepoPath();
+            } else if (specific instanceof DatabricksWorkflowWorkloadSpecific) {
+                DatabricksWorkflowWorkloadSpecific workflowSpecific = (DatabricksWorkflowWorkloadSpecific) specific;
+                gitRepo = workflowSpecific.getGit().getGitRepoUrl();
+                repoPath = workflowSpecific.getRepoPath();
             }
+
             int lastIndex = repoPath.lastIndexOf('/');
             String folderPath = repoPath.substring(0, lastIndex);
             workspaceClient.workspace().mkdirs(String.format("/%s", folderPath));
@@ -149,6 +159,9 @@ public class BaseWorkloadHandler {
             } else if (specific instanceof DatabricksJobWorkloadSpecific) {
                 DatabricksJobWorkloadSpecific jobSpecific = (DatabricksJobWorkloadSpecific) specific;
                 gitRepo = jobSpecific.getGit().getGitRepoUrl();
+            } else if (specific instanceof DatabricksWorkflowWorkloadSpecific) {
+                DatabricksWorkflowWorkloadSpecific workflowSpecific = (DatabricksWorkflowWorkloadSpecific) specific;
+                gitRepo = workflowSpecific.getGit().getGitRepoUrl();
             }
 
             String errorMessage = String.format(
@@ -159,6 +172,36 @@ public class BaseWorkloadHandler {
                     e.getMessage());
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
+    }
+
+    protected Either<FailedOperation, Map<String, String>> mapUsers(ProvisionRequest<?> provisionRequest) {
+        try {
+            DatabricksMapper databricksMapper = new DatabricksMapper();
+
+            // TODO: This is a temporary solution. Remove or update this logic in the future.
+            String devGroup = provisionRequest.dataProduct().getDevGroup();
+            if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
+
+            Map<String, Either<Throwable, String>> eitherMap =
+                    databricksMapper.map(Set.of(provisionRequest.dataProduct().getDataProductOwner(), devGroup));
+
+            Map<String, String> result = new HashMap<>();
+            for (var entry : eitherMap.entrySet()) {
+                if (entry.getValue().isLeft()) {
+                    var error = entry.getValue().getLeft();
+                    return Either.left(
+                            new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
+                }
+                result.put(entry.getKey(), entry.getValue().get());
+            }
+            return Either.right(result);
+        } catch (Exception e) {
+            String errorMessage = String.format(
+                    "An error occurred while mapping dpOwner and devGroup for component %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    provisionRequest.component().getName(), e.getMessage());
+            logger.error(errorMessage, e);
+            return Either.left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
     }
 }

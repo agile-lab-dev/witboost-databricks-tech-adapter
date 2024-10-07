@@ -19,6 +19,8 @@ import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
 import com.databricks.sdk.service.iam.GroupsAPI;
 import com.databricks.sdk.service.iam.UsersAPI;
+import com.databricks.sdk.service.jobs.Job;
+import com.databricks.sdk.service.jobs.JobSettings;
 import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
@@ -30,13 +32,11 @@ import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
-import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
-import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
-import it.agilelab.witboost.provisioning.databricks.model.Specific;
-import it.agilelab.witboost.provisioning.databricks.model.Workload;
+import it.agilelab.witboost.provisioning.databricks.model.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissionsManager;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureClient;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
@@ -123,7 +123,7 @@ public class WorkspaceHandlerTest {
     }
 
     @Test
-    public void provisionWorkspace_Success() {
+    public void provisionWorkspaceJob_Success() {
 
         azureAuthConfig.setSkuType("PREMIUM");
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
@@ -212,6 +212,94 @@ public class WorkspaceHandlerTest {
     }
 
     @Test
+    public void provisionWorkspace_Workflow_Success() {
+
+        ProvisionRequest<DatabricksWorkflowWorkloadSpecific> provisionRequest = createWorkflowProvisionRequest();
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+
+        WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
+        when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withRegion(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withExistingResourceGroup(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+                .thenReturn(workspaceClient);
+
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
+        when(azureWorkspaceManager.createWorkspace(
+                        eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
+                .thenReturn(right(databricksWorkspaceInfo));
+
+        Map<String, Either<Throwable, String>> mockres = new HashMap<>();
+        mockres.put(dataProduct.getDataProductOwner(), right("azureId"));
+        mockres.put(dataProduct.getDevGroup(), right("azureGroupId"));
+        when(azureMapper.map(anySet())).thenReturn(mockres);
+
+        when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
+                .thenReturn(right(null));
+        GroupsAPI groupsAPI = mock(GroupsAPI.class);
+        when(workspaceClient.groups()).thenReturn(groupsAPI);
+
+        UsersAPI usersAPI = mock(UsersAPI.class);
+        when(workspaceClient.users()).thenReturn(usersAPI);
+
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceHandler.provisionWorkspace(provisionRequest);
+
+        assert result.isRight();
+        assertEquals(result.get().getName(), databricksWorkspaceInfo.getName());
+        assertEquals(result.get().getAzureResourceId(), databricksWorkspaceInfo.getAzureResourceId());
+    }
+
+    @Test
+    public void provisionWorkspace_OutputPort_Success() {
+
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+
+        WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
+        when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withRegion(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withExistingResourceGroup(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+                .thenReturn(workspaceClient);
+
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
+        when(azureWorkspaceManager.createWorkspace(
+                        eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
+                .thenReturn(right(databricksWorkspaceInfo));
+
+        Map<String, Either<Throwable, String>> mockres = new HashMap<>();
+        mockres.put(dataProduct.getDataProductOwner(), right("azureId"));
+        mockres.put(dataProduct.getDevGroup(), right("azureGroupId"));
+        when(azureMapper.map(anySet())).thenReturn(mockres);
+
+        when(azurePermissionsManager.assignPermissions(anyString(), anyString(), anyString(), anyString(), any()))
+                .thenReturn(right(null));
+        GroupsAPI groupsAPI = mock(GroupsAPI.class);
+        when(workspaceClient.groups()).thenReturn(groupsAPI);
+
+        UsersAPI usersAPI = mock(UsersAPI.class);
+        when(workspaceClient.users()).thenReturn(usersAPI);
+
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceHandler.provisionWorkspace(provisionRequest);
+
+        assert result.isRight();
+        assertEquals(result.get().getName(), databricksWorkspaceInfo.getName());
+        assertEquals(result.get().getAzureResourceId(), databricksWorkspaceInfo.getAzureResourceId());
+    }
+
+    @Test
     public void provisionWorkspace_WrongSpecificType() {
 
         workload.setSpecific(new Specific());
@@ -257,7 +345,7 @@ public class WorkspaceHandlerTest {
                         .get(0)
                         .description()
                         .contains(
-                                "The specific section of the component null is not of type DatabricksJobWorkloadSpecific or DatabricksDLTWorkloadSpecific"));
+                                "The specific section of the component 'null' is not a valid type. Only the following types are accepted: DatabricksJobWorkloadSpecific, DatabricksDLTWorkloadSpecific, DatabricksOutputPortSpecific, DatabricksWorkflowWorkloadSpecific"));
     }
 
     @Test
@@ -550,7 +638,7 @@ public class WorkspaceHandlerTest {
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
 
-        DLTGitSpecific dltGitSpecific = new DLTGitSpecific();
+        GitSpecific dltGitSpecific = new GitSpecific();
         dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(dltGitSpecific);
 
@@ -562,6 +650,56 @@ public class WorkspaceHandlerTest {
         ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
+        return provisionRequest;
+    }
+
+    private ProvisionRequest<DatabricksWorkflowWorkloadSpecific> createWorkflowProvisionRequest() {
+        String workspaceName = "testWorkspace";
+        DatabricksWorkflowWorkloadSpecific databricksWorkflowWorkloadSpecific =
+                new DatabricksWorkflowWorkloadSpecific();
+        databricksWorkflowWorkloadSpecific.setWorkspace(workspaceName);
+        databricksWorkflowWorkloadSpecific.setRepoPath("this/is/a/repo");
+
+        GitSpecific gitSpecific = new GitSpecific();
+        gitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        databricksWorkflowWorkloadSpecific.setGit(gitSpecific);
+
+        Job workflow = new Job();
+        workflow.setSettings(new JobSettings().setName("workflowName"));
+        databricksWorkflowWorkloadSpecific.setWorkflow(workflow);
+
+        workload.setSpecific(databricksWorkflowWorkloadSpecific);
+        workload.setName("workload");
+        dataProduct.setDataProductOwner("user:name.surname@company.it");
+        dataProduct.setDevGroup("group:developers");
+
+        ProvisionRequest<DatabricksWorkflowWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+
+        return provisionRequest;
+    }
+
+    private ProvisionRequest<DatabricksOutputPortSpecific> createOPProvisionRequest() {
+
+        DatabricksOutputPortSpecific databricksOutputPortSpecific = new DatabricksOutputPortSpecific();
+        databricksOutputPortSpecific.setWorkspace("testWorkspace");
+        databricksOutputPortSpecific.setMetastore("metastore");
+        databricksOutputPortSpecific.setCatalogName("catalog");
+        databricksOutputPortSpecific.setSchemaName("schema");
+        databricksOutputPortSpecific.setTableName("t");
+        databricksOutputPortSpecific.setSqlWarehouseName("sql_wh");
+        databricksOutputPortSpecific.setWorkspaceOP("testWorkspace");
+        databricksOutputPortSpecific.setCatalogNameOP("catalog_op");
+        databricksOutputPortSpecific.setSchemaNameOP("schema_op");
+        databricksOutputPortSpecific.setViewNameOP("view");
+
+        OutputPort outputPort = new OutputPort();
+        outputPort.setName("testOP");
+        outputPort.setSpecific(databricksOutputPortSpecific);
+        dataProduct.setDataProductOwner("user:name.surname@company.it");
+        dataProduct.setDevGroup("group:developers");
+
+        ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, outputPort, false);
         return provisionRequest;
     }
 }

@@ -12,4 +12,5 @@ public class TemplatesConfig {
 
     private List<String> job;
     private List<String> dlt;
+    private List<String> workflow;
 }

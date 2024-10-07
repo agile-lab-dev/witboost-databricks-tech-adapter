@@ -16,7 +16,7 @@ This repository is part of our [Starter Kit](https://github.com/agile-lab-dev/wi
 - [OpenTelemetry Setup](docs/opentelemetry.md)
 - [Deploying](#deploying)
 - [API specification](docs/API.md)
-
+- [HLD](docs%2FHLD.md)
 
 ## Overview
 This project implements a simple Specific Provisioner for Azure Databricks.

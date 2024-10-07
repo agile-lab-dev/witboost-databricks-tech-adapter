@@ -32,7 +32,7 @@ public class DatabricksMapper implements Mapper {
         }
     }
 
-    private Either<Throwable, String> getAndMapUser(String user) {
+    protected Either<Throwable, String> getAndMapUser(String user) {
         try {
             int underscoreIndex = user.lastIndexOf('_');
             String mail = (underscoreIndex == -1)

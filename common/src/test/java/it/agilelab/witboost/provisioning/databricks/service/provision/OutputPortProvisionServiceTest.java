@@ -21,6 +21,7 @@ import it.agilelab.witboost.provisioning.databricks.openapi.model.Info;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
+import it.agilelab.witboost.provisioning.databricks.service.provision.handler.OutputPortHandler;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.Collections;
 import java.util.Map;
@@ -231,7 +232,8 @@ public class OutputPortProvisionServiceTest {
         when(workspaceHandler.getWorkspaceInfo(any(ProvisionRequest.class))).thenReturn(right(Optional.empty()));
 
         var expectedRes = new ProvisioningStatus(
-                ProvisioningStatus.StatusEnum.COMPLETED, "Unprovision skipped. Workspace ws not found.");
+                ProvisioningStatus.StatusEnum.COMPLETED,
+                "Unprovision skipped for component null. Workspace ws not found.");
 
         String token = provisionService.unprovision(provisioningRequest);
         ProvisioningStatus actualRes = provisionService.getStatus(token);

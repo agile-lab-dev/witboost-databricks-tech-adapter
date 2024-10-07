@@ -3,14 +3,18 @@ package it.agilelab.witboost.provisioning.databricks.service.validation;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.databricks.sdk.service.jobs.Job;
+import com.databricks.sdk.service.jobs.JobSettings;
 import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,7 +95,7 @@ public class WorkloadValidationTest {
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
 
-        DLTGitSpecific dltGitSpecific = new DLTGitSpecific();
+        GitSpecific dltGitSpecific = new GitSpecific();
         dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(dltGitSpecific);
 
@@ -102,6 +106,33 @@ public class WorkloadValidationTest {
         workload.setKind("workload");
         workload.setUseCaseTemplateId(Optional.of("urn:dmb:utm:databricks-workload-dlt-template:0.0.0"));
         workload.setSpecific(specific);
+
+        var actualRes = workloadValidation.validate(workload);
+
+        assertTrue(actualRes.isRight());
+    }
+
+    @Test
+    public void testValidateWorkflowOk() {
+        DatabricksWorkflowWorkloadSpecific workloadSpecific = new DatabricksWorkflowWorkloadSpecific();
+        String workspaceName = "testWorkspace";
+        DatabricksWorkflowWorkloadSpecific databricksWorkflowWorkloadSpecific =
+                new DatabricksWorkflowWorkloadSpecific();
+        databricksWorkflowWorkloadSpecific.setWorkspace(workspaceName);
+        databricksWorkflowWorkloadSpecific.setRepoPath("this/is/a/repo");
+
+        GitSpecific gitSpecific = new GitSpecific();
+        gitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        databricksWorkflowWorkloadSpecific.setGit(gitSpecific);
+
+        Job workflow = new Job();
+        workflow.setSettings(new JobSettings().setName("workflowName"));
+        databricksWorkflowWorkloadSpecific.setWorkflow(workflow);
+
+        Workload<DatabricksWorkflowWorkloadSpecific> workload = new Workload<>();
+        workload.setName("workload");
+        workload.setUseCaseTemplateId(Optional.of("urn:dmb:utm:databricks-workload-workflow-template:0.0.0"));
+        workload.setSpecific(databricksWorkflowWorkloadSpecific);
 
         var actualRes = workloadValidation.validate(workload);
 
@@ -254,5 +285,24 @@ public class WorkloadValidationTest {
             assertEquals(expectedDesc, p.description());
             assertTrue(p.cause().isEmpty());
         });
+    }
+
+    @Test
+    public void testValidateWrongWorkflowSpecific() {
+        Workload<Specific> workload = new Workload<>();
+        workload.setName("workload");
+
+        workload.setUseCaseTemplateId(Optional.of("urn:dmb:utm:databricks-workload-workflow-template:0.0.0"));
+
+        var actualRes = workloadValidation.validate(workload);
+
+        assert actualRes.isLeft();
+        assert actualRes
+                .getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains(
+                        "The specific section of the component workload is not of type DatabricksWorkflowWorkloadSpecific");
     }
 }

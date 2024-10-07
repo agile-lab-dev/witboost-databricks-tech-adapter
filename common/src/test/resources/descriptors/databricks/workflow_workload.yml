@@ -1,0 +1,120 @@
+dataProduct:
+  id: urn:dmb:dp:healthcare:vaccinations:0
+  name: Vaccinations
+  fullyQualifiedName: Vaccinations
+  description: DP about vaccinations
+  kind: dataproduct
+  domain: healthcare
+  version: 0.1.0
+  environment: development
+  dataProductOwner: user:name.surname_email.com
+  dataProductOwnerDisplayName: Name Surname
+  email: name.surname@email.com
+  ownerGroup: name.surname_email.com
+  devGroup: group:dev
+  informationSLA: 2BD
+  maturity: Tactical
+  billing: {}
+  tags: []
+  specific: {}
+  domainId: urn:dmb:dmn:healthcare
+  useCaseTemplateId: urn:dmb:utm:dataproduct-template:0.0.0
+  infrastructureTemplateId: urn:dmb:itm:dataproduct-provisioner:1
+  components:
+    - kind: storage
+      id: urn:dmb:cmp:healthcare:vaccinations:0:storage
+      name: CDP Private HDFS Storage Area
+      fullyQualifiedName: CDP Private HDFS Storage Area
+      description: CDP Private HDFS Storage Area for vaccinations data
+      owners:
+        - group:dev
+      infrastructureTemplateId: urn:dmb:itm:cdp-private-hdfs-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:cdp-private-hdfs-storage-template:0.0.0
+      dependsOn: []
+      platform: CDP Private
+      technology: HDFS
+      storageType: Files
+      tags: []
+      specific: {}
+    - kind: outputport
+      id: urn:dmb:cmp:healthcare:vaccinations:0:hdfs-output-port
+      name: CDP Private HDFS Output Port
+      fullyQualifiedName: CDP Private HDFS Output Port
+      description: CDP Private HDFS Port for vaccinations data
+      version: 0.0.0
+      infrastructureTemplateId: urn:dmb:itm:cdp-private-hdfs-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:cdp-private-hdfs-outputport-template:0.0.0
+      dependsOn:
+        - urn:dmb:cmp:healthcare:vaccinations:0:storage
+      platform: CDP Private
+      technology: HDFS
+      outputPortType: HDFS
+      creationDate: 2023-06-12T12:52:11.737Z
+      startDate: 2023-06-12T12:52:11.737Z
+      dataContract:
+        schema: []
+      dataSharingAgreement: {}
+      tags: []
+      sampleData: {}
+      semanticLinking: []
+      specific: {}
+    - kind: workload
+      id: urn:dmb:cmp:healthcare:databricks-provisioner:0:databricks-workload
+      description: Check the functionality of the provisioner
+      name: Databricks Workload
+      fullyQualifiedName: null
+      version: 0.0.0
+      infrastructureTemplateId: urn:dmb:itm:databricks-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:databricks-workload-workflow-template:0.0.0
+      dependsOn: [ ]
+      platform: Azure
+      technology: databricks
+      workloadType: batch
+      connectionType: DataPipeline
+      tags: [ ]
+      readsFrom: [ ]
+      specific:
+        workspace: healthcare_databricks-test_0_qa
+        repoPath: databrickstest_0/wf
+        git:
+          gitRepoUrl: https://gitlab.com
+        workflow:
+          created_time: 1726823539887
+          creator_user_name: 'aaa'
+          job_id: 1234
+          run_as_user_name: 'aaa'
+          settings:
+            continuous: null
+            deployment: null
+            description: null
+            edit_mode: null
+            email_notifications:
+              no_alert_for_skipped_runs: null
+              on_duration_warning_threshold_exceeded: null
+              on_failure: null
+              on_start: null
+              on_streaming_backlog_exceeded: null
+              on_success: null
+            environments: null
+            format: 'MULTI_TASK'
+            git_source: null
+            health: null
+            job_clusters: null
+            max_concurrent_runs: 1
+            name: 'wf_provisioner'
+            notification_settings: null
+            parameters: null
+            queue: null
+            run_as: null
+            schedule: null
+            tags: null
+            tasks: null
+            timeout_seconds: 15
+            trigger: null
+            webhook_notifications:
+              on_duration_warning_threshold_exceeded: null
+              on_failure: null
+              on_start: null
+              on_streaming_backlog_exceeded: null
+              on_success: null
+componentIdToProvision: urn:dmb:cmp:healthcare:databricks-provisioner:0:databricks-workload

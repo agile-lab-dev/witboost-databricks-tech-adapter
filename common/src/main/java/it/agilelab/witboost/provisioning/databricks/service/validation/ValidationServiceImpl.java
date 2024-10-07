@@ -18,6 +18,7 @@ import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.parser.Parser;
@@ -150,6 +151,9 @@ public class ValidationServiceImpl implements ValidationService {
         if (templatesConfig.getJob().contains(useCaseTemplateId)) {
             eitherWorkloadToProvision =
                     Parser.parseComponent(componentToProvisionAsJson, DatabricksJobWorkloadSpecific.class);
+        } else if (templatesConfig.getWorkflow().contains(useCaseTemplateId)) {
+            eitherWorkloadToProvision =
+                    Parser.parseComponent(componentToProvisionAsJson, DatabricksWorkflowWorkloadSpecific.class);
         } else if (templatesConfig.getDlt().contains(useCaseTemplateId)) {
             eitherWorkloadToProvision =
                     Parser.parseComponent(componentToProvisionAsJson, DatabricksDLTWorkloadSpecific.class);

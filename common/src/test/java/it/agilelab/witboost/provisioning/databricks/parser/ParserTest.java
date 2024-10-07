@@ -17,7 +17,7 @@ public class ParserTest {
 
     @Test
     void testParseWorkloadDescriptorOk() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_workload.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/job_workload.yml");
 
         var actualResult = Parser.parseDescriptor(ymlDescriptor);
 
@@ -26,7 +26,7 @@ public class ParserTest {
 
     @Test
     public void testParseWorkloadComponentOk() throws IOException {
-        String ymlDescriptor = ResourceUtils.getContentFromResource("/pr_descriptor_workload.yml");
+        String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/job_workload.yml");
         var eitherDescriptor = Parser.parseDescriptor(ymlDescriptor);
         Assertions.assertTrue(eitherDescriptor.isRight());
         Descriptor descriptor = eitherDescriptor.get();

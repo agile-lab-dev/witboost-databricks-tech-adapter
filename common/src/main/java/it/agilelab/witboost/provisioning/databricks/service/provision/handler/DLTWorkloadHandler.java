@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.service.provision;
+package it.agilelab.witboost.provisioning.databricks.service.provision.handler;
 
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
@@ -18,7 +18,6 @@ import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
-import it.agilelab.witboost.provisioning.databricks.principalsmapping.databricks.DatabricksMapper;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,30 +67,14 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
 
             if (eitherCreatedCatalog.isLeft()) return left(eitherCreatedCatalog.getLeft());
 
-            // TODO: This is a temporary solution. Remove or update this logic in the future.
-            String devGroup = provisionRequest.dataProduct().getDevGroup();
-            if (!devGroup.startsWith("group:")) {
-                devGroup = "group:" + devGroup;
-            }
+            Either<FailedOperation, Map<String, String>> eitherUserMapping = mapUsers(provisionRequest);
+            if (eitherUserMapping.isLeft()) return Either.left(eitherUserMapping.getLeft());
 
-            DatabricksMapper databricksMapper = new DatabricksMapper();
-            Map<String, Either<Throwable, String>> eitherMap =
-                    databricksMapper.map(Set.of(provisionRequest.dataProduct().getDataProductOwner(), devGroup));
-
-            Either<Throwable, String> eitherDpOwnerDatabricksId =
-                    eitherMap.get(provisionRequest.dataProduct().getDataProductOwner());
-            if (eitherDpOwnerDatabricksId.isLeft()) {
-                var error = eitherDpOwnerDatabricksId.getLeft();
-                return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
-            }
-            String dpOwnerDatabricksId = eitherDpOwnerDatabricksId.get();
-
-            Either<Throwable, String> eitherDpDevGroupDatabricksId = eitherMap.get(devGroup);
-            if (eitherDpDevGroupDatabricksId.isLeft()) {
-                var error = eitherDpDevGroupDatabricksId.getLeft();
-                return left(new FailedOperation(Collections.singletonList(new Problem(error.getMessage(), error))));
-            }
-            String dpDevGroupDatabricksId = eitherDpDevGroupDatabricksId.get();
+            Map<String, String> userMapping = eitherUserMapping.get();
+            String dpOwnerDatabricksId =
+                    userMapping.get(provisionRequest.dataProduct().getDataProductOwner());
+            String dpDevGroupDatabricksId =
+                    userMapping.get(provisionRequest.dataProduct().getDevGroup());
 
             Either<FailedOperation, Void> eitherCreatedRepo = createRepositoryWithPermissions(
                     provisionRequest,
@@ -189,13 +172,20 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
                 var repoManager = new RepoManager(workspaceClient, databricksWorkspaceInfo.getName());
 
                 String repoPath = databricksDLTWorkloadSpecific.getRepoPath();
-                repoPath = String.format("/%s", repoPath);
+                if (!repoPath.startsWith("/")) repoPath = "/" + repoPath;
 
                 Either<FailedOperation, Void> eitherDeletedRepo = repoManager.deleteRepo(
                         provisionRequest.component().getSpecific().getGit().getGitRepoUrl(), repoPath);
 
                 if (eitherDeletedRepo.isLeft()) return left(eitherDeletedRepo.getLeft());
-            }
+            } else
+                logger.info(
+                        "The repository with URL '{}' associated with component '{}' will not be removed from the Workspace because the 'removeData' flag is set to 'false'. Provision request details: [Component: {}, Repo URL: {}, Remove Data: {}].",
+                        provisionRequest.component().getSpecific().getGit().getGitRepoUrl(),
+                        provisionRequest.component().getName(),
+                        provisionRequest.component().getName(),
+                        provisionRequest.component().getSpecific().getGit().getGitRepoUrl(),
+                        provisionRequest.removeData());
 
             return right(null);
 

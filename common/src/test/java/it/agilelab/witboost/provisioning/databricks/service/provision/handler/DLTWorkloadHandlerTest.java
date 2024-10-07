@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.service.provision;
+package it.agilelab.witboost.provisioning.databricks.service.provision.handler;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -29,6 +29,7 @@ import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
 import java.util.*;
@@ -131,11 +132,13 @@ public class DLTWorkloadHandlerTest {
         specific.setPhoton(true);
         List notifications = new ArrayList();
         notifications.add(new PipelineNotification("email@email.com", Collections.singletonList("on-update-test")));
+        notifications.add(new PipelineNotification("email2@email.com", Collections.singletonList("on-update-test")));
+        specific.setNotifications(notifications);
         specific.setChannel(PipelineChannel.CURRENT);
         specific.setCluster(cluster);
         specific.setMetastore("metastore");
 
-        DLTGitSpecific dltGitSpecific = new DLTGitSpecific();
+        GitSpecific dltGitSpecific = new GitSpecific();
         dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(dltGitSpecific);
 
@@ -299,7 +302,7 @@ public class DLTWorkloadHandlerTest {
                 .contains("The subject wrong_user is neither a Witboost user nor a group");
     }
 
-    // TODO: Temporarily removed. See annotation in DLTWorkloadHandler.provisionWorkload
+    // TODO: Temporarily removed. See annotation in BaseWorkloadHanler.mapUsers
 
     //    @Test
     //    public void provisionWorkload_ErrorMappingDevGroup() {
@@ -526,5 +529,89 @@ public class DLTWorkloadHandlerTest {
 
         assert result.isLeft();
         assertTrue(result.getLeft().problems().get(0).description().contains(expectedError));
+    }
+
+    @Test
+    public void unprovisionWorkloadRemoveDataFalse_Success() {
+
+        ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+
+        PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
+
+        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+                new PipelineStateInfo().setPipelineId("pipe1"), new PipelineStateInfo().setPipelineId("pipe2"));
+        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
+
+        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+
+        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+
+        Either<FailedOperation, Void> result =
+                dltWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+
+        assert result.isRight();
+        verify(workspaceClient.pipelines(), times(2)).delete(anyString());
+    }
+
+    @Test
+    public void unprovisionWorkloadRemoveDataTrue_Exception() {
+        PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
+
+        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+                new PipelineStateInfo().setPipelineId("pipe1"), new PipelineStateInfo().setPipelineId("pipe2"));
+        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
+        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+
+        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+
+        ProvisionRequest mockProvisionRequest = mock(ProvisionRequest.class);
+        Workload<DatabricksDLTWorkloadSpecific> mockComponent = mock(Workload.class);
+        DatabricksDLTWorkloadSpecific mockSpecific = mock(DatabricksDLTWorkloadSpecific.class);
+        when(mockProvisionRequest.component()).thenReturn(mockComponent);
+        when(mockComponent.getSpecific()).thenReturn(mockSpecific);
+        when(mockSpecific.getGit()).thenThrow(new DatabricksException("Exception retrieving git infos"));
+
+        Either<FailedOperation, Void> result =
+                dltWorkloadHandler.unprovisionWorkload(mockProvisionRequest, workspaceClient, workspaceInfo);
+
+        assert result.isLeft();
+        assert result.getLeft().problems().get(0).description().contains("Details: Exception retrieving git infos");
+        verify(workspaceClient.pipelines(), times(2)).delete(anyString());
+    }
+
+    @Test
+    public void unprovisionWorkload_ErrorRemovingRepo() {
+
+        ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, true);
+
+        PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
+
+        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+                new PipelineStateInfo().setPipelineId("pipe1"), new PipelineStateInfo().setPipelineId("pipe2"));
+        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
+
+        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+
+        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+
+        String errorMessage = "This is a workspace list exception";
+        when(workspaceClient.workspace()).thenReturn(workspaceAPI);
+        when(workspaceAPI.list(anyString())).thenThrow(new RuntimeException(errorMessage));
+        Either<FailedOperation, Void> result =
+                dltWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+
+        verify(workspaceClient.pipelines(), times(2)).delete(anyString());
+
+        assert result.isLeft();
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains("An error occurred while deleting the repo with path /dataproduct/component in workspace.");
     }
 }

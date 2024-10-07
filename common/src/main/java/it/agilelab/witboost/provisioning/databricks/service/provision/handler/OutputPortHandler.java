@@ -1,4 +1,4 @@
-package it.agilelab.witboost.provisioning.databricks.service.provision;
+package it.agilelab.witboost.provisioning.databricks.service.provision.handler;
 
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
@@ -292,7 +292,7 @@ public class OutputPortHandler {
 
         while (isStatementRunning) {
 
-            GetStatementResponse getStatementResponse = statementExecutionAPI.getStatement(statementId);
+            StatementResponse getStatementResponse = statementExecutionAPI.getStatement(statementId);
 
             StatementState statementState = getStatementResponse.getStatus().getState();
 

@@ -1,5 +1,7 @@
 package it.agilelab.witboost.provisioning.databricks.bean;
 
+import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -62,5 +64,27 @@ public class DatabricksApiClientConfigTest {
         when(params.getWorkspaceHost()).thenThrow(new RuntimeException("Test Exception"));
 
         assertThrows(RuntimeException.class, () -> databricksApiClientConfig.createApiClient(params));
+    }
+
+    @Test
+    public void testBuildDatabricksConfig_Success() {
+        ApiClientConfigParams params = mock(ApiClientConfigParams.class);
+        DatabricksAuthConfig databricksAuthConfig = mock(DatabricksAuthConfig.class);
+        AzureAuthConfig azureAuthConfig = mock(AzureAuthConfig.class);
+
+        when(databricksAuthConfig.getAccountId()).thenReturn("testAccountId");
+        when(azureAuthConfig.getTenantId()).thenReturn("testTenantId");
+        when(azureAuthConfig.getClientId()).thenReturn("testClientId");
+        when(azureAuthConfig.getClientSecret()).thenReturn("testClientSecret");
+
+        DatabricksConfig config = databricksApiClientConfig.buildDatabricksConfig(
+                databricksAuthConfig, azureAuthConfig, "https://example.databricks.com");
+
+        assertNotNull(config);
+        assertEquals("https://example.databricks.com", config.getHost());
+        assertEquals("testAccountId", config.getAccountId());
+        assertEquals("testTenantId", config.getAzureTenantId());
+        assertEquals("testClientId", config.getAzureClientId());
+        assertEquals("testClientSecret", config.getAzureClientSecret());
     }
 }
