@@ -10,7 +10,7 @@ import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigP
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
-import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
+import it.agilelab.witboost.provisioning.databricks.config.WorkloadTemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.Component;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
@@ -40,17 +40,17 @@ public class ValidationServiceImpl implements ValidationService {
     private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
     private WorkspaceHandler workspaceHandler;
     private MiscConfig miscConfig;
-    private TemplatesConfig templatesConfig;
+    private WorkloadTemplatesConfig workloadTemplatesConfig;
 
     public ValidationServiceImpl(
             Function<ApiClientConfigParams, ApiClient> apiClientFactory,
             MiscConfig miscConfig,
             WorkspaceHandler workspaceHandler,
-            TemplatesConfig templatesConfig) {
+            WorkloadTemplatesConfig workloadTemplatesConfig) {
         this.apiClientFactory = apiClientFactory;
         this.miscConfig = miscConfig;
         this.workspaceHandler = workspaceHandler;
-        this.templatesConfig = templatesConfig;
+        this.workloadTemplatesConfig = workloadTemplatesConfig;
 
         List<Class<? extends Specific>> classes = new ArrayList<>();
         classes.add(DatabricksJobWorkloadSpecific.class);
@@ -148,13 +148,13 @@ public class ValidationServiceImpl implements ValidationService {
 
         Either<FailedOperation, ? extends Component<? extends Specific>> eitherWorkloadToProvision;
 
-        if (templatesConfig.getJob().contains(useCaseTemplateId)) {
+        if (workloadTemplatesConfig.getJob().contains(useCaseTemplateId)) {
             eitherWorkloadToProvision =
                     Parser.parseComponent(componentToProvisionAsJson, DatabricksJobWorkloadSpecific.class);
-        } else if (templatesConfig.getWorkflow().contains(useCaseTemplateId)) {
+        } else if (workloadTemplatesConfig.getWorkflow().contains(useCaseTemplateId)) {
             eitherWorkloadToProvision =
                     Parser.parseComponent(componentToProvisionAsJson, DatabricksWorkflowWorkloadSpecific.class);
-        } else if (templatesConfig.getDlt().contains(useCaseTemplateId)) {
+        } else if (workloadTemplatesConfig.getDlt().contains(useCaseTemplateId)) {
             eitherWorkloadToProvision =
                     Parser.parseComponent(componentToProvisionAsJson, DatabricksDLTWorkloadSpecific.class);
         } else {

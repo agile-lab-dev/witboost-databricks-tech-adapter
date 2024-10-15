@@ -2,6 +2,7 @@ package it.agilelab.witboost.provisioning.databricks.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.witboost.provisioning.model.DataContract;
 import java.util.List;
 import java.util.Optional;
 import lombok.Getter;
@@ -16,7 +17,7 @@ public class OutputPort<T> extends Component<T> {
 
     private String version;
     private String infrastructureTemplateId;
-    private Optional<String> useCaseTemplateId;
+    private String useCaseTemplateId;
     private List<String> dependsOn;
     private Optional<String> platform;
     private Optional<String> technology;
@@ -25,7 +26,7 @@ public class OutputPort<T> extends Component<T> {
     private Optional<String> startDate;
     private Optional<String> retentionTime;
     private Optional<String> processDescription;
-    private JsonNode dataContract;
+    private DataContract dataContract;
     private JsonNode dataSharingAgreement;
     private List<JsonNode> tags;
     private Optional<JsonNode> sampleData;

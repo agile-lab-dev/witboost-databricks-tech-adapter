@@ -7,7 +7,7 @@ import com.databricks.sdk.service.jobs.Job;
 import com.databricks.sdk.service.jobs.JobSettings;
 import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
-import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
+import it.agilelab.witboost.provisioning.databricks.config.WorkloadTemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Import;
 public class WorkloadValidationTest {
 
     @Autowired
-    private TemplatesConfig templatesConfig;
+    private WorkloadTemplatesConfig workloadTemplatesConfig;
 
     @Autowired
     WorkloadValidation workloadValidation;

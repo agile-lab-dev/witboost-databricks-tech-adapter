@@ -7,7 +7,7 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.catalog.*;
 import com.databricks.sdk.service.sql.*;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.witboost.provisioning.model.Column;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
@@ -230,15 +230,15 @@ public class OutputPortHandler {
     private String createColumnsListForSelectStatement(ProvisionRequest provisionRequest) {
         OutputPort component = (OutputPort) provisionRequest.component();
 
-        JsonNode viewSchemaNode = component.getDataContract().get("schema");
+        List<Column> viewSchemaNode = component.getDataContract().getSchema();
 
         if (viewSchemaNode.isEmpty()) {
             return "*";
         } else {
             List<String> columnsList = new ArrayList<>();
 
-            for (JsonNode viewColumn : viewSchemaNode) {
-                String viewColumnName = viewColumn.get("name").asText();
+            for (Column viewColumn : viewSchemaNode) {
+                String viewColumnName = viewColumn.getName();
                 columnsList.add(viewColumnName);
             }
 

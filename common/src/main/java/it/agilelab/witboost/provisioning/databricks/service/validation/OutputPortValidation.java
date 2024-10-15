@@ -5,7 +5,7 @@ import static io.vavr.control.Either.right;
 
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.witboost.provisioning.model.Column;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
@@ -132,10 +132,10 @@ public class OutputPortValidation {
             List<String> originalTableColumnNames,
             String tableFullName) {
 
-        JsonNode viewSchemaNode = component.getDataContract().get("schema");
+        List<Column> viewSchemaNode = component.getDataContract().getSchema();
 
-        for (JsonNode viewColumn : viewSchemaNode) {
-            String viewColumnName = viewColumn.get("name").asText();
+        for (Column viewColumn : viewSchemaNode) {
+            String viewColumnName = viewColumn.getName();
             if (!originalTableColumnNames.contains(viewColumnName)) {
                 String errorMessage = String.format(
                         "Check for Output Port %s: the column '%s' cannot be found in the table '%s'.",

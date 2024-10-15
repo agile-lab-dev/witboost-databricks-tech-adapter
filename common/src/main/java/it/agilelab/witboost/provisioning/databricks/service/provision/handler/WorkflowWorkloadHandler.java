@@ -52,14 +52,18 @@ public class WorkflowWorkloadHandler extends BaseWorkloadHandler {
             DatabricksWorkspaceInfo databricksWorkspaceInfo) {
 
         try {
-            Either<FailedOperation, Map<String, String>> eitherUserMapping = mapUsers(provisionRequest);
-            if (eitherUserMapping.isLeft()) return Either.left(eitherUserMapping.getLeft());
+            Either<FailedOperation, Map<String, String>> eitherPrincipalsMapping = mapPrincipals(provisionRequest);
+            if (eitherPrincipalsMapping.isLeft()) return Either.left(eitherPrincipalsMapping.getLeft());
 
-            Map<String, String> userMapping = eitherUserMapping.get();
+            Map<String, String> principalsMapping = eitherPrincipalsMapping.get();
             String dpOwnerDatabricksId =
-                    userMapping.get(provisionRequest.dataProduct().getDataProductOwner());
-            String dpDevGroupDatabricksId =
-                    userMapping.get(provisionRequest.dataProduct().getDevGroup());
+                    principalsMapping.get(provisionRequest.dataProduct().getDataProductOwner());
+
+            // TODO: This is a temporary solution. Remove or update this logic in the future.
+            String devGroup = provisionRequest.dataProduct().getDevGroup();
+            if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
+
+            String dpDevGroupDatabricksId = principalsMapping.get(devGroup);
 
             Either<FailedOperation, Void> eitherCreatedRepo = createRepositoryWithPermissions(
                     provisionRequest,

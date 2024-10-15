@@ -35,7 +35,7 @@ public class OutputPortTest {
         OutputPort<String> outputPort = new OutputPort<>();
         outputPort.setVersion("1.0");
         outputPort.setInfrastructureTemplateId("template-1");
-        outputPort.setUseCaseTemplateId(Optional.of("usecase-template-1"));
+        outputPort.setUseCaseTemplateId("usecase-template-1");
         outputPort.setDependsOn(Arrays.asList("dep-1", "dep-2"));
         outputPort.setPlatform(Optional.of("platform"));
         outputPort.setTechnology(Optional.of("technology"));
@@ -56,7 +56,7 @@ public class OutputPortTest {
     @Test
     public void testToString() {
         String expectedToString = "OutputPort(version=1.0, infrastructureTemplateId=template-1, "
-                + "useCaseTemplateId=Optional[usecase-template-1], dependsOn=[dep-1, dep-2], "
+                + "useCaseTemplateId=usecase-template-1, dependsOn=[dep-1, dep-2], "
                 + "platform=Optional[platform], technology=Optional[technology], outputPortType=TypeA, "
                 + "creationDate=Optional[2023-01-01], startDate=Optional[2023-01-02], retentionTime=Optional[P3Y6M4D], "
                 + "processDescription=Optional[Description], dataContract=null, dataSharingAgreement=null, tags=[], "
@@ -77,7 +77,7 @@ public class OutputPortTest {
     public void testGetters() {
         assertEquals("1.0", outputPort1.getVersion());
         assertEquals("template-1", outputPort1.getInfrastructureTemplateId());
-        assertEquals(Optional.of("usecase-template-1"), outputPort1.getUseCaseTemplateId());
+        assertEquals("usecase-template-1", outputPort1.getUseCaseTemplateId());
         assertEquals(Arrays.asList("dep-1", "dep-2"), outputPort1.getDependsOn());
         assertEquals(Optional.of("platform"), outputPort1.getPlatform());
         assertEquals(Optional.of("technology"), outputPort1.getTechnology());

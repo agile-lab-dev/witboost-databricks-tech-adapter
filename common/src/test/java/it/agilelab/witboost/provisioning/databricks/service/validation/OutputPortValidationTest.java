@@ -13,10 +13,8 @@ import com.databricks.sdk.service.catalog.ColumnInfo;
 import com.databricks.sdk.service.catalog.TableExistsResponse;
 import com.databricks.sdk.service.catalog.TableInfo;
 import com.databricks.sdk.service.catalog.TablesAPI;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.witboost.provisioning.model.Column;
+import com.witboost.provisioning.model.DataContract;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
@@ -27,10 +25,7 @@ import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,7 +65,7 @@ public class OutputPortValidationTest {
         DatabricksOutputPortSpecific databricksOutputPortSpecific = prepareDatabricksOPSpecific();
         outputPort.setSpecific(databricksOutputPortSpecific);
 
-        JsonNode dataContract = prepareDataContract();
+        DataContract dataContract = prepareDataContract();
         outputPort.setDataContract(dataContract);
 
         WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
@@ -111,7 +106,7 @@ public class OutputPortValidationTest {
         DatabricksOutputPortSpecific databricksOutputPortSpecific = prepareDatabricksOPSpecific();
         outputPort.setSpecific(databricksOutputPortSpecific);
 
-        JsonNode dataContract = prepareDataContract();
+        DataContract dataContract = prepareDataContract();
         outputPort.setDataContract(dataContract);
         outputPort.setName("op_name");
 
@@ -144,7 +139,7 @@ public class OutputPortValidationTest {
         DatabricksOutputPortSpecific databricksOutputPortSpecific = prepareDatabricksOPSpecific();
         outputPort.setSpecific(databricksOutputPortSpecific);
 
-        JsonNode dataContract = prepareDataContract();
+        DataContract dataContract = prepareDataContract();
         outputPort.setDataContract(dataContract);
 
         outputPort.setName("op_name");
@@ -178,7 +173,7 @@ public class OutputPortValidationTest {
         DatabricksOutputPortSpecific databricksOutputPortSpecific = prepareDatabricksOPSpecific();
         outputPort.setSpecific(databricksOutputPortSpecific);
 
-        JsonNode dataContract = prepareDataContract();
+        DataContract dataContract = prepareDataContract();
         outputPort.setDataContract(dataContract);
 
         outputPort.setName("op_name");
@@ -227,22 +222,18 @@ public class OutputPortValidationTest {
         return databricksOutputPortSpecific;
     }
 
-    private JsonNode prepareDataContract() {
-        ObjectMapper objectMapper = new ObjectMapper();
-        ObjectNode schemaNode = objectMapper.createObjectNode();
+    private DataContract prepareDataContract() {
 
-        ObjectNode col1Node = objectMapper.createObjectNode();
-        col1Node.put("name", "col_1");
-        col1Node.put("dataType", "TEXT");
+        Column dataColumn1 = new Column();
+        dataColumn1.setName("col_1");
+        dataColumn1.setDataType("TEXT");
+        Column dataColumn2 = new Column();
+        dataColumn2.setName("col_2");
+        dataColumn2.setDataType("TEXT");
 
-        ObjectNode col2Node = objectMapper.createObjectNode();
-        col2Node.put("name", "col_2");
-        col2Node.put("dataType", "TEXT");
+        DataContract dataContract = new DataContract();
+        dataContract.setSchema(List.of(dataColumn1, dataColumn2));
 
-        ArrayNode colsNode = objectMapper.createArrayNode();
-        colsNode.add(col1Node);
-        colsNode.add(col2Node);
-
-        return schemaNode.set("schema", colsNode);
+        return dataContract;
     }
 }

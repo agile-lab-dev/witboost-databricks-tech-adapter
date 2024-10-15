@@ -20,15 +20,15 @@ import org.springframework.context.annotation.Primary;
 public class TemplatesConfigTest {
 
     @Autowired
-    private TemplatesConfig templatesConfig;
+    private WorkloadTemplatesConfig workloadTemplatesConfig;
 
     @TestConfiguration
     static class TemplatesTestConfig {
 
         @Primary
         @Bean
-        public TemplatesConfig primaryTemplatesConfig() {
-            TemplatesConfig config = new TemplatesConfig();
+        public WorkloadTemplatesConfig primaryTemplatesConfig() {
+            WorkloadTemplatesConfig config = new WorkloadTemplatesConfig();
 
             return config;
         }
@@ -38,13 +38,13 @@ public class TemplatesConfigTest {
     public void testConfigurationProperties() {
         assertEquals(
                 "urn:dmb:utm:databricks-workload-dlt-template",
-                templatesConfig.getDlt().get(0));
-        assertEquals(1, templatesConfig.getDlt().size());
+                workloadTemplatesConfig.getDlt().get(0));
+        assertEquals(1, workloadTemplatesConfig.getDlt().size());
 
         assertEquals(
                 "urn:dmb:utm:databricks-workload-job-template",
-                templatesConfig.getJob().get(0));
-        assertEquals(1, templatesConfig.getJob().size());
+                workloadTemplatesConfig.getJob().get(0));
+        assertEquals(1, workloadTemplatesConfig.getJob().size());
 
         List<String> dlt = new ArrayList<>();
         dlt.add("dlt1");
@@ -53,15 +53,15 @@ public class TemplatesConfigTest {
         job.add("job1");
         job.add("job2");
 
-        templatesConfig.setJob(job);
-        templatesConfig.setDlt(dlt);
+        workloadTemplatesConfig.setJob(job);
+        workloadTemplatesConfig.setDlt(dlt);
 
-        assertEquals("dlt1", templatesConfig.getDlt().get(0));
-        assertEquals("dlt2", templatesConfig.getDlt().get(1));
-        assertEquals(2, templatesConfig.getDlt().size());
+        assertEquals("dlt1", workloadTemplatesConfig.getDlt().get(0));
+        assertEquals("dlt2", workloadTemplatesConfig.getDlt().get(1));
+        assertEquals(2, workloadTemplatesConfig.getDlt().size());
 
-        assertEquals("job1", templatesConfig.getJob().get(0));
-        assertEquals("job2", templatesConfig.getJob().get(1));
-        assertEquals(2, templatesConfig.getJob().size());
+        assertEquals("job1", workloadTemplatesConfig.getJob().get(0));
+        assertEquals("job2", workloadTemplatesConfig.getJob().get(1));
+        assertEquals(2, workloadTemplatesConfig.getJob().size());
     }
 }

@@ -51,6 +51,7 @@ usecasetemplateid:
     job: ["urn:dmb:utm:databricks-workload-job-template"]
     dlt: ["urn:dmb:utm:databricks-workload-dlt-template"]
     workflow: ["urn:dmb:utm:databricks-workload-workflow-template"]
+  outputport: ["urn:dmb:utm:databricks-outputport-template"]
 
 misc:
   developmentEnvironmentName: development

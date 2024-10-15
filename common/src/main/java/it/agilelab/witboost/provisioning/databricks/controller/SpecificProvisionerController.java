@@ -1,11 +1,9 @@
 package it.agilelab.witboost.provisioning.databricks.controller;
 
 import it.agilelab.witboost.provisioning.databricks.openapi.controller.V1ApiDelegate;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.UpdateAclRequest;
-import it.agilelab.witboost.provisioning.databricks.openapi.model.ValidationResult;
+import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.provision.ProvisionService;
+import it.agilelab.witboost.provisioning.databricks.service.reverseprovision.ReverseProvisionService;
 import it.agilelab.witboost.provisioning.databricks.service.updateacl.UpdateAclService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +21,15 @@ public class SpecificProvisionerController implements V1ApiDelegate {
 
     private final ProvisionService provisionService;
     private final UpdateAclService updateAclService;
+    private final ReverseProvisionService reverseProvisionService;
 
-    public SpecificProvisionerController(ProvisionService provisionService, UpdateAclService updateAclService) {
+    public SpecificProvisionerController(
+            ProvisionService provisionService,
+            UpdateAclService updateAclService,
+            ReverseProvisionService reverseProvisionService) {
         this.provisionService = provisionService;
         this.updateAclService = updateAclService;
+        this.reverseProvisionService = reverseProvisionService;
     }
 
     @Override
@@ -52,5 +55,12 @@ public class SpecificProvisionerController implements V1ApiDelegate {
     @Override
     public ResponseEntity<ProvisioningStatus> updateacl(UpdateAclRequest updateAclRequest) {
         return new ResponseEntity<>(updateAclService.updateAcl(updateAclRequest), HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<ReverseProvisioningStatus> runReverseProvisioning(
+            ReverseProvisioningRequest reverseProvisioningRequest) {
+        return new ResponseEntity<>(
+                reverseProvisionService.runReverseProvisioning(reverseProvisioningRequest), HttpStatus.OK);
     }
 }

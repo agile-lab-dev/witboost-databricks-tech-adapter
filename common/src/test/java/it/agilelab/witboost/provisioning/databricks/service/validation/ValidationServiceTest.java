@@ -16,7 +16,7 @@ import com.databricks.sdk.service.catalog.TablesAPI;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
-import it.agilelab.witboost.provisioning.databricks.config.TemplatesConfig;
+import it.agilelab.witboost.provisioning.databricks.config.WorkloadTemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.DescriptorKind;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRequest;
@@ -40,7 +40,7 @@ import org.springframework.context.annotation.Import;
 public class ValidationServiceTest {
 
     @Autowired
-    private TemplatesConfig templatesConfig;
+    private WorkloadTemplatesConfig workloadTemplatesConfig;
 
     @MockBean
     private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
@@ -272,7 +272,7 @@ public class ValidationServiceTest {
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
         ValidationService service =
-                new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock, templatesConfig);
+                new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock, workloadTemplatesConfig);
 
         var actualRes = service.validate(provisioningRequest);
 
@@ -320,7 +320,7 @@ public class ValidationServiceTest {
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
         ValidationService service =
-                new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock, templatesConfig);
+                new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock, workloadTemplatesConfig);
 
         var actualRes = service.validate(provisioningRequest);
 

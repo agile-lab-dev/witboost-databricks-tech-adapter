@@ -12,9 +12,8 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.service.catalog.*;
 import com.databricks.sdk.service.sql.*;
 import com.databricks.sdk.service.workspace.WorkspaceAPI;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.witboost.provisioning.model.Column;
+import com.witboost.provisioning.model.DataContract;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
@@ -1042,15 +1041,12 @@ class OutputPortHandlerTest {
 
         outputPort.setSpecific(databricksOutputPortSpecific);
 
-        // Creating schema
-        ObjectMapper objectMapper = new ObjectMapper();
-        ObjectNode schemaNode = objectMapper.createObjectNode();
+        // Creating empty schema
+        List<Column> emptyDataColumnList = new ArrayList<>();
+        DataContract dataContract = new DataContract();
+        dataContract.setSchema(emptyDataColumnList);
 
-        ArrayNode colsNode = objectMapper.createArrayNode();
-
-        schemaNode.set("schema", colsNode);
-
-        outputPort.setDataContract(schemaNode);
+        outputPort.setDataContract(dataContract);
 
         ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, outputPort, false);
         return provisionRequest;
@@ -1071,24 +1067,18 @@ class OutputPortHandlerTest {
         outputPort.setSpecific(databricksOutputPortSpecific);
 
         // Creating schema
-        ObjectMapper objectMapper = new ObjectMapper();
-        ObjectNode schemaNode = objectMapper.createObjectNode();
+        Column dataColumn1 = new Column();
+        dataColumn1.setName("col_1");
+        dataColumn1.setDataType("TEXT");
 
-        ObjectNode col1Node = objectMapper.createObjectNode();
-        col1Node.put("name", "col_1");
-        col1Node.put("dataType", "TEXT");
+        Column dataColumn2 = new Column();
+        dataColumn2.setName("col_2");
+        dataColumn2.setDataType("TEXT");
 
-        ObjectNode col2Node = objectMapper.createObjectNode();
-        col2Node.put("name", "col_2");
-        col2Node.put("dataType", "TEXT");
+        DataContract dataContract = new DataContract();
+        dataContract.setSchema(List.of(dataColumn1, dataColumn2));
 
-        ArrayNode colsNode = objectMapper.createArrayNode();
-        colsNode.add(col1Node);
-        colsNode.add(col2Node);
-
-        schemaNode.set("schema", colsNode);
-
-        outputPort.setDataContract(schemaNode);
+        outputPort.setDataContract(dataContract);
 
         ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, outputPort, false);
         return provisionRequest;

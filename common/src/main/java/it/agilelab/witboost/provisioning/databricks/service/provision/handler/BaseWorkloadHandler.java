@@ -175,7 +175,7 @@ public class BaseWorkloadHandler {
         }
     }
 
-    protected Either<FailedOperation, Map<String, String>> mapUsers(ProvisionRequest<?> provisionRequest) {
+    protected Either<FailedOperation, Map<String, String>> mapPrincipals(ProvisionRequest<?> provisionRequest) {
         try {
             DatabricksMapper databricksMapper = new DatabricksMapper();
 

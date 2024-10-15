@@ -183,7 +183,7 @@ public class BaseWorkloadHandlerTest {
 
         ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, workload, false);
 
-        Either<FailedOperation, Map<String, String>> result = baseWorkloadHandler.mapUsers(provisionRequest);
+        Either<FailedOperation, Map<String, String>> result = baseWorkloadHandler.mapPrincipals(provisionRequest);
 
         assert result.isLeft();
         assert result.getLeft()
