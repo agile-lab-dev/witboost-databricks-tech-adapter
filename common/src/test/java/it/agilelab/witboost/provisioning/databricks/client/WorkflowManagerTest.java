@@ -87,9 +87,7 @@ public class WorkflowManagerTest {
         newJobSettings.setJobClusters(newClusters);
 
         newJob.setSettings(newJobSettings);
-
         when(workspaceClient.jobs()).thenReturn(jobsAPI);
-        when(jobsAPI.get(anyLong())).thenReturn(job);
         BaseJob existingJob = new BaseJob().setJobId(jobId).setSettings(jobSettings);
         when(jobsAPI.list(any())).thenReturn(List.of(existingJob));
 
@@ -97,7 +95,7 @@ public class WorkflowManagerTest {
 
         assertTrue(result.isRight());
         assertEquals(jobId, result.get());
-        verify(workspaceClient.jobs(), times(1)).update(any(UpdateJob.class));
+        verify(workspaceClient.jobs(), times(1)).reset(anyLong(), any(JobSettings.class));
     }
 
     @Test
@@ -156,12 +154,11 @@ public class WorkflowManagerTest {
         job.setJobId(jobId);
         job.setSettings(new JobSettings().setName(jobName));
         when(workspaceClient.jobs()).thenReturn(jobsAPI);
-        when(workspaceClient.jobs().get(job.getJobId())).thenReturn(job);
         Either<FailedOperation, Long> result = workflowManager.updateWorkflow(job);
 
         assertTrue(result.isRight());
         assertEquals(jobId, result.get());
-        verify(workspaceClient.jobs(), times(1)).update(any(UpdateJob.class));
+        verify(workspaceClient.jobs(), times(1)).reset(anyLong(), any(JobSettings.class));
     }
 
     @Test
@@ -170,8 +167,7 @@ public class WorkflowManagerTest {
         job.setSettings(new JobSettings().setName(jobName));
         job.setJobId(123l);
         when(workspaceClient.jobs()).thenReturn(jobsAPI);
-        when(jobsAPI.get(job.getJobId())).thenReturn(job);
-        doThrow(new RuntimeException("Update failed")).when(jobsAPI).update(any(UpdateJob.class));
+        doThrow(new RuntimeException("Update failed")).when(jobsAPI).reset(anyLong(), any(JobSettings.class));
 
         Either<FailedOperation, Long> result = workflowManager.updateWorkflow(job);
 

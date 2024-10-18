@@ -143,11 +143,14 @@ usecasetemplateid:
   workload:
     job: ["urn:dmb:utm:databricks-workload-job-template"]
     dlt: ["urn:dmb:utm:databricks-workload-dlt-template"]
-
+    workflow: ["urn:dmb:utm:databricks-workload-workflow-template"]
+  outputport: ["urn:dmb:utm:databricks-outputport-template"]
 ```
 
 * **workload.job**: useCaseTemplateId for Databricks jobs.
 * **workload.dlt**: useCaseTemplateId for Databricks Delta Live Tables (DLT).
+* **workload.workflow**: useCaseTemplateId for Databricks Workflows.
+* **outputport**: useCaseTemplateId for Databricks Output Port.
 
 
 ## `misc` Section

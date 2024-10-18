@@ -60,12 +60,12 @@ public class OutputPortReverseProvisionTest {
         CatalogInfo catalogInfo = new CatalogInfo();
         catalogInfo.setSpec(spec);
 
-        Specific specific = new Specific();
+        OutputPortReverseProvisioningSpecific specific = new OutputPortReverseProvisioningSpecific();
         specific.setWorkspace("workspace_op");
         EnvironmentSpecificConfig environmentSpecificConfig = new EnvironmentSpecificConfig();
         environmentSpecificConfig.setSpecific(specific);
 
-        Params params = new Params();
+        OutputportReverseProvisioningParams params = new OutputportReverseProvisioningParams();
         params.setCatalogName("catalog_PARAMS");
         params.setSchemaName("schema_PARAMS");
         params.setTableName("table_PARAMS");

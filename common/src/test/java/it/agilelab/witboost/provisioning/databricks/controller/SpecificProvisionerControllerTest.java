@@ -2,14 +2,16 @@ package it.agilelab.witboost.provisioning.databricks.controller;
 
 import static org.mockito.Mockito.when;
 
+import com.databricks.sdk.service.jobs.Job;
+import com.databricks.sdk.service.jobs.JobSettings;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.common.SpecificProvisionerValidationException;
+import it.agilelab.witboost.provisioning.databricks.model.reverseprovisioningrequest.*;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.provision.ProvisionService;
-import java.util.Collections;
-import java.util.Objects;
-import java.util.UUID;
+import it.agilelab.witboost.provisioning.databricks.service.reverseprovision.ReverseProvisionService;
+import java.util.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +29,9 @@ public class SpecificProvisionerControllerTest {
 
     @Mock
     private ProvisionService service;
+
+    @Mock
+    private ReverseProvisionService reverseProvisionService;
 
     @InjectMocks
     private SpecificProvisionerController specificProvisionerController;
@@ -137,5 +142,44 @@ public class SpecificProvisionerControllerTest {
         Assertions.assertEquals(
                 ProvisioningStatus.StatusEnum.COMPLETED, actualRes.getBody().getStatus());
         Assertions.assertEquals("this is the result", actualRes.getBody().getResult());
+    }
+
+    @Test
+    void testWorkflowReverseProvisioning() {
+        ReverseProvisioningRequest request = new ReverseProvisioningRequest();
+        request.setEnvironment("qa");
+        request.setUseCaseTemplateId("urn:dmb:utm:databricks-workload-workflow-template");
+
+        CatalogInfo catalogInfo = new CatalogInfo<>();
+        request.setCatalogInfo(catalogInfo);
+
+        WorkflowReverseProvisioningParams params = new WorkflowReverseProvisioningParams();
+        EnvironmentSpecificConfig environmentSpecificConfig = new EnvironmentSpecificConfig();
+        WorkflowReverseProvisioningSpecific specific = new WorkflowReverseProvisioningSpecific();
+        specific.setWorkspace("workspaceName");
+
+        Job workflow = new Job();
+        workflow.setJobId(123L);
+        workflow.setSettings(new JobSettings().setName("jobName"));
+        specific.setWorkflow(workflow);
+
+        environmentSpecificConfig.setSpecific(specific);
+        params.setEnvironmentSpecificConfig(environmentSpecificConfig);
+        request.setParams(params);
+
+        MockHttpServletRequest mockHttpServletRequest = new MockHttpServletRequest();
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(mockHttpServletRequest));
+        Map<String, String> updates = Map.of("update", "result");
+        when(reverseProvisionService.runReverseProvisioning(request))
+                .thenReturn(new ReverseProvisioningStatus(ReverseProvisioningStatus.StatusEnum.COMPLETED, updates));
+
+        ResponseEntity<ReverseProvisioningStatus> actualRes =
+                specificProvisionerController.runReverseProvisioning(request);
+
+        Assertions.assertEquals(HttpStatusCode.valueOf(200), actualRes.getStatusCode());
+        Assertions.assertEquals(
+                ReverseProvisioningStatus.StatusEnum.COMPLETED,
+                actualRes.getBody().getStatus());
+        Assertions.assertEquals(updates, actualRes.getBody().getUpdates());
     }
 }

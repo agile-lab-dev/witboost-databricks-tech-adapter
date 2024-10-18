@@ -5,7 +5,6 @@ import static io.vavr.control.Either.right;
 
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.jobs.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
@@ -97,46 +96,11 @@ public class WorkflowManager {
     public Either<FailedOperation, Long> updateWorkflow(Job workflow) {
 
         try {
-
             logger.info(String.format(
                     "Updating workflow [name: %s, workspace %s].",
                     workflow.getSettings().getName(), workspaceName));
 
-            Either<FailedOperation, List<String>> eitherNullFields = getNullFields(workflow.getSettings());
-            if (eitherNullFields.isLeft()) return left(eitherNullFields.getLeft());
-
-            List<String> nullFields = eitherNullFields.get();
-            nullFields.remove("tasks");
-            nullFields.remove("job_clusters");
-
-            Collection<Task> tasks = workspaceClient
-                    .jobs()
-                    .get(workflow.getJobId())
-                    .getSettings()
-                    .getTasks(); // Tasks of the workflow present on Databricks
-
-            if (workflow.getSettings().getTasks() != null)
-                tasks.removeAll(workflow.getSettings().getTasks()); // Get list of tasks to delete
-
-            Collection<JobCluster> clusters = workspaceClient
-                    .jobs()
-                    .get(workflow.getJobId())
-                    .getSettings()
-                    .getJobClusters(); // Clusters linked to the workflow present on Databricks
-            if (workflow.getSettings().getJobClusters() != null)
-                clusters.removeAll(workflow.getSettings().getJobClusters()); // Get list of clusters to delete
-
-            if (tasks != null) tasks.forEach(task -> nullFields.add(String.format("tasks/%s", task.getTaskKey())));
-            if (clusters != null)
-                clusters.forEach(
-                        cluster -> nullFields.add(String.format("job_clusters/%s", cluster.getJobClusterKey())));
-
-            workspaceClient
-                    .jobs()
-                    .update(new UpdateJob()
-                            .setJobId(workflow.getJobId())
-                            .setNewSettings(workflow.getSettings())
-                            .setFieldsToRemove(nullFields));
+            workspaceClient.jobs().reset(workflow.getJobId(), workflow.getSettings());
 
             return right(workflow.getJobId());
 
@@ -147,28 +111,5 @@ public class WorkflowManager {
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
-    }
-
-    private Either<FailedOperation, List<String>> getNullFields(JobSettings settings) {
-        List<String> nullFields = new ArrayList<>();
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        try {
-            Map<String, Object> fieldsMap = objectMapper.convertValue(settings, Map.class);
-
-            fieldsMap.forEach((key, value) -> {
-                if (value == null) {
-                    nullFields.add(key);
-                }
-            });
-        } catch (Exception e) {
-            String errorMessage = String.format(
-                    "An error occurred while updating the workflow %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
-                    settings.getName(), workspaceName, e.getMessage());
-            logger.error(errorMessage, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
-        }
-
-        return right(nullFields);
     }
 }

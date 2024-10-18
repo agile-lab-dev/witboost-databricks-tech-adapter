@@ -14,7 +14,7 @@ azure:
     clientId: ${AZURE_CLIENT_ID}
     tenantId: ${AZURE_TENANT_ID}
     clientSecret: ${AZURE_CLIENT_SECRET}
-    skuType:  '' #Allowed only PREMIUM or TRIAL. If different, premium will be set as default
+    skuType: "" #Allowed only PREMIUM or TRIAL. If different, premium will be set as default
 
   permissions:
     auth_clientId: ${PERMISSIONS_AZURE_CLIENT_ID}
@@ -50,7 +50,7 @@ usecasetemplateid:
   workload:
     job: ["urn:dmb:utm:databricks-workload-job-template"]
     dlt: ["urn:dmb:utm:databricks-workload-dlt-template"]
-    workflow: [ "urn:dmb:utm:databricks-workload-workflow-template"]
+    workflow: ["urn:dmb:utm:databricks-workload-workflow-template"]
   outputport: ["urn:dmb:utm:databricks-outputport-template"]
 
 misc:

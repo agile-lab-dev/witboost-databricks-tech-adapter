@@ -8,9 +8,7 @@ import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.catalog.TableInfo;
-import com.databricks.sdk.service.jobs.BaseJob;
-import com.databricks.sdk.service.jobs.Job;
-import com.databricks.sdk.service.jobs.JobSettings;
+import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
@@ -362,12 +360,13 @@ public class ProvisionServiceImpl implements ProvisionService {
         }
 
         // Exactly one workflow with the same name
+
         Job existingWorkflow = workspaceClient.jobs().get(workflowList.get(0).getJobId());
         Job requestWorkflow = specific.getWorkflow();
-
         requestWorkflow.setCreatedTime(existingWorkflow.getCreatedTime());
         requestWorkflow.setCreatorUserName(existingWorkflow.getCreatorUserName());
         requestWorkflow.setJobId(existingWorkflow.getJobId());
+        requestWorkflow.setRunAsUserName(existingWorkflow.getRunAsUserName());
 
         // Is the request workflow equals to the one in the Databricks workspace?
         if (!existingWorkflow.equals(requestWorkflow)) {
@@ -392,8 +391,13 @@ public class ProvisionServiceImpl implements ProvisionService {
             emptyWorflow.setCreatorUserName(requestWorkflow.getCreatorUserName());
             emptyWorflow.setJobId(requestWorkflow.getJobId());
             emptyWorflow.setRunAsUserName(requestWorkflow.getRunAsUserName());
-            emptyWorflow.setSettings(
-                    new JobSettings().setName(requestWorkflow.getSettings().getName()));
+            emptyWorflow.setSettings(new JobSettings()
+                    .setName(requestWorkflow.getSettings().getName())
+                    .setEmailNotifications(new JobEmailNotifications())
+                    .setWebhookNotifications(new WebhookNotifications())
+                    .setFormat(Format.MULTI_TASK)
+                    .setTimeoutSeconds(0l)
+                    .setMaxConcurrentRuns(1l));
 
             if (requestWorkflow.equals(emptyWorflow)) {
                 // Override a NON-empty workflow with an empty one is not allowed. Reverse provisioning required

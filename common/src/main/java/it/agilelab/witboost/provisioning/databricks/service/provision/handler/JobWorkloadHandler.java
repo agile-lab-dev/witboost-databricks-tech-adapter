@@ -54,12 +54,15 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
             Either<FailedOperation, Map<String, String>> eitherPrincipalsMapping = mapPrincipals(provisionRequest);
             if (eitherPrincipalsMapping.isLeft()) return Either.left(eitherPrincipalsMapping.getLeft());
 
+            if (eitherPrincipalsMapping.isLeft()) return Either.left(eitherPrincipalsMapping.getLeft());
+
             Map<String, String> principalsMapping = eitherPrincipalsMapping.get();
             String dpOwnerDatabricksId =
                     principalsMapping.get(provisionRequest.dataProduct().getDataProductOwner());
 
             // TODO: This is a temporary solution. Remove or update this logic in the future.
             String devGroup = provisionRequest.dataProduct().getDevGroup();
+
             if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
 
             String dpDevGroupDatabricksId = principalsMapping.get(devGroup);

@@ -45,7 +45,8 @@ public class OutputPortReverseProvision {
 
         // Parsing params
         Object paramsObj = reverseProvisioningRequest.getParams();
-        Params params = mapper.convertValue(paramsObj, Params.class);
+        OutputportReverseProvisioningParams params =
+                mapper.convertValue(paramsObj, OutputportReverseProvisioningParams.class);
 
         String catalogName = params.getCatalogName();
         String schemaName = params.getSchemaName();

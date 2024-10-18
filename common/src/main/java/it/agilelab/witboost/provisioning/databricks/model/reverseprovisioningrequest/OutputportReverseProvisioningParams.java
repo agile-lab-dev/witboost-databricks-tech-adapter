@@ -11,10 +11,10 @@ import lombok.ToString;
 @ToString
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Params {
+public class OutputportReverseProvisioningParams {
     private String catalogName;
     private String schemaName;
     private String tableName;
     private String reverseProvisioningOption;
-    private EnvironmentSpecificConfig environmentSpecificConfig;
+    private EnvironmentSpecificConfig<OutputPortReverseProvisioningSpecific> environmentSpecificConfig;
 }

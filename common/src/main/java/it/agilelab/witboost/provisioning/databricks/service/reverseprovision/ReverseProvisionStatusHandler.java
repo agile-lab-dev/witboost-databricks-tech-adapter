@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 public final class ReverseProvisionStatusHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(ReverseProvisioningStatus.class);
+    private static final Logger logger = LoggerFactory.getLogger(ReverseProvisionStatusHandler.class);
 
     public static ReverseProvisioningStatus handleReverseProvisioningStatusFailed(String message) {
         logger.error(message);

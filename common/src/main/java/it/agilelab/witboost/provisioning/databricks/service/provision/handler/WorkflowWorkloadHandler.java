@@ -61,8 +61,8 @@ public class WorkflowWorkloadHandler extends BaseWorkloadHandler {
 
             // TODO: This is a temporary solution. Remove or update this logic in the future.
             String devGroup = provisionRequest.dataProduct().getDevGroup();
-            if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
 
+            if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
             String dpDevGroupDatabricksId = principalsMapping.get(devGroup);
 
             Either<FailedOperation, Void> eitherCreatedRepo = createRepositoryWithPermissions(

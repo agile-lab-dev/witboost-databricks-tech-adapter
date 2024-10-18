@@ -104,7 +104,7 @@ public class ValidationServiceImpl implements ValidationService {
         Component<? extends Specific> componentToProvision;
         switch (componentKindToProvision) {
             case WORKLOAD_KIND:
-                logger.info("Parsing Workload Component");
+                logger.info(String.format("Parsing Workload Component [id %s]", componentId));
                 var eitherWorkloadToProvision = parseComponent(componentToProvisionAsJson);
                 if (eitherWorkloadToProvision.isLeft()) return left(eitherWorkloadToProvision.getLeft());
                 componentToProvision = eitherWorkloadToProvision.get();

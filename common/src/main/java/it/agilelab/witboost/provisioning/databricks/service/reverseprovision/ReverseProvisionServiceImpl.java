@@ -15,17 +15,17 @@ import org.springframework.stereotype.Service;
 public class ReverseProvisionServiceImpl implements ReverseProvisionService {
 
     private final Logger logger = LoggerFactory.getLogger(ReverseProvisionServiceImpl.class);
-    // private final WorkflowReverseProvision workflowReverseProvision;
+    private final WorkflowReverseProvision workflowReverseProvision;
     private final OutputPortReverseProvision outputPortReverseProvision;
     private final WorkloadTemplatesConfig workloadTemplatesConfig;
     private final OutputPortTemplatesConfig outputPortTemplatesConfig;
 
     public ReverseProvisionServiceImpl(
-            // WorkflowReverseProvision workflowReverseProvision,
+            WorkflowReverseProvision workflowReverseProvision,
             OutputPortReverseProvision outputPortReverseProvision,
             WorkloadTemplatesConfig workloadTemplatesConfig,
             OutputPortTemplatesConfig outputPortTemplatesConfig) {
-        // this.workflowReverseProvision = workflowReverseProvision;
+        this.workflowReverseProvision = workflowReverseProvision;
         this.outputPortReverseProvision = outputPortReverseProvision;
         this.workloadTemplatesConfig = workloadTemplatesConfig;
         this.outputPortTemplatesConfig = outputPortTemplatesConfig;
@@ -42,8 +42,8 @@ public class ReverseProvisionServiceImpl implements ReverseProvisionService {
 
         if (outputPortTemplatesConfig.getOutputport().contains(useCaseTemplateId))
             return outputPortReverseProvision.reverseProvision(reverseProvisioningRequest);
-        // else if (workloadTemplatesConfig.getWorkflow().contains(useCaseTemplateId))
-        //    return workflowReverseProvision.reverseProvision(reverseProvisioningRequest);
+        else if (workloadTemplatesConfig.getWorkflow().contains(useCaseTemplateId))
+            return workflowReverseProvision.reverseProvision(reverseProvisioningRequest);
 
         return handleReverseProvisioningStatusFailed(String.format(
                 "The useCaseTemplateId '%s' of the component is not supported by this Tech Adapter",

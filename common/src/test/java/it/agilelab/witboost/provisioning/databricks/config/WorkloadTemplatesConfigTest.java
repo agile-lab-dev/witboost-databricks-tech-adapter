@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Primary;
 @SpringBootTest
 @EnableConfigurationProperties(AzureAuthConfig.class)
 @Import(TestConfig.class)
-public class TemplatesConfigTest {
+public class WorkloadTemplatesConfigTest {
 
     @Autowired
     private WorkloadTemplatesConfig workloadTemplatesConfig;

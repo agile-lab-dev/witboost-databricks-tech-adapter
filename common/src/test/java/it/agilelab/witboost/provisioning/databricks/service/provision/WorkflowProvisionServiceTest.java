@@ -9,10 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
-import com.databricks.sdk.service.jobs.BaseJob;
-import com.databricks.sdk.service.jobs.Job;
-import com.databricks.sdk.service.jobs.JobSettings;
-import com.databricks.sdk.service.jobs.JobsAPI;
+import com.databricks.sdk.service.jobs.*;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
@@ -646,10 +643,23 @@ public class WorkflowProvisionServiceTest {
         specific.setWorkspace("workspace");
         Job wf = new Job();
         wf.setJobId(123l);
-        wf.setSettings(new JobSettings().setName("databricksWorkflow"));
+        wf.setSettings(new JobSettings()
+                .setName("databricksWorkflow")
+                .setEmailNotifications(new JobEmailNotifications())
+                .setWebhookNotifications(new WebhookNotifications())
+                .setFormat(Format.MULTI_TASK)
+                .setTimeoutSeconds(0l)
+                .setMaxConcurrentRuns(1l));
         Job wf2 = new Job();
         wf2.setJobId(456l);
-        wf2.setSettings(new JobSettings().setName("wf2"));
+
+        wf2.setSettings(new JobSettings()
+                .setName("wf2")
+                .setEmailNotifications(new JobEmailNotifications())
+                .setWebhookNotifications(new WebhookNotifications())
+                .setFormat(Format.MULTI_TASK)
+                .setTimeoutSeconds(0l)
+                .setMaxConcurrentRuns(1l));
 
         specific.setWorkflow(wf);
         workload.setSpecific(specific);
@@ -677,7 +687,8 @@ public class WorkflowProvisionServiceTest {
         assert actualRes
                 .getResult()
                 .contains(
-                        "It is not permitted to replace a NON-empty workflow [name: databricksWorkflow, id: 456, workspace: workspace] with an empty one. Kindly perform reverse provisioning and try again.");
+                        "It is not permitted to replace a NON-empty workflow [name: databricksWorkflow, "
+                                + "id: 456, workspace: workspace] with an empty one. Kindly perform reverse provisioning and try again.");
     }
 
     @Test
