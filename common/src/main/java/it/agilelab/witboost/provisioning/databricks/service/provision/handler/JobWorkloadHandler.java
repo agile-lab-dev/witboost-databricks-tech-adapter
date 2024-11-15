@@ -181,7 +181,7 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
             return jobManager.createOrUpdateJobWithNewCluster(
                     databricksJobWorkloadSpecific.getJobName(),
                     databricksJobWorkloadSpecific.getDescription(),
-                    UUID.randomUUID().toString(),
+                    "Task1",
                     databricksJobWorkloadSpecific.getCluster(),
                     databricksJobWorkloadSpecific.getScheduling(),
                     databricksJobWorkloadSpecific.getGit());
