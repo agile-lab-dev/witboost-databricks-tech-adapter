@@ -17,4 +17,12 @@ public class OutputportReverseProvisioningParams {
     private String tableName;
     private String reverseProvisioningOption;
     private EnvironmentSpecificConfig<OutputPortReverseProvisioningSpecific> environmentSpecificConfig;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class OutputPortReverseProvisioningSpecific {
+        private String workspace;
+    }
 }

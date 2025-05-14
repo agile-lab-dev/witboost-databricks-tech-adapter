@@ -18,11 +18,11 @@ import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.model.Component;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.outputport.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.provision.handler.DLTWorkloadHandler;
@@ -274,7 +274,7 @@ public class ProvisionServiceImpl implements ProvisionService {
             return;
         }
 
-        Either<FailedOperation, String> eitherNewWf = workflowWorkloadHandler.provisionWorkload(
+        Either<FailedOperation, String> eitherNewWf = workflowWorkloadHandler.provisionWorkflow(
                 provisionRequest, eitherWorkspaceClient.get(), databricksWorkspaceInfo);
         if (eitherNewWf.isLeft()) {
             handleFailure(token, eitherNewWf.getLeft());

@@ -1,5 +1,6 @@
 package it.agilelab.witboost.provisioning.databricks.model.reverseprovisioningrequest;
 
+import com.databricks.sdk.service.jobs.Job;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,4 +18,13 @@ public class WorkflowReverseProvisioningParams {
     private String tableName;
     private String reverseProvisioningOption;
     private EnvironmentSpecificConfig<WorkflowReverseProvisioningSpecific> environmentSpecificConfig;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class WorkflowReverseProvisioningSpecific {
+        private String workspace;
+        private Job workflow;
+    }
 }

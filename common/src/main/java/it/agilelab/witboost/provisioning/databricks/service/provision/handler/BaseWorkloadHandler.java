@@ -8,6 +8,7 @@ import com.databricks.sdk.service.workspace.RepoPermissionLevel;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.client.IdentityManager;
 import it.agilelab.witboost.provisioning.databricks.client.RepoManager;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -16,9 +17,9 @@ import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.databricks.DatabricksMapper;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,9 +28,9 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+@Service
 public class BaseWorkloadHandler {
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -37,17 +38,20 @@ public class BaseWorkloadHandler {
     protected final GitCredentialsConfig gitCredentialsConfig;
     protected final DatabricksPermissionsConfig databricksPermissionsConfig;
     protected final AccountClient accountClient;
+    protected final WorkspaceLevelManagerFactory workspaceLevelManagerFactory;
 
     @Autowired
     public BaseWorkloadHandler(
             AzureAuthConfig azureAuthConfig,
             GitCredentialsConfig gitCredentialsConfig,
             DatabricksPermissionsConfig databricksPermissionsConfig,
-            AccountClient accountClient) {
+            AccountClient accountClient,
+            WorkspaceLevelManagerFactory workspaceLevelManagerFactory) {
         this.azureAuthConfig = azureAuthConfig;
         this.gitCredentialsConfig = gitCredentialsConfig;
         this.databricksPermissionsConfig = databricksPermissionsConfig;
         this.accountClient = accountClient;
+        this.workspaceLevelManagerFactory = workspaceLevelManagerFactory;
     }
 
     /**
@@ -153,6 +157,7 @@ public class BaseWorkloadHandler {
             String gitRepo = null;
 
             Specific specific = provisionRequest.component().getSpecific();
+
             if (specific instanceof DatabricksDLTWorkloadSpecific) {
                 DatabricksDLTWorkloadSpecific dltSpecific = (DatabricksDLTWorkloadSpecific) specific;
                 gitRepo = dltSpecific.getGit().getGitRepoUrl();

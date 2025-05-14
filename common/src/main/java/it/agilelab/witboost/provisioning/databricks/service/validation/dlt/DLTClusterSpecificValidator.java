@@ -1,7 +1,7 @@
 package it.agilelab.witboost.provisioning.databricks.service.validation.dlt;
 
 import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DLTClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DLTClusterSpecific;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 

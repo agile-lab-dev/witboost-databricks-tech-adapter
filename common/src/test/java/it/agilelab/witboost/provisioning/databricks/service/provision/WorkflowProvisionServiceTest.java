@@ -148,7 +148,7 @@ public class WorkflowProvisionServiceTest {
         when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
 
-        when(workflowWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+        when(workflowWorkloadHandler.provisionWorkflow(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right("workloadId"));
 
         var info = Map.of(
@@ -246,7 +246,7 @@ public class WorkflowProvisionServiceTest {
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
         when(workspaceClient.jobs()).thenReturn(mock(JobsAPI.class));
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("jobCreationError")));
-        when(workflowWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+        when(workflowWorkloadHandler.provisionWorkflow(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(left(failedOperation));
 
         String token = provisionService.provision(provisioningRequest);
@@ -544,7 +544,7 @@ public class WorkflowProvisionServiceTest {
         when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
 
-        when(workflowWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+        when(workflowWorkloadHandler.provisionWorkflow(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right("workloadId"));
 
         var info = Map.of(
@@ -727,7 +727,7 @@ public class WorkflowProvisionServiceTest {
         when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
 
-        when(workflowWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+        when(workflowWorkloadHandler.provisionWorkflow(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right("workloadId"));
 
         var info = Map.of(
@@ -846,7 +846,7 @@ public class WorkflowProvisionServiceTest {
         when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
 
-        when(workflowWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo))
+        when(workflowWorkloadHandler.provisionWorkflow(provisionRequest, workspaceClient, workspaceInfo))
                 .thenReturn(right("workloadId"));
 
         var info = Map.of(

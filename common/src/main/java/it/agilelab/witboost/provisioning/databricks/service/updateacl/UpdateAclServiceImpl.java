@@ -5,11 +5,11 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.common.SpecificProvisionerValidationException;
+import it.agilelab.witboost.provisioning.databricks.common.TechAdapterValidationException;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.outputport.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.provision.handler.OutputPortHandler;
@@ -49,7 +49,8 @@ public class UpdateAclServiceImpl implements UpdateAclService {
 
         Either<FailedOperation, ProvisionRequest<? extends Specific>> eitherValidation =
                 validationService.validate(provisioningRequest);
-        if (eitherValidation.isLeft()) throw new SpecificProvisionerValidationException(eitherValidation.getLeft());
+        if (eitherValidation.isLeft())
+            throw new TechAdapterValidationException("Validation error", eitherValidation.getLeft());
 
         ProvisionRequest<? extends Specific> provisionRequest = eitherValidation.get();
 
@@ -95,8 +96,8 @@ public class UpdateAclServiceImpl implements UpdateAclService {
             String error =
                     String.format("The kind '%s' of the component is not supported by this Specific Provisioner", kind);
             logger.error(error);
-            throw new SpecificProvisionerValidationException(
-                    new FailedOperation(Collections.singletonList(new Problem(error))));
+            throw new TechAdapterValidationException(
+                    error, new FailedOperation(Collections.singletonList(new Problem(error))));
         }
     }
 }

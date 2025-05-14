@@ -9,6 +9,7 @@ import com.databricks.sdk.service.jobs.BaseJob;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.client.JobManager;
 import it.agilelab.witboost.provisioning.databricks.client.RepoManager;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -16,7 +17,7 @@ import it.agilelab.witboost.provisioning.databricks.config.DatabricksPermissions
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,8 +34,14 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
             AzureAuthConfig azureAuthConfig,
             GitCredentialsConfig gitCredentialsConfig,
             DatabricksPermissionsConfig databricksPermissionsConfig,
-            AccountClient accountClient) {
-        super(azureAuthConfig, gitCredentialsConfig, databricksPermissionsConfig, accountClient);
+            AccountClient accountClient,
+            WorkspaceLevelManagerFactory workspaceLevelManagerFactory) {
+        super(
+                azureAuthConfig,
+                gitCredentialsConfig,
+                databricksPermissionsConfig,
+                accountClient,
+                workspaceLevelManagerFactory);
     }
 
     /**

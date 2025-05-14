@@ -9,11 +9,10 @@ import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobClusterSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobGitSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.SchedulingSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.JobClusterSpecific;
 import java.util.*;
+import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,8 +49,8 @@ public class JobManager {
             String description,
             String taskKey,
             JobClusterSpecific jobClusterSpecific,
-            SchedulingSpecific schedulingSpecific,
-            JobGitSpecific jobGitSpecific) {
+            DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
+            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
 
         Either<FailedOperation, Iterable<BaseJob>> eitherGetJobs = listJobsWithGivenName(jobName);
 
@@ -94,8 +93,8 @@ public class JobManager {
             String description,
             String taskKey,
             JobClusterSpecific jobClusterSpecific,
-            SchedulingSpecific schedulingSpecific,
-            JobGitSpecific jobGitSpecific) {
+            DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
+            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
 
         try {
 
@@ -163,8 +162,8 @@ public class JobManager {
             String description,
             String taskKey,
             JobClusterSpecific jobClusterSpecific,
-            SchedulingSpecific schedulingSpecific,
-            JobGitSpecific jobGitSpecific) {
+            DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
+            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
 
         try {
             logger.info(String.format("Updating job %s in %s", jobName, workspaceName));
@@ -314,13 +313,19 @@ public class JobManager {
         }
     }
 
-    private GitSource getGitSourceFromSpecific(JobGitSpecific jobGitSpecific) {
+    private GitSource getGitSourceFromSpecific(DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
         GitSource gitLabSource =
                 new GitSource().setGitUrl(jobGitSpecific.getGitRepoUrl()).setGitProvider(GitProvider.GIT_LAB);
 
-        if (jobGitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.BRANCH.toString()))
+        if (jobGitSpecific
+                .getGitReferenceType()
+                .toString()
+                .equalsIgnoreCase(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH.toString()))
             gitLabSource.setGitBranch(jobGitSpecific.getGitReference());
-        else if (jobGitSpecific.getGitReferenceType().toString().equalsIgnoreCase(GitReferenceType.TAG.toString())) {
+        else if (jobGitSpecific
+                .getGitReferenceType()
+                .toString()
+                .equalsIgnoreCase(DatabricksJobWorkloadSpecific.GitReferenceType.TAG.toString())) {
             gitLabSource.setGitTag(jobGitSpecific.getGitReference());
         }
 
@@ -352,5 +357,38 @@ public class JobManager {
                 .setSparkConf(sparkConfNew)
                 .setSparkEnvVars(envVarNew)
                 .setRuntimeEngine(jobClusterSpecific.getRuntimeEngine());
+    }
+
+    public Either<FailedOperation, String> retrieveJobIdFromName(String jobName) {
+
+        try {
+            Iterable<BaseJob> jobsIterable = workspaceClient.jobs().list(new ListJobsRequest());
+            List<BaseJob> jobListFiltered = StreamSupport.stream(jobsIterable.spliterator(), false)
+                    .filter(job -> job.getSettings().getName().equalsIgnoreCase(jobName))
+                    .toList();
+
+            if (jobListFiltered.isEmpty()) {
+                String errorMessage = String.format(
+                        "An error occurred while searching job '%s' in %s: no job found with that name.",
+                        jobName, workspaceName);
+                logger.error(errorMessage);
+                return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+            } else if (jobListFiltered.size() > 1) {
+                String errorMessage = String.format(
+                        "An error occurred while searching job '%s' in %s: more than 1 job found with that name.",
+                        jobName, workspaceName);
+                logger.error(errorMessage);
+                return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+            } else {
+                return right(jobListFiltered.get(0).getJobId().toString());
+            }
+
+        } catch (Exception e) {
+            String errorMessage = String.format(
+                    "An error occurred while getting the list of Jobs named %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    jobName, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        }
     }
 }

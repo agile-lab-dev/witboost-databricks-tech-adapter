@@ -29,7 +29,8 @@ import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.*;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.JobClusterSpecific;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,10 +80,11 @@ public class JobWorkloadHandlerTest {
         databricksJobWorkloadSpecific.setJobName("jobName");
         databricksJobWorkloadSpecific.setRepoPath("dataproduct/component");
 
-        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                new DatabricksJobWorkloadSpecific.JobGitSpecific();
         jobGitSpecific.setGitRepoUrl("repoUrl");
         jobGitSpecific.setGitReference("main");
-        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific.setGitReferenceType(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
         jobGitSpecific.setGitPath("/src");
         databricksJobWorkloadSpecific.setGit(jobGitSpecific);
 
@@ -96,14 +98,15 @@ public class JobWorkloadHandlerTest {
         sparkConf.setName("spark.conf");
         sparkConf.setValue("value");
         jobClusterSpecific.setSparkConf(List.of(sparkConf));
-        SparkEnvVar sparkEnvVar = new SparkEnvVar();
+        DatabricksJobWorkloadSpecific.SparkEnvVar sparkEnvVar = new DatabricksJobWorkloadSpecific.SparkEnvVar();
         sparkEnvVar.setName("spark.env.var");
         sparkEnvVar.setValue("value");
         jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
         jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
         databricksJobWorkloadSpecific.setCluster(jobClusterSpecific);
 
-        SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific =
+                new DatabricksJobWorkloadSpecific.SchedulingSpecific();
         schedulingSpecific.setCronExpression("00 * * * * ?");
         schedulingSpecific.setJavaTimezoneId("UTC");
         databricksJobWorkloadSpecific.setScheduling(schedulingSpecific);

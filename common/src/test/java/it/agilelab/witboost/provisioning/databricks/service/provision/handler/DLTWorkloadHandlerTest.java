@@ -20,6 +20,7 @@ import com.databricks.sdk.service.pipelines.PipelineStateInfo;
 import com.databricks.sdk.service.pipelines.PipelinesAPI;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
@@ -29,9 +30,10 @@ import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DLTClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -75,6 +77,9 @@ public class DLTWorkloadHandlerTest {
     @MockBean
     private AzureResourceManager azureResourceManager;
 
+    @Mock
+    WorkspaceLevelManagerFactory workspaceLevelManagerFactory;
+
     private DLTWorkloadHandler dltWorkloadHandler;
     private DataProduct dataProduct;
     private Workload workload;
@@ -103,7 +108,11 @@ public class DLTWorkloadHandlerTest {
     public void setUp() {
 
         dltWorkloadHandler = new DLTWorkloadHandler(
-                azureAuthConfig, gitCredentialsConfig, databricksPermissionsConfig, accountClient);
+                azureAuthConfig,
+                gitCredentialsConfig,
+                databricksPermissionsConfig,
+                accountClient,
+                workspaceLevelManagerFactory);
         MockitoAnnotations.openMocks(this);
         dataProduct = new DataProduct();
         workload = new Workload();
@@ -123,7 +132,7 @@ public class DLTWorkloadHandlerTest {
         specific.setWorkspace("workspace");
         specific.setPipelineName("pipelineName");
         specific.setRepoPath("dataproduct/component");
-        specific.setProductEdition(ProductEdition.CORE);
+        specific.setProductEdition(DatabricksDLTWorkloadSpecific.ProductEdition.CORE);
         specific.setContinuous(true);
         specific.setNotebooks(List.of("notebook1", "notebook2"));
         specific.setFiles(List.of("file1", "file2"));
@@ -131,14 +140,17 @@ public class DLTWorkloadHandlerTest {
         specific.setTarget("target");
         specific.setPhoton(true);
         List notifications = new ArrayList();
-        notifications.add(new PipelineNotification("email@email.com", Collections.singletonList("on-update-test")));
-        notifications.add(new PipelineNotification("email2@email.com", Collections.singletonList("on-update-test")));
+        notifications.add(new DatabricksDLTWorkloadSpecific.PipelineNotification(
+                "email@email.com", Collections.singletonList("on-update-test")));
+        notifications.add(new DatabricksDLTWorkloadSpecific.PipelineNotification(
+                "email2@email.com", Collections.singletonList("on-update-test")));
         specific.setNotifications(notifications);
-        specific.setChannel(PipelineChannel.CURRENT);
+        specific.setChannel(DatabricksDLTWorkloadSpecific.PipelineChannel.CURRENT);
         specific.setCluster(cluster);
         specific.setMetastore("metastore");
 
-        GitSpecific dltGitSpecific = new GitSpecific();
+        DatabricksWorkflowWorkloadSpecific.GitSpecific dltGitSpecific =
+                new DatabricksWorkflowWorkloadSpecific.GitSpecific();
         dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(dltGitSpecific);
 
@@ -260,7 +272,11 @@ public class DLTWorkloadHandlerTest {
         workloadPermissions.setOwner("NO_PERMISSIONS");
         databricksPermissionsConfig.setWorkload(workloadPermissions);
         dltWorkloadHandler = new DLTWorkloadHandler(
-                azureAuthConfig, gitCredentialsConfig, databricksPermissionsConfig, accountClient);
+                azureAuthConfig,
+                gitCredentialsConfig,
+                databricksPermissionsConfig,
+                accountClient,
+                workspaceLevelManagerFactory);
 
         Either<FailedOperation, String> result =
                 dltWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);

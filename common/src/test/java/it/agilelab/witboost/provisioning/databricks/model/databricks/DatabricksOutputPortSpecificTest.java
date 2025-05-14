@@ -2,6 +2,7 @@ package it.agilelab.witboost.provisioning.databricks.model.databricks;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import it.agilelab.witboost.provisioning.databricks.model.databricks.outputport.DatabricksOutputPortSpecific;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;

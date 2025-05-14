@@ -6,10 +6,12 @@ import static io.vavr.control.Either.right;
 import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.jobs.BaseJob;
+import com.databricks.sdk.service.jobs.Job;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.client.JobManager;
 import it.agilelab.witboost.provisioning.databricks.client.RepoManager;
 import it.agilelab.witboost.provisioning.databricks.client.WorkflowManager;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -34,8 +36,14 @@ public class WorkflowWorkloadHandler extends BaseWorkloadHandler {
             AzureAuthConfig azureAuthConfig,
             GitCredentialsConfig gitCredentialsConfig,
             DatabricksPermissionsConfig databricksPermissionsConfig,
-            AccountClient accountClient) {
-        super(azureAuthConfig, gitCredentialsConfig, databricksPermissionsConfig, accountClient);
+            AccountClient accountClient,
+            WorkspaceLevelManagerFactory workspaceLevelManagerFactory) {
+        super(
+                azureAuthConfig,
+                gitCredentialsConfig,
+                databricksPermissionsConfig,
+                accountClient,
+                workspaceLevelManagerFactory);
     }
 
     /**
@@ -46,7 +54,7 @@ public class WorkflowWorkloadHandler extends BaseWorkloadHandler {
      * @param databricksWorkspaceInfo information about the Databricks workspace
      * @return Either a failed operation or the ID of the provisioned workflow as a String
      */
-    public Either<FailedOperation, String> provisionWorkload(
+    public Either<FailedOperation, String> provisionWorkflow(
             ProvisionRequest<DatabricksWorkflowWorkloadSpecific> provisionRequest,
             WorkspaceClient workspaceClient,
             DatabricksWorkspaceInfo databricksWorkspaceInfo) {
@@ -59,10 +67,10 @@ public class WorkflowWorkloadHandler extends BaseWorkloadHandler {
             String dpOwnerDatabricksId =
                     principalsMapping.get(provisionRequest.dataProduct().getDataProductOwner());
 
-            // TODO: This is a temporary solution. Remove or update this logic in the future.
             String devGroup = provisionRequest.dataProduct().getDevGroup();
-
-            if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
+            if (!devGroup.startsWith("group:"))
+                devGroup = "group:"
+                        + devGroup; // TODO: This is a temporary solution. Remove or update this logic in the future.
             String dpDevGroupDatabricksId = principalsMapping.get(devGroup);
 
             Either<FailedOperation, Void> eitherCreatedRepo = createRepositoryWithPermissions(
@@ -74,7 +82,7 @@ public class WorkflowWorkloadHandler extends BaseWorkloadHandler {
             if (eitherCreatedRepo.isLeft()) return left(eitherCreatedRepo.getLeft());
 
             Either<FailedOperation, Long> eitherCreatedWorkflow =
-                    provisionWorkload(provisionRequest, workspaceClient, databricksWorkspaceInfo.getName());
+                    provisionWorkflow(provisionRequest, workspaceClient, databricksWorkspaceInfo.getName());
             if (eitherCreatedWorkflow.isLeft()) return left(eitherCreatedWorkflow.getLeft());
 
             logger.info(String.format("Workspace available at: %s", databricksWorkspaceInfo.getDatabricksHost()));
@@ -104,7 +112,7 @@ public class WorkflowWorkloadHandler extends BaseWorkloadHandler {
      * @param workspaceName the name of the Databricks workspace
      * @return Either a failed operation or the ID of the created workflow as a Long
      */
-    protected Either<FailedOperation, Long> provisionWorkload(
+    protected Either<FailedOperation, Long> provisionWorkflow(
             ProvisionRequest<DatabricksWorkflowWorkloadSpecific> provisionRequest,
             WorkspaceClient workspaceClient,
             String workspaceName) {
@@ -112,9 +120,24 @@ public class WorkflowWorkloadHandler extends BaseWorkloadHandler {
             DatabricksWorkflowWorkloadSpecific databricksWorkflowWorkloadSpecific =
                     provisionRequest.component().getSpecific();
 
-            var workflowManager = new WorkflowManager(workspaceClient, workspaceName);
+            var workflowManager = new WorkflowManager(workspaceClient, workspaceName, workspaceLevelManagerFactory);
 
-            return workflowManager.createOrUpdateWorkflow(databricksWorkflowWorkloadSpecific.getWorkflow());
+            Job originalWorkflow = databricksWorkflowWorkloadSpecific.getWorkflow();
+
+            Either<FailedOperation, Job> eitherUpdatedWorkflow = workflowManager.reconstructJobWithCorrectIds(
+                    originalWorkflow, databricksWorkflowWorkloadSpecific.getWorkflowTasksInfoList());
+            if (eitherUpdatedWorkflow.isLeft()) return left(eitherUpdatedWorkflow.getLeft());
+
+            Job updatedWorkflow = eitherUpdatedWorkflow.get();
+
+            logger.info(String.format(
+                    "(%s) Original workflow definition: %s",
+                    provisionRequest.component().getName(), originalWorkflow));
+            logger.info(String.format(
+                    "(%s) Updated workflow definition: %s",
+                    provisionRequest.component().getName(), updatedWorkflow));
+
+            return workflowManager.createOrUpdateWorkflow(updatedWorkflow);
 
         } catch (Exception e) {
             String errorMessage = String.format(

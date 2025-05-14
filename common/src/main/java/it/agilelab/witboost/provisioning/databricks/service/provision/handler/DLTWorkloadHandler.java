@@ -7,9 +7,10 @@ import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.pipelines.PipelineStateInfo;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.client.DeltaLiveTablesManager;
+import it.agilelab.witboost.provisioning.databricks.client.DLTManager;
 import it.agilelab.witboost.provisioning.databricks.client.RepoManager;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -17,14 +18,14 @@ import it.agilelab.witboost.provisioning.databricks.config.DatabricksPermissions
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.DatabricksDLTWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+@Service
 public class DLTWorkloadHandler extends BaseWorkloadHandler {
 
     private final Logger logger = LoggerFactory.getLogger(DLTWorkloadHandler.class);
@@ -34,8 +35,14 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
             AzureAuthConfig azureAuthConfig,
             GitCredentialsConfig gitCredentialsConfig,
             DatabricksPermissionsConfig databricksPermissionsConfig,
-            AccountClient accountClient) {
-        super(azureAuthConfig, gitCredentialsConfig, databricksPermissionsConfig, accountClient);
+            AccountClient accountClient,
+            WorkspaceLevelManagerFactory workspaceLevelManagerFactory) {
+        super(
+                azureAuthConfig,
+                gitCredentialsConfig,
+                databricksPermissionsConfig,
+                accountClient,
+                workspaceLevelManagerFactory);
     }
 
     /**
@@ -91,7 +98,7 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
                 return left(eitherCreatedRepo.getLeft());
             }
 
-            var dltManager = new DeltaLiveTablesManager(workspaceClient, databricksWorkspaceInfo.getName());
+            var dltManager = new DLTManager(workspaceClient, databricksWorkspaceInfo.getName());
 
             List<String> notebooks = new ArrayList<>();
 
@@ -152,7 +159,7 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
             DatabricksDLTWorkloadSpecific databricksDLTWorkloadSpecific =
                     provisionRequest.component().getSpecific();
 
-            var deltaLiveTablesManager = new DeltaLiveTablesManager(workspaceClient, databricksWorkspaceInfo.getName());
+            var deltaLiveTablesManager = new DLTManager(workspaceClient, databricksWorkspaceInfo.getName());
 
             Either<FailedOperation, Iterable<PipelineStateInfo>> eitherGetPipelines =
                     deltaLiveTablesManager.listPipelinesWithGivenName(databricksDLTWorkloadSpecific.getPipelineName());

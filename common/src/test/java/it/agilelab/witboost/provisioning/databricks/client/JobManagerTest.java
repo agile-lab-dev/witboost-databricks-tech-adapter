@@ -12,11 +12,8 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkEnvVar;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.GitReferenceType;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobClusterSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobGitSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.SchedulingSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.JobClusterSpecific;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,7 +55,7 @@ public class JobManagerTest {
         sparkConf.setName("spark.conf");
         sparkConf.setValue("value");
         jobClusterSpecific.setSparkConf(List.of(sparkConf));
-        SparkEnvVar sparkEnvVar = new SparkEnvVar();
+        DatabricksJobWorkloadSpecific.SparkEnvVar sparkEnvVar = new DatabricksJobWorkloadSpecific.SparkEnvVar();
         sparkEnvVar.setName("spark.env.var");
         sparkEnvVar.setValue("value");
         jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
@@ -66,15 +63,18 @@ public class JobManagerTest {
         return jobClusterSpecific;
     }
 
-    private SchedulingSpecific createSchedulingSpecific() {
-        SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
+    private DatabricksJobWorkloadSpecific.SchedulingSpecific createSchedulingSpecific() {
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific =
+                new DatabricksJobWorkloadSpecific.SchedulingSpecific();
         schedulingSpecific.setJavaTimezoneId("UTC");
         schedulingSpecific.setCronExpression("0 0 12 * * ?");
         return schedulingSpecific;
     }
 
-    private JobGitSpecific createJobGitSpecific(GitReferenceType referenceType) {
-        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+    private DatabricksJobWorkloadSpecific.JobGitSpecific createJobGitSpecific(
+            DatabricksJobWorkloadSpecific.GitReferenceType referenceType) {
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                new DatabricksJobWorkloadSpecific.JobGitSpecific();
         jobGitSpecific.setGitRepoUrl(gitRepoUrl);
         jobGitSpecific.setGitProvider(GitProvider.GIT_LAB);
         jobGitSpecific.setGitReference("main");
@@ -120,8 +120,9 @@ public class JobManagerTest {
     @Test
     public void testCreateJobWithNewCluster_GitBRANCH() {
         JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
-        SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
-        JobGitSpecific jobGitSpecific = createJobGitSpecific(GitReferenceType.BRANCH);
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
 
         CreateResponse createResponse = new CreateResponse().setJobId(123L);
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
@@ -138,8 +139,9 @@ public class JobManagerTest {
     @Test
     public void testCreateJobWithNewCluster_GitTAG() {
         JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
-        SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
-        JobGitSpecific jobGitSpecific = createJobGitSpecific(GitReferenceType.TAG);
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.TAG);
 
         CreateResponse createResponse = new CreateResponse().setJobId(123L);
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
@@ -156,8 +158,9 @@ public class JobManagerTest {
     @Test
     public void testUpdateJobWithNewCluster_GitTAG() {
         JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
-        SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
-        JobGitSpecific jobGitSpecific = createJobGitSpecific(GitReferenceType.TAG);
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.TAG);
 
         List<BaseJob> baseJobList = Arrays.asList(
                 new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123l));
@@ -176,8 +179,9 @@ public class JobManagerTest {
     @Test
     public void testUpdateJobWithNewCluster_GitBRANCH() {
         JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
-        SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
-        JobGitSpecific jobGitSpecific = createJobGitSpecific(GitReferenceType.BRANCH);
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
 
         List<BaseJob> baseJobList = Arrays.asList(
                 new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123l));
@@ -196,8 +200,9 @@ public class JobManagerTest {
     @Test
     public void testUpdateJobWithNewCluster_JobNotUnique() {
         JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
-        SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
-        JobGitSpecific jobGitSpecific = createJobGitSpecific(GitReferenceType.BRANCH);
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
 
         List<BaseJob> baseJobList = Arrays.asList(
                 new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123l),
@@ -217,8 +222,9 @@ public class JobManagerTest {
     @Test
     public void testCreateJobWithNewCluster_Failure() {
         JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
-        SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
-        JobGitSpecific jobGitSpecific = createJobGitSpecific(GitReferenceType.BRANCH);
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
 
         when(workspaceClient.jobs().create(any())).thenThrow(new RuntimeException("Failed to create job"));
 
@@ -231,8 +237,9 @@ public class JobManagerTest {
     @Test
     public void testUpdateJobWithNewCluster_Exception() {
         JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
-        SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
-        JobGitSpecific jobGitSpecific = createJobGitSpecific(GitReferenceType.BRANCH);
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific = createSchedulingSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
 
         List<BaseJob> baseJobList = Arrays.asList(
                 new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123l));

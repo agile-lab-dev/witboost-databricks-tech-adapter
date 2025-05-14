@@ -4,6 +4,7 @@ import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.error.platform.BadRequest;
 import com.databricks.sdk.core.error.platform.ResourceAlreadyExists;
 import com.databricks.sdk.core.error.platform.ResourceDoesNotExist;
 import com.databricks.sdk.service.iam.*;
@@ -11,6 +12,7 @@ import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,34 +54,17 @@ public class RepoManager {
 
             return right(repoInfo.getId());
 
-        } catch (ResourceAlreadyExists e) {
-
-            logger.warn(String.format(
-                    "Creation of repo with URL %s skipped. It already exists in the folder %s (workspace %s).",
-                    gitUrl, absoluteRepoPath, workspaceName));
-
-            int lastIndex = absoluteRepoPath.lastIndexOf('/');
-            String dataProductFolderPath = absoluteRepoPath.substring(0, lastIndex);
-
-            Iterable<ObjectInfo> dataProductFolderContent =
-                    workspaceClient.workspace().list(dataProductFolderPath);
-
-            if (dataProductFolderContent != null) {
-                for (ObjectInfo objectInfo : dataProductFolderContent) {
-                    if (objectInfo.getObjectType().equals(ObjectType.REPO)) {
-                        RepoInfo repoInfo = workspaceClient.repos().get(objectInfo.getObjectId());
-                        if (repoInfo.getPath().equalsIgnoreCase(absoluteRepoPath)) {
-                            return right(repoInfo.getId());
-                        }
-                    }
-                }
+        } catch (BadRequest e) {
+            if (e.getMessage().contains("RESOURCE_ALREADY_EXISTS")) {
+                return handleExistingRepository(gitUrl, absoluteRepoPath);
             }
-
             String errorMessage = String.format(
-                    "An error occurred while creating the repo with URL %s in %s. Please try again and if the error persists contact the platform team. Details: seems that the repository already exists but it is impossible to retrieve information about it.",
-                    gitUrl, workspaceName);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
-
+                    "An error occurred while creating the repo with URL %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    gitUrl, workspaceName, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+        } catch (ResourceAlreadyExists e) {
+            return handleExistingRepository(gitUrl, absoluteRepoPath);
         } catch (Exception e) {
             String errorMessage = String.format(
                     "An error occurred while creating the repo with URL %s in %s. Please try again and if the error persists contact the platform team. Details: %s",
@@ -87,6 +72,35 @@ public class RepoManager {
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
+    }
+
+    @NotNull
+    private Either<FailedOperation, Long> handleExistingRepository(String gitUrl, String absoluteRepoPath) {
+        logger.warn(String.format(
+                "Creation of repo with URL %s skipped. It already exists in the folder %s (workspace %s).",
+                gitUrl, absoluteRepoPath, workspaceName));
+
+        int lastIndex = absoluteRepoPath.lastIndexOf('/');
+        String dataProductFolderPath = absoluteRepoPath.substring(0, lastIndex);
+
+        Iterable<ObjectInfo> dataProductFolderContent =
+                workspaceClient.workspace().list(dataProductFolderPath);
+
+        if (dataProductFolderContent != null) {
+            for (ObjectInfo objectInfo : dataProductFolderContent) {
+                if (objectInfo.getObjectType().equals(ObjectType.REPO)) {
+                    RepoInfo repoInfo = workspaceClient.repos().get(objectInfo.getObjectId());
+                    if (repoInfo.getPath().equalsIgnoreCase(absoluteRepoPath)) {
+                        return right(repoInfo.getId());
+                    }
+                }
+            }
+        }
+
+        String errorMessage = String.format(
+                "An error occurred while creating the repo with URL %s in %s. Please try again and if the error persists contact the platform team. Details: seems that the repository already exists but it is impossible to retrieve information about it.",
+                gitUrl, workspaceName);
+        return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
     }
 
     /**

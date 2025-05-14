@@ -1,32 +1,35 @@
 package it.agilelab.witboost.provisioning.databricks.model.databricks.workflow;
 
 import com.databricks.sdk.service.jobs.Job;
-import it.agilelab.witboost.provisioning.databricks.model.Specific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.DatabricksWorkloadSpecific;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
 @NoArgsConstructor
-public class DatabricksWorkflowWorkloadSpecific extends Specific {
-
-    @NotBlank
-    private String workspace;
-
-    @NotBlank
-    private String repoPath;
-
-    @Valid
-    @NotNull
-    private GitSpecific git;
+public class DatabricksWorkflowWorkloadSpecific extends DatabricksWorkloadSpecific {
 
     private Job workflow;
 
+    private List<WorkflowTasksInfo> workflowTasksInfoList;
+
     @NotNull
     private boolean override;
+
+    @Getter
+    @Setter
+    @ToString
+    public static class WorkflowTasksInfo {
+        private String taskKey;
+        private String referencedTaskType; // job, pipeline, notebook
+        private String referencedTaskId;
+        private String referencedTaskName;
+        private String referencedClusterName; // for notebook task
+        private String referencedClusterId; // for notebook task
+    }
 }

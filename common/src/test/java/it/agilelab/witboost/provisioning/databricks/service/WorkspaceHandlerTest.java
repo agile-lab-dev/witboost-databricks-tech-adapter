@@ -34,9 +34,12 @@ import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.*;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.outputport.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DLTClusterSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.JobClusterSpecific;
 import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissionsManager;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureClient;
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
@@ -395,7 +398,8 @@ public class WorkspaceHandlerTest {
         String managedResourceGroupId = azurePermissionsConfig.getResourceGroup();
 
         databricksJobWorkloadSpecific.setWorkspace(workspaceName);
-        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                new DatabricksJobWorkloadSpecific.JobGitSpecific();
         jobGitSpecific.setGitRepoUrl("repoUrl");
         databricksJobWorkloadSpecific.setGit(jobGitSpecific);
 
@@ -574,10 +578,11 @@ public class WorkspaceHandlerTest {
         String managedResourceGroupId = azurePermissionsConfig.getResourceGroup();
 
         databricksJobWorkloadSpecific.setWorkspace(workspaceName);
-        JobGitSpecific jobGitSpecific = new JobGitSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
+                new DatabricksJobWorkloadSpecific.JobGitSpecific();
         jobGitSpecific.setGitRepoUrl("repoUrl");
         jobGitSpecific.setGitReference("main");
-        jobGitSpecific.setGitReferenceType(GitReferenceType.BRANCH);
+        jobGitSpecific.setGitReferenceType(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
         jobGitSpecific.setGitPath("/src");
         databricksJobWorkloadSpecific.setGit(jobGitSpecific);
 
@@ -591,14 +596,15 @@ public class WorkspaceHandlerTest {
         sparkConf.setName("spark.conf");
         sparkConf.setValue("value");
         jobClusterSpecific.setSparkConf(List.of(sparkConf));
-        SparkEnvVar sparkEnvVar = new SparkEnvVar();
+        DatabricksJobWorkloadSpecific.SparkEnvVar sparkEnvVar = new DatabricksJobWorkloadSpecific.SparkEnvVar();
         sparkEnvVar.setName("spark.env.var");
         sparkEnvVar.setValue("value");
         jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
         jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
         databricksJobWorkloadSpecific.setCluster(jobClusterSpecific);
 
-        SchedulingSpecific schedulingSpecific = new SchedulingSpecific();
+        DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific =
+                new DatabricksJobWorkloadSpecific.SchedulingSpecific();
         schedulingSpecific.setCronExpression("00 * * * * ?");
         schedulingSpecific.setJavaTimezoneId("UTC");
         databricksJobWorkloadSpecific.setScheduling(schedulingSpecific);
@@ -625,7 +631,7 @@ public class WorkspaceHandlerTest {
         DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
         specific.setWorkspace("testWorkspace");
         specific.setPipelineName("pipelineName");
-        specific.setProductEdition(ProductEdition.CORE);
+        specific.setProductEdition(DatabricksDLTWorkloadSpecific.ProductEdition.CORE);
         specific.setContinuous(true);
         specific.setNotebooks(List.of("notebook1", "notebook2"));
         specific.setFiles(List.of("file1", "file2"));
@@ -634,11 +640,13 @@ public class WorkspaceHandlerTest {
         specific.setTarget("target");
         specific.setPhoton(true);
         List notifications = new ArrayList();
-        notifications.add(new PipelineNotification("email@email.com", Collections.singletonList("on-update-test")));
-        specific.setChannel(PipelineChannel.CURRENT);
+        notifications.add(new DatabricksDLTWorkloadSpecific.PipelineNotification(
+                "email@email.com", Collections.singletonList("on-update-test")));
+        specific.setChannel(DatabricksDLTWorkloadSpecific.PipelineChannel.CURRENT);
         specific.setCluster(cluster);
 
-        GitSpecific dltGitSpecific = new GitSpecific();
+        DatabricksWorkflowWorkloadSpecific.GitSpecific dltGitSpecific =
+                new DatabricksWorkflowWorkloadSpecific.GitSpecific();
         dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(dltGitSpecific);
 
@@ -660,7 +668,8 @@ public class WorkspaceHandlerTest {
         databricksWorkflowWorkloadSpecific.setWorkspace(workspaceName);
         databricksWorkflowWorkloadSpecific.setRepoPath("this/is/a/repo");
 
-        GitSpecific gitSpecific = new GitSpecific();
+        DatabricksWorkflowWorkloadSpecific.GitSpecific gitSpecific =
+                new DatabricksWorkflowWorkloadSpecific.GitSpecific();
         gitSpecific.setGitRepoUrl("https://github.com/repo.git");
         databricksWorkflowWorkloadSpecific.setGit(gitSpecific);
 

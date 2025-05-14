@@ -11,12 +11,12 @@ import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
-import it.agilelab.witboost.provisioning.databricks.common.SpecificProvisionerValidationException;
+import it.agilelab.witboost.provisioning.databricks.common.TechAdapterValidationException;
 import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.outputport.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.*;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.provision.handler.OutputPortHandler;
@@ -130,7 +130,7 @@ class UpdateAclServiceImplTest {
         when(workspaceHandler.getWorkspaceClient(workspaceInfo)).thenReturn(right(workspaceClient));
 
         Assertions.assertThrows(
-                SpecificProvisionerValidationException.class,
+                TechAdapterValidationException.class,
                 () -> updateAclService.updateAcl(updateAclRequest),
                 "The kind 'workload_outputportneeded' of the component is not supported by this Specific Provisioner");
     }

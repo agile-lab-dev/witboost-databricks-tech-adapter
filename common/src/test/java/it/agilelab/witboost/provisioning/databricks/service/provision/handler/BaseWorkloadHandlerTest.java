@@ -6,6 +6,7 @@ import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
@@ -15,11 +16,9 @@ import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.GitSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.dlt.*;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.DatabricksJobWorkloadSpecific;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.job.JobGitSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,6 +66,9 @@ public class BaseWorkloadHandlerTest {
     @MockBean
     private AzureResourceManager azureResourceManager;
 
+    @Mock
+    WorkspaceLevelManagerFactory workspaceLevelManagerFactory;
+
     private BaseWorkloadHandler baseWorkloadHandler;
     private DataProduct dataProduct;
     private DatabricksDLTWorkloadSpecific databricksDLTWorkloadSpecific;
@@ -81,7 +83,11 @@ public class BaseWorkloadHandlerTest {
     public void setUp() {
 
         baseWorkloadHandler = new BaseWorkloadHandler(
-                azureAuthConfig, gitCredentialsConfig, databricksPermissionsConfig, accountClient);
+                azureAuthConfig,
+                gitCredentialsConfig,
+                databricksPermissionsConfig,
+                accountClient,
+                workspaceLevelManagerFactory);
         MockitoAnnotations.openMocks(this);
         dataProduct = new DataProduct();
     }
@@ -92,7 +98,7 @@ public class BaseWorkloadHandlerTest {
         Workload workload = new Workload<>();
         workload.setName("wrong_workload");
         DatabricksJobWorkloadSpecific specific = new DatabricksJobWorkloadSpecific();
-        JobGitSpecific gitSpecific = new JobGitSpecific();
+        DatabricksJobWorkloadSpecific.JobGitSpecific gitSpecific = new DatabricksJobWorkloadSpecific.JobGitSpecific();
         gitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(gitSpecific);
         workload.setSpecific(specific);
@@ -120,7 +126,8 @@ public class BaseWorkloadHandlerTest {
         Workload workload = new Workload<>();
         workload.setName("wrong_workload");
         DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
-        GitSpecific gitSpecific = new GitSpecific();
+        DatabricksWorkflowWorkloadSpecific.GitSpecific gitSpecific =
+                new DatabricksWorkflowWorkloadSpecific.GitSpecific();
         gitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(gitSpecific);
         workload.setSpecific(specific);
@@ -148,7 +155,8 @@ public class BaseWorkloadHandlerTest {
         Workload workload = new Workload<>();
         workload.setName("wrong_workload");
         DatabricksWorkflowWorkloadSpecific specific = new DatabricksWorkflowWorkloadSpecific();
-        GitSpecific gitSpecific = new GitSpecific();
+        DatabricksWorkflowWorkloadSpecific.GitSpecific gitSpecific =
+                new DatabricksWorkflowWorkloadSpecific.GitSpecific();
         gitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(gitSpecific);
         workload.setSpecific(specific);
@@ -176,7 +184,8 @@ public class BaseWorkloadHandlerTest {
         Workload workload = new Workload<>();
         workload.setName("wrong_workload");
         DatabricksWorkflowWorkloadSpecific specific = new DatabricksWorkflowWorkloadSpecific();
-        GitSpecific gitSpecific = new GitSpecific();
+        DatabricksWorkflowWorkloadSpecific.GitSpecific gitSpecific =
+                new DatabricksWorkflowWorkloadSpecific.GitSpecific();
         gitSpecific.setGitRepoUrl("https://github.com/repo.git");
         specific.setGit(gitSpecific);
         workload.setSpecific(specific);
