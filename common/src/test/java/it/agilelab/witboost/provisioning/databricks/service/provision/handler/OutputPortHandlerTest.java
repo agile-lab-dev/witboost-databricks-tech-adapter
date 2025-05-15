@@ -1,7 +1,9 @@
 package it.agilelab.witboost.provisioning.databricks.service.provision.handler;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.azure.resourcemanager.AzureResourceManager;
@@ -19,23 +21,16 @@ import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigP
 import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
-import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
-import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
-import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.object.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.object.View;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.outputport.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisionInfo;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
 import it.agilelab.witboost.provisioning.databricks.openapi.model.UpdateAclRequest;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,22 +45,10 @@ class OutputPortHandlerTest {
 
     private DataProduct dataProduct;
     private DatabricksOutputPortSpecific databricksOutputPortSpecific;
-    private OutputPort outputPort;
-
-    @Autowired
-    private MiscConfig miscConfig;
-
-    @Autowired
-    private AzurePermissionsConfig azurePermissionsConfig;
+    private OutputPort<DatabricksOutputPortSpecific> outputPort;
 
     @MockBean
     private AzureResourceManager azureResourceManager;
-
-    @Autowired
-    private AzureAuthConfig azureAuthConfig;
-
-    @Autowired
-    private GitCredentialsConfig gitCredentialsConfig;
 
     @Autowired
     private OutputPortHandler outputPortHandler;
@@ -123,19 +106,18 @@ class OutputPortHandlerTest {
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         // Mocking schema_op in catalog_op
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
+        List<SchemaInfo> schemaInfoList = Collections.singletonList(
+                new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
-
         List<DataSource> dataSourceList =
-                Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
+                Collections.singletonList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
 
-        when(new DataSourcesAPI(apiClientMock).list()).thenReturn(dataSourceList);
+        when(workspaceClient.dataSources()).thenReturn(mock(DataSourcesAPI.class));
+        when(workspaceClient.dataSources().list()).thenReturn(dataSourceList);
 
         // Mock classes and methods inside createOrReplaceOutputPortView
         ExecuteStatementRequest request = new ExecuteStatementRequest()
@@ -159,6 +141,13 @@ class OutputPortHandlerTest {
 
         when(getStatementResponseMockPoll.getStatus()).thenReturn(statementStatusMockPoll);
 
+        when(workspaceClient.statementExecution()).thenReturn(mock(StatementExecutionAPI.class));
+        StatementResponse statementResponse = new StatementResponse();
+        statementResponse.setStatementId("id");
+        statementResponse.setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+        when(workspaceClient.statementExecution().executeStatement(any())).thenReturn(statementResponse);
+        when(workspaceClient.statementExecution().getStatement("id")).thenReturn(statementResponse);
+
         // Mocking method inside retrieve tableInfo
         TableInfo tableInfoMock = mock(TableInfo.class);
         when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
@@ -172,7 +161,7 @@ class OutputPortHandlerTest {
                 outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);
 
         assert result.isRight();
-        assertEquals(result.get().getTableId(), "table_id");
+        assertEquals("table_id", result.get().getTableId());
     }
 
     @Test
@@ -197,17 +186,18 @@ class OutputPortHandlerTest {
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         // Mocking schema_op in catalog_op
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
+        List<SchemaInfo> schemaInfoList = Collections.singletonList(
+                new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
-
         List<DataSource> dataSourceList =
-                Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
+                Collections.singletonList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
+
+        when(workspaceClient.dataSources()).thenReturn(mock(DataSourcesAPI.class));
+        when(workspaceClient.dataSources().list()).thenReturn(dataSourceList);
 
         when(new DataSourcesAPI(apiClientMock).list()).thenReturn(dataSourceList);
 
@@ -232,6 +222,13 @@ class OutputPortHandlerTest {
 
         when(getstatementResponseMockPoll.getStatus()).thenReturn(statementStatusMockPoll);
 
+        when(workspaceClient.statementExecution()).thenReturn(mock(StatementExecutionAPI.class));
+        StatementResponse statementResponse = new StatementResponse();
+        statementResponse.setStatementId("id");
+        statementResponse.setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+        when(workspaceClient.statementExecution().executeStatement(any())).thenReturn(statementResponse);
+        when(workspaceClient.statementExecution().getStatement("id")).thenReturn(statementResponse);
+
         // Mocking method inside retrieve tableInfo
         TableInfo tableInfoMock = mock(TableInfo.class);
         when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
@@ -245,14 +242,15 @@ class OutputPortHandlerTest {
                 outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);
 
         assert result.isRight();
-        assertEquals(result.get().getTableId(), "table_id");
+        assertEquals("table_id", result.get().getTableId());
     }
 
     @Test
     public void provisionOutputPort_Exception() {
-        OutputPort op = new OutputPort();
+        OutputPort<DatabricksOutputPortSpecific> op = new OutputPort<>();
         op.setName("op");
-        ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, op, false);
+        ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, op, false);
         Either<FailedOperation, TableInfo> result =
                 outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);
 
@@ -266,7 +264,7 @@ class OutputPortHandlerTest {
     }
 
     @Test
-    public void provisionOutputPort_ExecuteStatementCreateOutputPortFailure() {
+    public void provisionOutputPort_ExecuteStatementCreateOrReplaceViewFailure() {
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
@@ -288,40 +286,34 @@ class OutputPortHandlerTest {
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         // Mocking schema_op in catalog_op
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
+        List<SchemaInfo> schemaInfoList = Collections.singletonList(
+                new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
-
         List<DataSource> dataSourceList =
-                Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
+                Collections.singletonList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
 
-        when(new DataSourcesAPI(apiClientMock).list()).thenReturn(dataSourceList);
-
-        // Mock classes and methods inside createOrReplaceOutputPortView
-        ExecuteStatementRequest request = new ExecuteStatementRequest()
-                .setCatalog("catalog_op")
-                .setSchema("schema_op")
-                .setStatement("CREATE OR REPLACE VIEW `view` AS SELECT col_1,col_2 FROM `catalog`.`schema`.`t`;")
-                .setWarehouseId("sql_wh_id");
+        when(workspaceClient.dataSources()).thenReturn(mock(DataSourcesAPI.class));
+        when(workspaceClient.dataSources().list()).thenReturn(dataSourceList);
 
         StatementResponse statementResponseMock = mock(StatementResponse.class);
         when(statementResponseMock.getStatementId()).thenReturn("statement_id");
-        when(new StatementExecutionAPI(apiClientMock).executeStatement(request))
-                .thenThrow(new RuntimeException("Exception"));
+        when(workspaceClient.statementExecution()).thenReturn(mock(StatementExecutionAPI.class));
+        when(workspaceClient.statementExecution()).thenThrow(new RuntimeException("Exception executing statement"));
 
         Either<FailedOperation, TableInfo> result =
                 outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);
 
         assertTrue(result.isLeft());
-        String messageError =
-                "An error occurred while creating view 'catalog_op.schema_op.view'. Please try again and if the error persists contact the platform team. Details: Exception";
-
-        assertEquals(messageError, result.getLeft().problems().get(0).description());
+        assert result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains("An error occurred while running query 'CREATE OR REPLACE VIEW `view`");
+        assert (result.getLeft().problems().get(0).description().contains("Exception executing statement"));
     }
 
     @Test
@@ -331,8 +323,8 @@ class OutputPortHandlerTest {
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
         MetastoresAPI metastoresAPIMock = mock(MetastoresAPI.class);
 
-        Iterable<MetastoreInfo> iterableMetastoresList =
-                Arrays.asList(new MetastoreInfo().setName("metastore").setMetastoreId("id"));
+        Iterable<MetastoreInfo> iterableMetastoresList = Collections.singletonList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"));
 
         when(workspaceClient.metastores()).thenReturn(metastoresAPIMock);
         when(metastoresAPIMock.list()).thenReturn(iterableMetastoresList);
@@ -396,8 +388,8 @@ class OutputPortHandlerTest {
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         // Mocking schema_op in catalog_op. Schema exists
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
+        List<SchemaInfo> schemaInfoList = Collections.singletonList(
+                new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
@@ -421,8 +413,8 @@ class OutputPortHandlerTest {
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
 
-        // Mocking behaviour on catalogs. The requested catalog (catalog_op) does not exists
-        List<CatalogInfo> catalogList = Arrays.asList(new CatalogInfo().setName("catalog"));
+        // Mocking behaviour on catalogs. The requested catalog (catalog_op) does not exist
+        List<CatalogInfo> catalogList = Collections.singletonList(new CatalogInfo().setName("catalog"));
 
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
@@ -465,8 +457,8 @@ class OutputPortHandlerTest {
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         // Mocking schema_op in catalog_op. Schema exists
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema"));
+        List<SchemaInfo> schemaInfoList = Collections.singletonList(
+                new SchemaInfo().setCatalogName("catalog_op").setName("schema"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
@@ -489,10 +481,6 @@ class OutputPortHandlerTest {
 
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
-
-        // Mocking schema_op in catalog_op. Schema exists
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenThrow(new RuntimeException("Exception"));
@@ -521,8 +509,8 @@ class OutputPortHandlerTest {
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         // Mocking schema_op in catalog_op. Schema exists
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
+        List<SchemaInfo> schemaInfoList = Collections.singletonList(
+                new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
@@ -572,19 +560,18 @@ class OutputPortHandlerTest {
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         // Mocking schema_op in catalog_op
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
+        List<SchemaInfo> schemaInfoList = Collections.singletonList(
+                new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
-
         List<DataSource> dataSourceList =
-                Arrays.asList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
+                Collections.singletonList(new DataSource().setName("sql_wh").setWarehouseId("sql_wh_id"));
 
-        when(new DataSourcesAPI(apiClientMock).list()).thenReturn(dataSourceList);
+        when(workspaceClient.dataSources()).thenReturn(mock(DataSourcesAPI.class));
+        when(workspaceClient.dataSources().list()).thenReturn(dataSourceList);
 
         // Mock classes and methods inside createOrReplaceOutputPortView
         ExecuteStatementRequest request = new ExecuteStatementRequest()
@@ -602,6 +589,13 @@ class OutputPortHandlerTest {
         when(new StatementExecutionAPI(apiClientMock).getStatement("id")).thenReturn(getstatementResponseMockPoll);
 
         StatementStatus statementStatusMockPoll = mock(StatementStatus.class);
+
+        when(workspaceClient.statementExecution()).thenReturn(mock(StatementExecutionAPI.class));
+        StatementResponse statementResponse = new StatementResponse();
+        statementResponse.setStatementId("id");
+        statementResponse.setStatus(new StatementStatus().setState(StatementState.CANCELED));
+        when(workspaceClient.statementExecution().executeStatement(any())).thenReturn(statementResponse);
+        when(workspaceClient.statementExecution().getStatement("id")).thenReturn(statementResponse);
 
         // poll returns CANCELED state
         when(statementStatusMockPoll.getState()).thenReturn(StatementState.CANCELED);
@@ -639,8 +633,8 @@ class OutputPortHandlerTest {
         when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         // Mocking schema_op in catalog_op
-        List<SchemaInfo> schemaInfoList =
-                Arrays.asList(new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
+        List<SchemaInfo> schemaInfoList = Collections.singletonList(
+                new SchemaInfo().setCatalogName("catalog_op").setName("schema_op"));
 
         when(workspaceClient.schemas()).thenReturn(mock(SchemasAPI.class));
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
@@ -649,9 +643,10 @@ class OutputPortHandlerTest {
         when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
 
         List<DataSource> dataSourceList =
-                Arrays.asList(new DataSource().setName("sql_fake").setWarehouseId("sql_wh_id_fake"));
+                Collections.singletonList(new DataSource().setName("sql_fake").setWarehouseId("sql_wh_id_fake"));
 
-        when(new DataSourcesAPI(apiClientMock).list()).thenReturn(dataSourceList);
+        when(workspaceClient.dataSources()).thenReturn(mock(DataSourcesAPI.class));
+        when(workspaceClient.dataSources().list()).thenReturn(dataSourceList);
 
         Either<FailedOperation, TableInfo> result =
                 outputPortHandler.provisionOutputPort(provisionRequest, workspaceClient, databricksWorkspaceInfo);
@@ -683,8 +678,8 @@ class OutputPortHandlerTest {
                 outputPortHandler.updateAcl(provisionRequest, updateAclRequest, workspaceClient, unityCatalogManager);
 
         assert result.isRight();
-        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
-        assertEquals(result.get().getResult(), "Update of Acl completed!");
+        assertEquals(ProvisioningStatus.StatusEnum.COMPLETED, result.get().getStatus());
+        assertEquals("Update of Acl completed!", result.get().getResult());
     }
 
     @Test
@@ -828,8 +823,8 @@ class OutputPortHandlerTest {
                 provisionRequest, updateAclRequest, workspaceClient, unityCatalogManagerMock);
 
         assert result.isRight();
-        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
-        assertEquals(result.get().getResult(), "Update of Acl completed!");
+        assertEquals(ProvisioningStatus.StatusEnum.COMPLETED, result.get().getStatus());
+        assertEquals("Update of Acl completed!", result.get().getResult());
 
         // Test that the remove method is NEVER called
         verify(unityCatalogManagerMock, times(0))
@@ -878,8 +873,8 @@ class OutputPortHandlerTest {
                 provisionRequest, updateAclRequest, workspaceClient, unityCatalogManagerMock);
 
         assert result.isRight();
-        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
-        assertEquals(result.get().getResult(), "Update of Acl completed!");
+        assertEquals(ProvisioningStatus.StatusEnum.COMPLETED, result.get().getStatus());
+        assertEquals("Update of Acl completed!", result.get().getResult());
 
         // Test that the remove method is called two times
 
@@ -918,8 +913,8 @@ class OutputPortHandlerTest {
                 outputPortHandler.updateAcl(provisionRequest, updateAclRequest, workspaceClient, unityCatalogManager);
 
         assert result.isRight();
-        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
-        assertEquals(result.get().getResult(), "Update of Acl completed!");
+        assertEquals(ProvisioningStatus.StatusEnum.COMPLETED, result.get().getStatus());
+        assertEquals("Update of Acl completed!", result.get().getResult());
     }
 
     @Test
@@ -958,8 +953,8 @@ class OutputPortHandlerTest {
                 provisionRequest, updateAclRequest, workspaceClient, unityCatalogManagerMock);
 
         assert result.isRight();
-        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
-        assertEquals(result.get().getResult(), "Update of Acl completed!");
+        assertEquals(ProvisioningStatus.StatusEnum.COMPLETED, result.get().getStatus());
+        assertEquals("Update of Acl completed!", result.get().getResult());
 
         // Test that the remove method is called just 1 time
         verify(unityCatalogManagerMock, times(1))
@@ -1014,8 +1009,8 @@ class OutputPortHandlerTest {
                 provisionRequest, updateAclRequest, workspaceClient, unityCatalogManagerMock);
 
         assert result.isRight();
-        assertEquals(result.get().getStatus(), ProvisioningStatus.StatusEnum.COMPLETED);
-        assertEquals(result.get().getResult(), "Update of Acl completed!");
+        assertEquals(ProvisioningStatus.StatusEnum.COMPLETED, result.get().getStatus());
+        assertEquals("Update of Acl completed!", result.get().getResult());
 
         // Test that the remove method is called 2 times, 1 for a@email.com and the other for dp.owner@email.com
         verify(unityCatalogManagerMock, times(1))
@@ -1041,15 +1036,14 @@ class OutputPortHandlerTest {
 
         outputPort.setSpecific(databricksOutputPortSpecific);
 
-        // Creating empty schema
+        // Creating an empty schema
         List<Column> emptyDataColumnList = new ArrayList<>();
         DataContract dataContract = new DataContract();
         dataContract.setSchema(emptyDataColumnList);
 
         outputPort.setDataContract(dataContract);
 
-        ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, outputPort, false);
-        return provisionRequest;
+        return new ProvisionRequest<>(dataProduct, outputPort, false);
     }
 
     private ProvisionRequest<DatabricksOutputPortSpecific> createOPProvisionRequest() {
@@ -1080,7 +1074,243 @@ class OutputPortHandlerTest {
 
         outputPort.setDataContract(dataContract);
 
-        ProvisionRequest provisionRequest = new ProvisionRequest<>(dataProduct, outputPort, false);
-        return provisionRequest;
+        return new ProvisionRequest<>(dataProduct, outputPort, false);
+    }
+
+    @Test
+    public void executeQuery_Success() {
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+        StatementExecutionAPI statementExecutionAPIMock = mock(StatementExecutionAPI.class);
+
+        String expectedStatementId = "test_statement_id";
+        String testQuery = "SELECT * FROM test_table;";
+        String testCatalog = "test_catalog";
+        String testSchema = "test_schema";
+        String testWarehouseId = "test_warehouse_id";
+
+        ExecuteStatementRequest request = new ExecuteStatementRequest()
+                .setCatalog(testCatalog)
+                .setSchema(testSchema)
+                .setStatement(testQuery)
+                .setWarehouseId(testWarehouseId);
+
+        StatementResponse statementResponseMock = new StatementResponse().setStatementId(expectedStatementId);
+        when(workspaceClientMock.statementExecution()).thenReturn(statementExecutionAPIMock);
+        when(statementExecutionAPIMock.executeStatement(eq(request))).thenReturn(statementResponseMock);
+
+        Either<FailedOperation, String> result = outputPortHandler.executeQuery(
+                testQuery, testCatalog, testSchema, testWarehouseId, workspaceClientMock);
+
+        assertTrue(result.isRight());
+        assertEquals(expectedStatementId, result.get());
+    }
+
+    @Test
+    public void executeStatementAlterViewSetDescription_Success() {
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+        StatementExecutionAPI statementExecutionAPIMock = mock(StatementExecutionAPI.class);
+
+        String testCatalog = "test_catalog";
+        String testSchema = "test_schema";
+        String testWarehouseId = "test_warehouse_id";
+        String testViewName = "test_view";
+        String viewDescription = "Test view description";
+        String expectedStatementId = "test_statement_id";
+
+        String expectedQuery = "ALTER VIEW test_view SET TBLPROPERTIES ('comment' = \"Test view description\")";
+
+        ExecuteStatementRequest request = new ExecuteStatementRequest()
+                .setCatalog(testCatalog)
+                .setSchema(testSchema)
+                .setStatement(expectedQuery)
+                .setWarehouseId(testWarehouseId);
+
+        StatementResponse statementResponseMock = new StatementResponse().setStatementId(expectedStatementId);
+
+        when(workspaceClientMock.statementExecution()).thenReturn(statementExecutionAPIMock);
+        when(statementExecutionAPIMock.executeStatement(eq(request))).thenReturn(statementResponseMock);
+
+        Either<FailedOperation, Optional<String>> result = outputPortHandler.executeStatementAlterViewSetDescription(
+                testCatalog, testSchema, testViewName, viewDescription, testWarehouseId, workspaceClientMock);
+
+        assertTrue(result.isRight());
+        assertTrue(result.get().isPresent());
+        assertEquals(expectedStatementId, result.get().get());
+    }
+
+    @Test
+    public void executeStatementAlterViewSetDescription_NoDescription() {
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+
+        String testCatalog = "test_catalog";
+        String testSchema = "test_schema";
+        String testWarehouseId = "test_warehouse_id";
+        String testViewName = "test_view";
+
+        Either<FailedOperation, Optional<String>> result = outputPortHandler.executeStatementAlterViewSetDescription(
+                testCatalog, testSchema, testViewName, null, testWarehouseId, workspaceClientMock);
+
+        assertTrue(result.isRight());
+        assertTrue(result.get().isEmpty());
+    }
+
+    @Test
+    public void executeStatementAlterViewSetDescription_Failure() {
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+        StatementExecutionAPI statementExecutionAPIMock = mock(StatementExecutionAPI.class);
+
+        String testCatalog = "test_catalog";
+        String testSchema = "test_schema";
+        String testWarehouseId = "test_warehouse_id";
+        String testViewName = "test_view";
+        String viewDescription = "Test view description";
+
+        String expectedQuery = "ALTER VIEW test_view SET TBLPROPERTIES ('comment' = \"Test view description\")";
+
+        ExecuteStatementRequest request = new ExecuteStatementRequest()
+                .setCatalog(testCatalog)
+                .setSchema(testSchema)
+                .setStatement(expectedQuery)
+                .setWarehouseId(testWarehouseId);
+
+        when(workspaceClientMock.statementExecution()).thenReturn(statementExecutionAPIMock);
+        when(statementExecutionAPIMock.executeStatement(eq(request)))
+                .thenThrow(new RuntimeException("Execution error"));
+
+        Either<FailedOperation, Optional<String>> result = outputPortHandler.executeStatementAlterViewSetDescription(
+                testCatalog, testSchema, testViewName, viewDescription, testWarehouseId, workspaceClientMock);
+
+        assertTrue(result.isLeft());
+        assertTrue(
+                result.getLeft()
+                        .problems()
+                        .get(0)
+                        .description()
+                        .contains(
+                                "An error occurred while running query 'ALTER VIEW test_view SET TBLPROPERTIES ('comment' = \"Test view description\")'."));
+        assertTrue(result.getLeft().problems().get(0).description().contains("Execution error"));
+    }
+
+    @Test
+    public void executeStatementCommentOnColumn_Success() {
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+        StatementExecutionAPI statementExecutionAPIMock = mock(StatementExecutionAPI.class);
+
+        String testCatalog = "test_catalog";
+        String testSchema = "test_schema";
+        String testWarehouseId = "test_warehouse_id";
+        String testViewName = "test_view";
+        String expectedStatementId = "test_statement_id";
+
+        Column testColumn = new Column();
+        testColumn.setName("col1");
+        testColumn.setDescription("Test description");
+
+        String expectedQuery = "COMMENT ON COLUMN test_view.col1 IS \"Test description\"";
+
+        ExecuteStatementRequest request = new ExecuteStatementRequest()
+                .setCatalog(testCatalog)
+                .setSchema(testSchema)
+                .setStatement(expectedQuery)
+                .setWarehouseId(testWarehouseId);
+
+        StatementResponse statementResponseMock = new StatementResponse().setStatementId(expectedStatementId);
+
+        when(workspaceClientMock.statementExecution()).thenReturn(statementExecutionAPIMock);
+        when(statementExecutionAPIMock.executeStatement(eq(request))).thenReturn(statementResponseMock);
+
+        Either<FailedOperation, Optional<String>> result = outputPortHandler.executeStatementCommentOnColumn(
+                testCatalog, testSchema, testViewName, testColumn, testWarehouseId, workspaceClientMock);
+
+        assertTrue(result.isRight());
+        assertTrue(result.get().isPresent());
+        assertEquals(expectedStatementId, result.get().get());
+    }
+
+    @Test
+    public void executeStatementCommentOnColumn_NoComment() {
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+
+        String testCatalog = "test_catalog";
+        String testSchema = "test_schema";
+        String testWarehouseId = "test_warehouse_id";
+        String testViewName = "test_view";
+
+        Column testColumn = new Column();
+        testColumn.setName("col1");
+
+        Either<FailedOperation, Optional<String>> result = outputPortHandler.executeStatementCommentOnColumn(
+                testCatalog, testSchema, testViewName, testColumn, testWarehouseId, workspaceClientMock);
+
+        assertTrue(result.isRight());
+        assertTrue(result.get().isEmpty());
+    }
+
+    @Test
+    public void executeStatementCommentOnColumn_Failure() {
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+
+        StatementExecutionAPI statementExecutionAPIMock = mock(StatementExecutionAPI.class);
+
+        String testCatalog = "test_catalog";
+        String testSchema = "test_schema";
+        String testWarehouseId = "test_warehouse_id";
+        String testViewName = "test_view";
+
+        Column testColumn = new Column();
+        testColumn.setName("col1");
+        testColumn.setDescription("Test description");
+
+        String expectedQuery = "COMMENT ON COLUMN test_view.col1 IS \"Test description\"";
+
+        ExecuteStatementRequest request = new ExecuteStatementRequest()
+                .setCatalog(testCatalog)
+                .setSchema(testSchema)
+                .setStatement(expectedQuery)
+                .setWarehouseId(testWarehouseId);
+
+        when(workspaceClientMock.statementExecution()).thenReturn(statementExecutionAPIMock);
+        when(statementExecutionAPIMock.executeStatement(eq(request)))
+                .thenThrow(new RuntimeException("Execution error"));
+
+        Either<FailedOperation, Optional<String>> result = outputPortHandler.executeStatementCommentOnColumn(
+                testCatalog, testSchema, testViewName, testColumn, testWarehouseId, workspaceClientMock);
+
+        assertTrue(result.isLeft());
+        assertTrue(
+                result.getLeft()
+                        .problems()
+                        .get(0)
+                        .description()
+                        .contains(
+                                "An error occurred while running query 'COMMENT ON COLUMN test_view.col1 IS \"Test description\"'."));
+        assertTrue(result.getLeft().problems().get(0).description().contains("Execution error"));
+    }
+
+    @Test
+    public void executeQuery_Failure() {
+        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+        StatementExecutionAPI statementExecutionAPIMock = mock(StatementExecutionAPI.class);
+
+        String testQuery = "SELECT * FROM test_table;";
+        String testCatalog = "test_catalog";
+        String testSchema = "test_schema";
+        String testWarehouseId = "test_warehouse_id";
+
+        ExecuteStatementRequest request = new ExecuteStatementRequest()
+                .setCatalog(testCatalog)
+                .setSchema(testSchema)
+                .setStatement(testQuery)
+                .setWarehouseId(testWarehouseId);
+
+        when(workspaceClientMock.statementExecution()).thenReturn(statementExecutionAPIMock);
+        when(statementExecutionAPIMock.executeStatement(eq(request)))
+                .thenThrow(new RuntimeException("Execution error"));
+
+        Either<FailedOperation, String> result = outputPortHandler.executeQuery(
+                testQuery, testCatalog, testSchema, testWarehouseId, workspaceClientMock);
+
+        assertTrue(result.isLeft());
+        assert result.getLeft().problems().get(0).description().contains("An error occurred while running query");
     }
 }
