@@ -14,6 +14,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.object.DBOb
 import it.agilelab.witboost.provisioning.databricks.model.databricks.object.Schema;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.object.View;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,9 +32,8 @@ public class UnityCatalogManager {
     public Either<FailedOperation, Void> attachMetastore(String metastoreName) {
 
         try {
-            logger.info(String.format(
-                    "Attaching the workspace %s to the metastore %s",
-                    databricksWorkspaceInfo.getName(), metastoreName));
+            logger.info(
+                    "Attaching the workspace {} to the metastore {}", databricksWorkspaceInfo.getName(), metastoreName);
             var metastoreId = getMetastoreId(metastoreName);
             if (metastoreId.isLeft()) return left(metastoreId.getLeft());
 
@@ -55,42 +55,39 @@ public class UnityCatalogManager {
     }
 
     public Either<FailedOperation, Void> createCatalogIfNotExists(String catalogName) {
-        try {
-            Either<FailedOperation, Boolean> eitherCatalogExists = checkCatalogExistence(catalogName);
-            if (eitherCatalogExists.isLeft()) return left(eitherCatalogExists.getLeft());
+        Either<FailedOperation, Boolean> eitherCatalogExists = checkCatalogExistence(catalogName);
+        if (eitherCatalogExists.isLeft()) return left(eitherCatalogExists.getLeft());
 
-            boolean catalogExists = eitherCatalogExists.get();
+        boolean catalogExists = eitherCatalogExists.get();
 
-            if (!catalogExists) {
-                var createCatalog = createCatalog(catalogName);
-                if (createCatalog.isLeft()) return left(createCatalog.getLeft());
-            }
+        if (!catalogExists) return createCatalog(catalogName);
 
-            return right(null);
-        } catch (Exception e) {
-
-            String errorMessage = String.format(
-                    "An error occurred while creating unity catalog '%s'. Please try again and if the error persists contact the platform team. Details: %s",
-                    catalogName, e.getMessage());
-            logger.error(errorMessage, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
-        }
+        return right(null);
     }
 
     private Either<FailedOperation, Void> createCatalog(String catalogName) {
         try {
-            logger.info(
-                    String.format("Creating unityCatalog %s in %s", catalogName, databricksWorkspaceInfo.getName()));
+            logger.info("Creating unityCatalog {} in {}", catalogName, databricksWorkspaceInfo.getName());
             workspaceClient.catalogs().create(catalogName);
             return right(null);
 
         } catch (Exception e) {
+            if (e.getMessage().contains("CATALOG_ALREADY_EXISTS")) {
+                logger.warn("Catalog '{}' already created by another provisioning process", catalogName);
+                try {
+                    TimeUnit.SECONDS.sleep(3L);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+                return right(null);
+            } else {
 
-            String errorMessage = String.format(
-                    "An error occurred while creating unity catalog '%s'. Please try again and if the error persists contact the platform team. Details: %s",
-                    catalogName, e.getMessage());
-            logger.error(errorMessage, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+                String errorMessage = String.format(
+                        "An error occurred while creating unity catalog '%s'. Please try again and if the error persists contact the platform team. Details: %s",
+                        catalogName, e.getMessage());
+                logger.error(errorMessage, e);
+                return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+            }
         }
     }
 
@@ -134,33 +131,23 @@ public class UnityCatalogManager {
     }
 
     public Either<FailedOperation, Void> createSchemaIfNotExists(String catalogName, String schemaName) {
-        try {
-            Either<FailedOperation, Boolean> eitherSchemaExists = checkSchemaExistence(catalogName, schemaName);
-            if (eitherSchemaExists.isLeft()) return left(eitherSchemaExists.getLeft());
+        Either<FailedOperation, Boolean> eitherSchemaExists = checkSchemaExistence(catalogName, schemaName);
+        if (eitherSchemaExists.isLeft()) return left(eitherSchemaExists.getLeft());
 
-            boolean schemaExists = eitherSchemaExists.get();
+        boolean schemaExists = eitherSchemaExists.get();
 
-            if (!schemaExists) {
-                var createSchema = createSchema(catalogName, schemaName);
-                if (createSchema.isLeft()) return left(createSchema.getLeft());
-            }
+        if (!schemaExists) return createSchema(catalogName, schemaName);
 
-            return right(null);
-        } catch (Exception e) {
-
-            String errorMessage = String.format(
-                    "An error occurred while creating schema '%s' in catalog '%s'. Please try again and if the error persists contact the platform team. Details: %s",
-                    schemaName, catalogName, e.getMessage());
-            logger.error(errorMessage, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
-        }
+        return right(null);
     }
 
     private Either<FailedOperation, Void> createSchema(String catalogName, String schemaName) {
         try {
-            logger.info(String.format(
-                    "Creating schema '%s' in catalog '%s', in workspace %s",
-                    schemaName, catalogName, databricksWorkspaceInfo.getName()));
+            logger.info(
+                    "Creating schema '{}' in catalog '{}', in workspace {}",
+                    schemaName,
+                    catalogName,
+                    databricksWorkspaceInfo.getName());
             workspaceClient.schemas().create(schemaName, catalogName);
             return right(null);
 
@@ -245,11 +232,11 @@ public class UnityCatalogManager {
             boolean tableExists = eitherTableExists.get();
 
             if (!tableExists) {
-                logger.info(String.format("Drop table skipped. Table '%s' does not exist.", tableFullName));
+                logger.info("Drop table skipped. Table '{}' does not exist.", tableFullName);
             } else {
-                logger.info(String.format("Dropping table '%s'.", tableFullName));
+                logger.info("Dropping table '{}'.", tableFullName);
                 workspaceClient.tables().delete(tableFullName);
-                logger.info(String.format("Table '%s' correctly dropped.", tableFullName));
+                logger.info("Table '{}' correctly dropped.", tableFullName);
             }
             return (right(null));
 
@@ -269,9 +256,10 @@ public class UnityCatalogManager {
         String tableFullName = retrieveTableFullName(catalogName, schemaName, tableName);
 
         try {
-            logger.info(String.format(
-                    "Retrieving columns for table '%s' in workspace %s",
-                    tableFullName, databricksWorkspaceInfo.getName()));
+            logger.info(
+                    "Retrieving columns for table '{}' in workspace {}",
+                    tableFullName,
+                    databricksWorkspaceInfo.getName());
             List<String> colNames = new ArrayList<>();
 
             TableInfo tableInfo = workspaceClient.tables().get(tableFullName);
@@ -357,15 +345,18 @@ public class UnityCatalogManager {
             String principal, Privilege privilege, Boolean isGrantAdded, DBObject object) {
 
         String objectFullName = object.fullyQualifiedName();
-        logger.info("Databricks Object Fully Qualified Name: " + objectFullName);
+        logger.info("Databricks Object Fully Qualified Name: {}", objectFullName);
         SecurableType securableType = object.getSecurableType();
-        logger.info("Databricks Object Securable type: " + securableType);
+        logger.info("Databricks Object Securable type: {}", securableType);
 
         try {
 
-            logger.info(String.format(
-                    "%s permissions %s on object '%s' for principal %s",
-                    (isGrantAdded) ? "Adding" : "Removing", privilege, objectFullName, principal));
+            logger.info(
+                    "{} permissions {} on object '{}' for principal {}",
+                    (isGrantAdded) ? "Adding" : "Removing",
+                    privilege,
+                    objectFullName,
+                    principal);
 
             PermissionsChange permissionChanges = new PermissionsChange().setPrincipal(principal);
 
@@ -383,9 +374,12 @@ public class UnityCatalogManager {
 
             workspaceClient.grants().update(updatePermission);
 
-            logger.info(String.format(
-                    "Permission %s %s on object '%s' for principal %s",
-                    privilege, (isGrantAdded) ? "added" : "removed", objectFullName, principal));
+            logger.info(
+                    "Permission {} {} on object '{}' for principal {}",
+                    privilege,
+                    (isGrantAdded) ? "added" : "removed",
+                    objectFullName,
+                    principal);
 
             return right(null);
         } catch (Exception e) {

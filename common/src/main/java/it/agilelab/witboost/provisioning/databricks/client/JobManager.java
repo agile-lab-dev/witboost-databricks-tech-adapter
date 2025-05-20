@@ -5,6 +5,7 @@ import static io.vavr.control.Either.right;
 
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.compute.AzureAttributes;
+import com.databricks.sdk.service.compute.DataSecurityMode;
 import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
@@ -384,6 +385,7 @@ public class JobManager {
                 .setDriverNodeTypeId(jobClusterSpecific.getDriverNodeTypeId())
                 .setSparkConf(sparkConf)
                 .setSparkEnvVars(sparkEnvVars)
+                .setDataSecurityMode(DataSecurityMode.SINGLE_USER)
                 .setRuntimeEngine(jobClusterSpecific.getRuntimeEngine());
     }
 

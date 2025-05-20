@@ -1,6 +1,7 @@
 package it.agilelab.witboost.provisioning.databricks.client;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
@@ -11,7 +12,8 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,6 +72,34 @@ public class UnityCatalogManagerTest {
         Either<FailedOperation, Void> result = unityCatalogManager.createCatalogIfNotExists("new");
         assertTrue(result.isRight());
         assertEquals(null, result.get());
+    }
+
+    @Test
+    public void testCreateCatalog_ExceptionAlreadyExistingCatalog() {
+        List<CatalogInfo> catalogList =
+                Arrays.asList(new CatalogInfo().setName("catalog1"), new CatalogInfo().setName("catalog2"));
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
+        when(workspaceClient.catalogs().create(anyString()))
+                .thenThrow(new RuntimeException("CATALOG_ALREADY_EXISTS: catalog1"));
+
+        Either<FailedOperation, Void> result = unityCatalogManager.createCatalogIfNotExists("new");
+        assertTrue(result.isRight());
+    }
+
+    @Test
+    public void testCreateCatalog_GenericException() {
+        List<CatalogInfo> catalogList =
+                Arrays.asList(new CatalogInfo().setName("catalog1"), new CatalogInfo().setName("catalog2"));
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
+        when(workspaceClient.catalogs().create(anyString())).thenThrow(new RuntimeException("Generic exception"));
+
+        Either<FailedOperation, Void> result = unityCatalogManager.createCatalogIfNotExists("new");
+        assertTrue(result.isLeft());
+        assert (result.getLeft().problems().get(0).description().contains("Generic exception"));
     }
 
     @Test
