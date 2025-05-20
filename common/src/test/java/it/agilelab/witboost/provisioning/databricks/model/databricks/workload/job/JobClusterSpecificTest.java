@@ -7,6 +7,7 @@ import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.SparkEnvVar;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -76,7 +77,9 @@ public class JobClusterSpecificTest {
         assertThat(jobClusterSpecific.getAvailability()).isNull();
         assertThat(jobClusterSpecific.getDriverNodeTypeId()).isNull();
         assertThat(jobClusterSpecific.getSparkConf()).isNull();
-        assertThat(jobClusterSpecific.getSparkEnvVars()).isNull();
+        assertThat(jobClusterSpecific.getSparkEnvVarsQa()).isNull();
+        assertThat(jobClusterSpecific.getSparkEnvVarsDevelopment()).isNull();
+        assertThat(jobClusterSpecific.getSparkEnvVarsProduction()).isNull();
         assertThat(jobClusterSpecific.getRuntimeEngine()).isNull();
     }
 
@@ -91,10 +94,10 @@ public class JobClusterSpecificTest {
         sparkConf.setName("spark.conf");
         sparkConf.setValue("value");
         jobClusterSpecific.setSparkConf(List.of(sparkConf));
-        DatabricksJobWorkloadSpecific.SparkEnvVar sparkEnvVar = new DatabricksJobWorkloadSpecific.SparkEnvVar();
-        sparkEnvVar.setName("spark.env.var");
-        sparkEnvVar.setValue("value");
-        jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
+        SparkEnvVar sparkEnvVar = new SparkEnvVar("spark.env.var", "value");
+        jobClusterSpecific.setSparkEnvVarsProduction(List.of(sparkEnvVar));
+        jobClusterSpecific.setSparkEnvVarsQa(List.of(sparkEnvVar));
+        jobClusterSpecific.setSparkEnvVarsDevelopment(List.of(sparkEnvVar));
         jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
 
         assertEquals(10, jobClusterSpecific.getSpotBidMaxPrice());
@@ -108,10 +111,22 @@ public class JobClusterSpecificTest {
                 sparkConf.getValue(), jobClusterSpecific.getSparkConf().get(0).getValue());
         assertEquals(
                 sparkEnvVar.getName(),
-                jobClusterSpecific.getSparkEnvVars().get(0).getName());
+                jobClusterSpecific.getSparkEnvVarsProduction().get(0).getName());
         assertEquals(
                 sparkEnvVar.getValue(),
-                jobClusterSpecific.getSparkEnvVars().get(0).getValue());
+                jobClusterSpecific.getSparkEnvVarsProduction().get(0).getValue());
+        assertEquals(
+                sparkEnvVar.getName(),
+                jobClusterSpecific.getSparkEnvVarsQa().get(0).getName());
+        assertEquals(
+                sparkEnvVar.getValue(),
+                jobClusterSpecific.getSparkEnvVarsQa().get(0).getValue());
+        assertEquals(
+                sparkEnvVar.getName(),
+                jobClusterSpecific.getSparkEnvVarsDevelopment().get(0).getName());
+        assertEquals(
+                sparkEnvVar.getValue(),
+                jobClusterSpecific.getSparkEnvVarsDevelopment().get(0).getValue());
         assertEquals(RuntimeEngine.PHOTON, jobClusterSpecific.getRuntimeEngine());
     }
 }

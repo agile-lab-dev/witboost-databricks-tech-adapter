@@ -1,6 +1,7 @@
 package it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job;
 
 import com.databricks.sdk.service.jobs.GitProvider;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import it.agilelab.witboost.provisioning.databricks.model.MandatoryFields;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.DatabricksWorkloadSpecific;
 import jakarta.validation.Valid;
@@ -13,6 +14,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DatabricksJobWorkloadSpecific extends DatabricksWorkloadSpecific {
 
     @NotBlank
@@ -102,19 +104,5 @@ public class DatabricksJobWorkloadSpecific extends DatabricksWorkloadSpecific {
         public String toString() {
             return name().toLowerCase();
         }
-    }
-
-    /**
-     * Represents a Spark environment variable configuration for a Databricks job.
-     * Fields:
-     * - name: The name of the Spark environment variable.
-     * - value: The value assigned to the Spark environment variable.
-     */
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    public static class SparkEnvVar {
-        private String name;
-        private String value;
     }
 }

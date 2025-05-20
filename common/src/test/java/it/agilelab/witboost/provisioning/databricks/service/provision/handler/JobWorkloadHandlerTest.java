@@ -28,10 +28,16 @@ import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfi
 import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.SparkEnvVar;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.JobClusterSpecific;
-import java.util.*;
+import jakarta.validation.constraints.NotNull;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -62,20 +68,29 @@ public class JobWorkloadHandlerTest {
     AzureAuthConfig azureAuthConfig;
 
     private DataProduct dataProduct;
-    private Workload workload;
-    private DatabricksJobWorkloadSpecific databricksJobWorkloadSpecific;
+    private Workload<DatabricksJobWorkloadSpecific> workload;
 
-    private DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
+    private final DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
             "workspace", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
-    private String workspaceName = "testWorkspace";
+    private final String workspaceName = "testWorkspace";
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        dataProduct = new DataProduct();
-        databricksJobWorkloadSpecific = new DatabricksJobWorkloadSpecific();
-        workload = new Workload();
 
+        dataProduct = new DataProduct();
+        dataProduct.setDataProductOwner("user:name.surname@company.it");
+        dataProduct.setDevGroup("group:developers");
+        dataProduct.setEnvironment("development");
+
+        setUpWorkload();
+    }
+
+    private void setUpWorkload() {
+        workload = new Workload<>();
+        workload.setName("workload");
+
+        DatabricksJobWorkloadSpecific databricksJobWorkloadSpecific = new DatabricksJobWorkloadSpecific();
         databricksJobWorkloadSpecific.setWorkspace(workspaceName);
         databricksJobWorkloadSpecific.setJobName("jobName");
         databricksJobWorkloadSpecific.setRepoPath("dataproduct/component");
@@ -88,21 +103,7 @@ public class JobWorkloadHandlerTest {
         jobGitSpecific.setGitPath("/src");
         databricksJobWorkloadSpecific.setGit(jobGitSpecific);
 
-        JobClusterSpecific jobClusterSpecific = new JobClusterSpecific();
-        jobClusterSpecific.setSpotBidMaxPrice(10D);
-        jobClusterSpecific.setFirstOnDemand(5L);
-        jobClusterSpecific.setSpotInstances(true);
-        jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
-        jobClusterSpecific.setDriverNodeTypeId("driverNodeTypeId");
-        SparkConf sparkConf = new SparkConf();
-        sparkConf.setName("spark.conf");
-        sparkConf.setValue("value");
-        jobClusterSpecific.setSparkConf(List.of(sparkConf));
-        DatabricksJobWorkloadSpecific.SparkEnvVar sparkEnvVar = new DatabricksJobWorkloadSpecific.SparkEnvVar();
-        sparkEnvVar.setName("spark.env.var");
-        sparkEnvVar.setValue("value");
-        jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
-        jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
+        JobClusterSpecific jobClusterSpecific = getJobClusterSpecific();
         databricksJobWorkloadSpecific.setCluster(jobClusterSpecific);
 
         DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific =
@@ -113,10 +114,26 @@ public class JobWorkloadHandlerTest {
         databricksJobWorkloadSpecific.setWorkspace("workspace");
         databricksJobWorkloadSpecific.setMetastore("metastore");
         workload.setSpecific(databricksJobWorkloadSpecific);
+    }
 
-        workload.setName("workload");
-        dataProduct.setDataProductOwner("user:name.surname@company.it");
-        dataProduct.setDevGroup("group:developers");
+    @NotNull
+    private static JobClusterSpecific getJobClusterSpecific() {
+        JobClusterSpecific jobClusterSpecific = new JobClusterSpecific();
+        jobClusterSpecific.setSpotBidMaxPrice(10D);
+        jobClusterSpecific.setFirstOnDemand(5L);
+        jobClusterSpecific.setSpotInstances(true);
+        jobClusterSpecific.setAvailability(AzureAvailability.ON_DEMAND_AZURE);
+        jobClusterSpecific.setDriverNodeTypeId("driverNodeTypeId");
+        SparkConf sparkConf = new SparkConf();
+        sparkConf.setName("spark.conf");
+        sparkConf.setValue("value");
+        jobClusterSpecific.setSparkConf(List.of(sparkConf));
+        SparkEnvVar sparkEnvVar = new SparkEnvVar("spark.env.var", "value");
+        jobClusterSpecific.setSparkEnvVarsProduction(List.of(sparkEnvVar));
+        jobClusterSpecific.setSparkEnvVarsQa(List.of(sparkEnvVar));
+        jobClusterSpecific.setSparkEnvVarsDevelopment(List.of(sparkEnvVar));
+        jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
+        return jobClusterSpecific;
     }
 
     @Test
@@ -153,17 +170,17 @@ public class JobWorkloadHandlerTest {
 
         RepoInfo repoInfo = mock(RepoInfo.class);
         when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
-        when(repoInfo.getId()).thenReturn(123l);
+        when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
         when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
         when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
-        List<User> users =
-                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
-        List<Group> groups =
-                Arrays.asList(new Group().setDisplayName("developers").setId("234"));
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("234"));
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.groups().list(any())).thenReturn(groups);
@@ -177,11 +194,12 @@ public class JobWorkloadHandlerTest {
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
 
         assert result.isRight();
-        assertEquals(result.get(), "123");
+        assertEquals("123", result.get());
     }
 
     @Test
     public void provisionWorkload_ErrorCreatingJob() {
+        dataProduct.setEnvironment("qa");
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
@@ -202,7 +220,7 @@ public class JobWorkloadHandlerTest {
 
         RepoInfo repoInfo = mock(RepoInfo.class);
         when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
-        when(repoInfo.getId()).thenReturn(123l);
+        when(repoInfo.getId()).thenReturn(123L);
 
         RepoPermissions repoPermissions = mock(RepoPermissions.class);
         when(reposAPI.getPermissions(anyString())).thenReturn(repoPermissions);
@@ -213,11 +231,11 @@ public class JobWorkloadHandlerTest {
         when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
         when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
-        List<User> users =
-                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
 
-        List<Group> groups =
-                Arrays.asList(new Group().setDisplayName("developers").setId("456"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("456"));
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.groups().list(any())).thenReturn(groups);
@@ -241,10 +259,9 @@ public class JobWorkloadHandlerTest {
         dataProduct.setDataProductOwner("wrong_user");
         List<CatalogInfo> catalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
 
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
-        when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
+        when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
 
         List<MetastoreInfo> metastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
@@ -267,7 +284,7 @@ public class JobWorkloadHandlerTest {
                 .contains("The subject wrong_user is neither a Witboost user nor a group");
     }
 
-    // TODO: Temporarily removed. See annotation in BaseWorkloadHanler.mapUsers
+    // TODO: Temporarily removed. See annotation in BaseWorkloadHandler.mapUsers
 
     //    @Test
     //    public void provisionWorkload_ErrorMappingDevGroup() {
@@ -308,8 +325,7 @@ public class JobWorkloadHandlerTest {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
-        List<BaseJob> baseJobList = Arrays.asList(new BaseJob().setJobId(1l), new BaseJob().setJobId(2l));
-        Iterable<BaseJob> baseJobIterable = baseJobList;
+        Iterable<BaseJob> baseJobIterable = Arrays.asList(new BaseJob().setJobId(1L), new BaseJob().setJobId(2L));
 
         JobsAPI jobsAPI = mock(JobsAPI.class);
         when(workspaceClient.jobs()).thenReturn(jobsAPI);
@@ -333,8 +349,7 @@ public class JobWorkloadHandlerTest {
 
         Optional<DatabricksWorkspaceInfo> optionalDatabricksWorkspaceInfo = Optional.of(databricksWorkspaceInfo);
 
-        List<BaseJob> baseJobList = Arrays.asList(new BaseJob().setJobId(1l), new BaseJob().setJobId(2l));
-        Iterable<BaseJob> baseJobIterable = baseJobList;
+        Iterable<BaseJob> baseJobIterable = Arrays.asList(new BaseJob().setJobId(1L), new BaseJob().setJobId(2L));
 
         JobsAPI jobsAPI = mock(JobsAPI.class);
         when(workspaceClient.jobs()).thenReturn(jobsAPI);
@@ -356,11 +371,11 @@ public class JobWorkloadHandlerTest {
                 new ObjectInfo()
                         .setObjectType(ObjectType.REPO)
                         .setPath("/dataproduct/repo")
-                        .setObjectId(1l),
+                        .setObjectId(1L),
                 new ObjectInfo()
                         .setObjectType(ObjectType.REPO)
                         .setPath("/dataproduct/repo2")
-                        .setObjectId(2l));
+                        .setObjectId(2L));
 
         when(workspaceClient.workspace().list("/dataproduct")).thenReturn(folderContent);
 
@@ -374,14 +389,13 @@ public class JobWorkloadHandlerTest {
     @Test
     public void unprovisionWorkloadRemoveDataTrue_Exception() {
 
-        List<BaseJob> baseJobList = Arrays.asList(new BaseJob().setJobId(1l), new BaseJob().setJobId(2l));
-        Iterable<BaseJob> baseJobIterable = baseJobList;
+        Iterable<BaseJob> baseJobIterable = Arrays.asList(new BaseJob().setJobId(1L), new BaseJob().setJobId(2L));
 
         JobsAPI jobsAPI = mock(JobsAPI.class);
         when(workspaceClient.jobs()).thenReturn(jobsAPI);
         when(jobsAPI.list(any())).thenReturn(baseJobIterable);
 
-        ProvisionRequest mockProvisionRequest = mock(ProvisionRequest.class);
+        ProvisionRequest<DatabricksJobWorkloadSpecific> mockProvisionRequest = mock(ProvisionRequest.class);
         Workload<DatabricksJobWorkloadSpecific> mockComponent = mock(Workload.class);
         DatabricksJobWorkloadSpecific mockSpecific = mock(DatabricksJobWorkloadSpecific.class);
         when(mockProvisionRequest.component()).thenReturn(mockComponent);
@@ -405,10 +419,9 @@ public class JobWorkloadHandlerTest {
         mockJobAPI(workspaceClient);
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
+        Iterable<MetastoreInfo> iterableMetastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
         MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
@@ -416,7 +429,7 @@ public class JobWorkloadHandlerTest {
 
         RepoInfo repoInfo = mock(RepoInfo.class);
         when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
-        when(repoInfo.getId()).thenReturn(123l);
+        when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
@@ -457,15 +470,15 @@ public class JobWorkloadHandlerTest {
 
         RepoInfo repoInfo = mock(RepoInfo.class);
         when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
-        when(repoInfo.getId()).thenReturn(123l);
+        when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
         when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
         when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
-        List<User> users =
-                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
@@ -486,13 +499,62 @@ public class JobWorkloadHandlerTest {
     }
 
     @Test
+    public void provisionWorkload_ErrorGettingSparkEnvVars() {
+        dataProduct.setEnvironment("INVALID");
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+
+        mockReposAPI(workspaceClient);
+        mockJobAPI(workspaceClient);
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
+
+        List<MetastoreInfo> metastoresList = Arrays.asList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
+                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+
+        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list()).thenReturn(metastoresList);
+
+        RepoInfo repoInfo = mock(RepoInfo.class);
+        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        when(repoInfo.getId()).thenReturn(123L);
+
+        when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
+        when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
+        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
+        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
+
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("234"));
+
+        when(accountClient.users().list(any())).thenReturn(users);
+        when(accountClient.groups().list(any())).thenReturn(groups);
+
+        RepoPermissions repoPermissions = mock(RepoPermissions.class);
+        when(workspaceClient.repos().getPermissions(anyString())).thenReturn(repoPermissions);
+        when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
+        when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
+
+        Either<FailedOperation, String> result =
+                jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+
+        assert result.isLeft();
+        String expectedError =
+                "An error occurred while getting the Spark environment variables for the job 'jobName' in the environment 'INVALID'. The specified environment is invalid. Available options are: DEVELOPMENT, QA, PRODUCTION.";
+        assertTrue(result.getLeft().problems().get(0).description().contains(expectedError));
+    }
+
+    @Test
     public void provisionWorkload_Exception() {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
-                new ProvisionRequest<>(dataProduct, new Workload(), false);
+                new ProvisionRequest<>(dataProduct, new Workload<>(), false);
         try {
             jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
         } catch (Exception e) {
-            assertEquals(e.getClass(), NullPointerException.class);
+            assertEquals(NullPointerException.class, e.getClass());
         }
     }
 
@@ -502,16 +564,15 @@ public class JobWorkloadHandlerTest {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
-        List<BaseJob> baseJobList = Arrays.asList(new BaseJob().setJobId(1l), new BaseJob().setJobId(2l));
-        Iterable<BaseJob> baseJobIterable = baseJobList;
+        Iterable<BaseJob> baseJobIterable = Arrays.asList(new BaseJob().setJobId(1L), new BaseJob().setJobId(2L));
 
         JobsAPI jobsAPI = mock(JobsAPI.class);
         when(workspaceClient.jobs()).thenReturn(jobsAPI);
         when(jobsAPI.list(any())).thenReturn(baseJobIterable);
 
         String expectedError = "error while deleting job";
-        doThrow(new DatabricksException(expectedError)).when(jobsAPI).delete(1l);
-        doThrow(new DatabricksException(expectedError)).when(jobsAPI).delete(2l);
+        doThrow(new DatabricksException(expectedError)).when(jobsAPI).delete(1L);
+        doThrow(new DatabricksException(expectedError)).when(jobsAPI).delete(2L);
 
         Either<FailedOperation, Void> result =
                 jobWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -538,8 +599,7 @@ public class JobWorkloadHandlerTest {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, true);
 
-        List<BaseJob> baseJobList = Arrays.asList(new BaseJob().setJobId(1l), new BaseJob().setJobId(2l));
-        Iterable<BaseJob> baseJobIterable = baseJobList;
+        Iterable<BaseJob> baseJobIterable = Arrays.asList(new BaseJob().setJobId(1L), new BaseJob().setJobId(2L));
 
         JobsAPI jobsAPI = mock(JobsAPI.class);
         when(workspaceClient.jobs()).thenReturn(jobsAPI);
@@ -600,17 +660,17 @@ public class JobWorkloadHandlerTest {
 
         RepoInfo repoInfo = mock(RepoInfo.class);
         when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
-        when(repoInfo.getId()).thenReturn(123l);
+        when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
         when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
         when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
-        List<User> users =
-                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
-        List<Group> groups =
-                Arrays.asList(new Group().setDisplayName("developers").setId("234"));
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("234"));
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.groups().list(any())).thenReturn(groups);

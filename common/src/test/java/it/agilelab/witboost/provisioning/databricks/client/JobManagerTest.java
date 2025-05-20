@@ -12,10 +12,13 @@ import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.SparkEnvVar;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.JobClusterSpecific;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,10 +58,10 @@ public class JobManagerTest {
         sparkConf.setName("spark.conf");
         sparkConf.setValue("value");
         jobClusterSpecific.setSparkConf(List.of(sparkConf));
-        DatabricksJobWorkloadSpecific.SparkEnvVar sparkEnvVar = new DatabricksJobWorkloadSpecific.SparkEnvVar();
-        sparkEnvVar.setName("spark.env.var");
-        sparkEnvVar.setValue("value");
-        jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
+        SparkEnvVar sparkEnvVar = new SparkEnvVar("spark.env.var", "value");
+        jobClusterSpecific.setSparkEnvVarsDevelopment(List.of(sparkEnvVar));
+        jobClusterSpecific.setSparkEnvVarsQa(List.of(sparkEnvVar));
+        jobClusterSpecific.setSparkEnvVarsProduction(List.of(sparkEnvVar));
         jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
         return jobClusterSpecific;
     }
@@ -87,7 +90,7 @@ public class JobManagerTest {
         jobManager = new JobManager(workspaceClient, "workspace");
 
         JobsAPI mockJobs = mock(JobsAPI.class);
-        when(workspaceClient.jobs()).thenReturn(mockJobs);
+        lenient().when(workspaceClient.jobs()).thenReturn(mockJobs);
     }
 
     @Test
@@ -101,7 +104,7 @@ public class JobManagerTest {
 
         verify(workspaceClient.jobs(), times(1)).create(any());
         assertTrue(result.isRight());
-        assertEquals(123l, result.get());
+        assertEquals(123L, result.get());
     }
 
     @Test
@@ -128,7 +131,7 @@ public class JobManagerTest {
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
 
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
@@ -147,7 +150,7 @@ public class JobManagerTest {
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
 
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
@@ -162,13 +165,13 @@ public class JobManagerTest {
         DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
                 createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.TAG);
 
-        List<BaseJob> baseJobList = Arrays.asList(
-                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123l));
+        List<BaseJob> baseJobList = Collections.singletonList(
+                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123L));
 
         when(workspaceClient.jobs().list(any())).thenReturn(baseJobList);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
 
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
@@ -183,13 +186,13 @@ public class JobManagerTest {
         DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
                 createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
 
-        List<BaseJob> baseJobList = Arrays.asList(
-                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123l));
+        List<BaseJob> baseJobList = Collections.singletonList(
+                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123L));
 
         when(workspaceClient.jobs().list(any())).thenReturn(baseJobList);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
 
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
@@ -205,13 +208,13 @@ public class JobManagerTest {
                 createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
 
         List<BaseJob> baseJobList = Arrays.asList(
-                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123l),
-                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(456l));
+                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123L),
+                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(456L));
 
         when(workspaceClient.jobs().list(any())).thenReturn(baseJobList);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
 
         assertTrue(result.isLeft());
         assertEquals(
@@ -229,7 +232,7 @@ public class JobManagerTest {
         when(workspaceClient.jobs().create(any())).thenThrow(new RuntimeException("Failed to create job"));
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
 
         assertTrue(result.isLeft());
     }
@@ -241,8 +244,8 @@ public class JobManagerTest {
         DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
                 createJobGitSpecific(DatabricksJobWorkloadSpecific.GitReferenceType.BRANCH);
 
-        List<BaseJob> baseJobList = Arrays.asList(
-                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123l));
+        List<BaseJob> baseJobList = Collections.singletonList(
+                new BaseJob().setSettings(new JobSettings().setName("MyJob")).setJobId(123L));
 
         JobsAPI mockJobs = mock(JobsAPI.class);
         when(workspaceClient.jobs()).thenReturn(mockJobs);
@@ -250,7 +253,7 @@ public class JobManagerTest {
         doThrow(new DatabricksException("Exception")).when(mockJobs).update(any(UpdateJob.class));
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
 
         assertTrue(result.isLeft());
         assertEquals(
@@ -260,7 +263,7 @@ public class JobManagerTest {
 
     @Test
     public void testExportJob() {
-        Long jobId = 123L;
+        long jobId = 123L;
         Job job = new Job().setJobId(jobId);
 
         when(workspaceClient.jobs().get(jobId)).thenReturn(job);
@@ -272,7 +275,7 @@ public class JobManagerTest {
 
     @Test
     public void testExportJob_Failure() {
-        Long jobId = 123L;
+        long jobId = 123L;
         when(workspaceClient.jobs().get(jobId)).thenThrow(new RuntimeException("Failed to export job"));
 
         Either<FailedOperation, Job> result = jobManager.exportJob(jobId);
@@ -280,8 +283,8 @@ public class JobManagerTest {
     }
 
     @Test
-    public void testdeleteJob_Success() {
-        Long jobId = 123L;
+    public void deleteJob_Success() {
+        long jobId = 123L;
         JobsAPI mockJobs = mock(JobsAPI.class);
         when(workspaceClient.jobs()).thenReturn(mockJobs);
 
@@ -291,7 +294,7 @@ public class JobManagerTest {
     }
 
     @Test
-    public void testdeleteJob_Exception() {
+    public void testDeleteJob_Exception() {
         Long jobId = 123L;
         when(workspaceClient.jobs()).thenReturn(null);
         Either<FailedOperation, Void> result = jobManager.deleteJob(jobId);
@@ -311,5 +314,62 @@ public class JobManagerTest {
         String errorMessage =
                 "Cannot invoke \"com.databricks.sdk.service.jobs.JobsAPI.list(com.databricks.sdk.service.jobs.ListJobsRequest)\" because the return value of \"com.databricks.sdk.WorkspaceClient.jobs()\" is null";
         assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_Development() {
+        JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
+        Either<FailedOperation, Map<String, String>> result =
+                jobManager.getSparkEnvVarsForEnvironment("development", jobClusterSpecific, jobName);
+
+        assertTrue(result.isRight());
+        assertNotNull(result.get().get("spark.env.var"));
+        assertEquals("value", result.get().get("spark.env.var"));
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_QA() {
+        JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
+        Either<FailedOperation, Map<String, String>> result =
+                jobManager.getSparkEnvVarsForEnvironment("qa", jobClusterSpecific, jobName);
+
+        assertTrue(result.isRight());
+        assertNotNull(result.get().get("spark.env.var"));
+        assertEquals("value", result.get().get("spark.env.var"));
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_Production() {
+        JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
+        Either<FailedOperation, Map<String, String>> result =
+                jobManager.getSparkEnvVarsForEnvironment("production", jobClusterSpecific, jobName);
+
+        assertTrue(result.isRight());
+        assertNotNull(result.get().get("spark.env.var"));
+        assertEquals("value", result.get().get("spark.env.var"));
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_InvalidEnvironment() {
+        JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
+        Either<FailedOperation, Map<String, String>> result =
+                jobManager.getSparkEnvVarsForEnvironment("invalid_env", jobClusterSpecific, jobName);
+
+        assertTrue(result.isLeft());
+        assertEquals(
+                String.format(
+                        "An error occurred while getting the Spark environment variables for the job '%s' in the environment '%s'. The specified environment is invalid. Available options are: DEVELOPMENT, QA, PRODUCTION. Details: No enum constant it.agilelab.witboost.provisioning.databricks.model.Environment.INVALID_ENV",
+                        jobName, "invalid_env"),
+                result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_NullEnvironment() {
+        JobClusterSpecific jobClusterSpecific = createJobClusterSpecific();
+        Either<FailedOperation, Map<String, String>> result =
+                jobManager.getSparkEnvVarsForEnvironment(null, jobClusterSpecific, jobName);
+
+        assertTrue(result.isLeft());
+        assertTrue(result.getLeft().problems().get(0).description().contains("The specified environment is invalid"));
     }
 }

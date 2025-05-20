@@ -1,6 +1,7 @@
 package it.agilelab.witboost.provisioning.databricks.model.databricks;
 
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -8,6 +9,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DatabricksWorkspaceInfo {
     private String name;
     private String id;

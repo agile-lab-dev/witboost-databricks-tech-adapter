@@ -1,6 +1,7 @@
 package it.agilelab.witboost.provisioning.databricks.model.databricks.workflow;
 
 import com.databricks.sdk.service.jobs.Job;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.DatabricksWorkloadSpecific;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
@@ -12,6 +13,7 @@ import lombok.ToString;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DatabricksWorkflowWorkloadSpecific extends DatabricksWorkloadSpecific {
 
     private Job workflow;

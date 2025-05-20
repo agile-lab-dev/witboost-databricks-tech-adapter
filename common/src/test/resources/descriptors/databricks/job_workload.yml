@@ -99,8 +99,14 @@ dataProduct:
                 value: test
               - name: sparkconf2
                 value: test2
-            sparkEnvVars:
-              - name: env_var
-                value: test
+            sparkEnvVarsDevelopment:
+              - name: env_var_dev
+                value: test_dev
+            sparkEnvVarsQa:
+              - name: env_var_qa
+                value: test_qa
+            sparkEnvVarsProduction:
+              - name: env_var_prod
+                value: test_prod
             runtimeEngine: PHOTON
 componentIdToProvision: urn:dmb:cmp:healthcare:databricks-provisioner:0:databricks-workload

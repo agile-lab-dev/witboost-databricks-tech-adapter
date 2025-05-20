@@ -10,6 +10,8 @@ import com.databricks.sdk.service.pipelines.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import it.agilelab.witboost.provisioning.databricks.model.Environment;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.SparkEnvVar;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DLTClusterSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
 import java.util.*;
@@ -46,6 +48,7 @@ public class DLTManager {
      * @param notifications Notifications settings (email recipients and alerts).
      * @param channel The pipeline channel (current or preview).
      * @param clusterSpecific Cluster-specific configurations.
+     * @param environment The Witboost environment
      * @return Either a failed operation or the pipeline ID (if creation or update succeeds).
      */
     public Either<FailedOperation, String> createOrUpdateDltPipeline(
@@ -59,7 +62,8 @@ public class DLTManager {
             Boolean photon,
             Map<String, Collection<String>> notifications,
             DatabricksDLTWorkloadSpecific.PipelineChannel channel,
-            DLTClusterSpecific clusterSpecific) {
+            DLTClusterSpecific clusterSpecific,
+            String environment) {
 
         Either<FailedOperation, Iterable<PipelineStateInfo>> eitherGetPipelines =
                 listPipelinesWithGivenName(pipelineName);
@@ -82,7 +86,8 @@ public class DLTManager {
                     photon,
                     notifications,
                     channel,
-                    clusterSpecific);
+                    clusterSpecific,
+                    environment);
 
         if (pipelineList.size() != 1) {
             String errorMessage = String.format(
@@ -106,7 +111,8 @@ public class DLTManager {
                 photon,
                 notifications,
                 channel,
-                clusterSpecific);
+                clusterSpecific,
+                environment);
     }
 
     /**
@@ -125,6 +131,7 @@ public class DLTManager {
      * @param notifications Notifications settings (email recipients and alerts).
      * @param channel The pipeline channel (current or preview).
      * @param clusterSpecific Cluster-specific configurations.
+     * @param environment The Witboost environment
      * @return Either a failed operation or the pipeline ID (if creation succeeds).
      */
     private Either<FailedOperation, String> createDLTPipeline(
@@ -138,10 +145,11 @@ public class DLTManager {
             Boolean photon,
             Map<String, Collection<String>> notifications,
             DatabricksDLTWorkloadSpecific.PipelineChannel channel,
-            DLTClusterSpecific clusterSpecific) {
+            DLTClusterSpecific clusterSpecific,
+            String environment) {
 
         try {
-            logger.info(String.format("Creating pipeline %s in %s", pipelineName, workspaceName));
+            logger.info("Creating pipeline {} in {}", pipelineName, workspaceName);
 
             Collection<PipelineLibrary> libraries = new ArrayList<>();
             Optional.ofNullable(notebooks)
@@ -159,6 +167,10 @@ public class DLTManager {
                 return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
             }
 
+            Either<FailedOperation, Map<String, String>> sparkEnvVar =
+                    getSparkEnvVarsForEnvironment(environment, clusterSpecific, pipelineName);
+            if (sparkEnvVar.isLeft()) return left(sparkEnvVar.getLeft());
+
             CreatePipeline createPipeline = new CreatePipeline()
                     .setName(pipelineName)
                     .setEdition(productEdition.getValue())
@@ -170,7 +182,8 @@ public class DLTManager {
                     .setPhoton(photon)
                     .setChannel(channel.getValue())
                     .setAllowDuplicateNames(false)
-                    .setNotifications(buildNotifications(notifications));
+                    .setNotifications(buildNotifications(notifications))
+                    .setConfiguration(sparkEnvVar.get());
 
             CreatePipelineResponse createPipelineResponse =
                     workspaceClient.pipelines().create(createPipeline);
@@ -213,11 +226,11 @@ public class DLTManager {
      */
     public Either<FailedOperation, Void> deletePipeline(String pipelineId) {
         try {
-            logger.info(String.format("Deleting pipeline with ID: %s in %s", pipelineId, workspaceName));
+            logger.info("Deleting pipeline with ID: {} in {}", pipelineId, workspaceName);
             workspaceClient.pipelines().delete(pipelineId);
             return right(null);
         } catch (ResourceDoesNotExist e) {
-            logger.info(String.format("Pipeline with ID not found in %s. Deletion skipped", pipelineId, workspaceName));
+            logger.info("Pipeline with ID not found in {}. Deletion skipped", pipelineId);
             return right(null);
         } catch (Exception e) {
             String errorMessage = String.format(
@@ -254,7 +267,7 @@ public class DLTManager {
 
     /**
      * Updates an existing Delta Live Table (DLT) pipeline.
-     * Validates that at least one notebook or file is provided. If none are present, it returns an error.
+     * Validates that at least one notebook or file is provided. If none is present, it returns an error.
      * Updates pipeline configurations.
      *
      * @param pipelineId The ID of the pipeline to be updated.
@@ -269,6 +282,7 @@ public class DLTManager {
      * @param notifications Notifications settings (email recipients and alerts).
      * @param channel The pipeline channel (current or preview).
      * @param clusterSpecific Cluster-specific configurations.
+     * @param environment The Witboost environment
      * @return Either a failed operation or the pipeline ID (if the update succeeds).
      */
     private Either<FailedOperation, String> updateDLTPipeline(
@@ -283,11 +297,12 @@ public class DLTManager {
             Boolean photon,
             Map<String, Collection<String>> notifications,
             DatabricksDLTWorkloadSpecific.PipelineChannel channel,
-            DLTClusterSpecific clusterSpecific) {
+            DLTClusterSpecific clusterSpecific,
+            String environment) {
 
         try {
 
-            logger.info(String.format("Updating pipeline %s in %s", pipelineName, workspaceName));
+            logger.info("Updating pipeline {} in {}", pipelineName, workspaceName);
 
             Collection<PipelineLibrary> libraries = buildPipelineLibraries(notebooks, files);
 
@@ -298,6 +313,10 @@ public class DLTManager {
                 logger.error(errorMessage);
                 return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
             }
+
+            Either<FailedOperation, Map<String, String>> sparkEnvVar =
+                    getSparkEnvVarsForEnvironment(environment, clusterSpecific, pipelineName);
+            if (sparkEnvVar.isLeft()) return left(sparkEnvVar.getLeft());
 
             EditPipeline editPipeline = new EditPipeline()
                     .setPipelineId(pipelineId)
@@ -311,7 +330,8 @@ public class DLTManager {
                     .setPhoton(photon)
                     .setChannel(channel.getValue())
                     .setAllowDuplicateNames(false)
-                    .setNotifications(buildNotifications(notifications));
+                    .setNotifications(buildNotifications(notifications))
+                    .setConfiguration(sparkEnvVar.get());
 
             workspaceClient.pipelines().update(editPipeline);
 
@@ -438,5 +458,52 @@ public class DLTManager {
             logger.error(errorMessage, e);
             return left(FailedOperation.singleProblemFailedOperation(errorMessage, e));
         }
+    }
+
+    /**
+     * Retrieves Spark environment variables from the provided list.
+     *
+     * @param inputSparkEnvVars A list of Spark environment variables to process.
+     * @return A map where the key is the variable name and the value is the variable value.
+     */
+    private Map<String, String> getSparkEnvVars(List<SparkEnvVar> inputSparkEnvVars) {
+        Map<String, String> envVarNew = new HashMap<>();
+        if (inputSparkEnvVars != null)
+            inputSparkEnvVars.forEach(envVar -> envVarNew.put(envVar.getName(), envVar.getValue()));
+
+        return envVarNew;
+    }
+
+    /**
+     * Retrieves Spark environment variables based on the specified environment.
+     * Validates the environment and returns the corresponding Spark environment variables for the Delta Live Table (DLT) pipeline.
+     * If the environment is invalid, returns a failed operation.
+     *
+     * @param environment The target environment, which can be one of DEVELOPMENT, QA, or PRODUCTION.
+     * @param dltClusterSpecific The cluster-specific configurations containing environment-specific Spark variables.
+     * @param pipelineName The name of the pipeline for which environment variables are being retrieved.
+     * @return Either a failed operation indicating an error, or a map of Spark environment variables for the specified environment.
+     */
+    protected Either<FailedOperation, Map<String, String>> getSparkEnvVarsForEnvironment(
+            String environment, DLTClusterSpecific dltClusterSpecific, String pipelineName) {
+        Environment env;
+        try {
+            env = Environment.valueOf(environment.toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            String errorMessage = String.format(
+                    "An error occurred while getting the Spark environment variables for the pipeline '%s' in the environment '%s'. The specified environment is invalid. Available options are: DEVELOPMENT, QA, PRODUCTION. Details: %s",
+                    pipelineName, environment, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(FailedOperation.singleProblemFailedOperation(errorMessage, e));
+        }
+
+        List<SparkEnvVar> sparkEnvVarEnv =
+                switch (env) {
+                    case DEVELOPMENT -> dltClusterSpecific.getSparkEnvVarsDevelopment();
+                    case QA -> dltClusterSpecific.getSparkEnvVarsQa();
+                    case PRODUCTION -> dltClusterSpecific.getSparkEnvVarsProduction();
+                };
+
+        return right(getSparkEnvVars(sparkEnvVarEnv));
     }
 }

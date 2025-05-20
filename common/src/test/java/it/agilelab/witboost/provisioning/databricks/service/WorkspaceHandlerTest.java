@@ -33,9 +33,11 @@ import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfi
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
 import it.agilelab.witboost.provisioning.databricks.model.*;
-import it.agilelab.witboost.provisioning.databricks.model.databricks.*;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.outputport.DatabricksOutputPortSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.DatabricksWorkflowWorkloadSpecific;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.SparkEnvVar;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DLTClusterSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
@@ -596,10 +598,10 @@ public class WorkspaceHandlerTest {
         sparkConf.setName("spark.conf");
         sparkConf.setValue("value");
         jobClusterSpecific.setSparkConf(List.of(sparkConf));
-        DatabricksJobWorkloadSpecific.SparkEnvVar sparkEnvVar = new DatabricksJobWorkloadSpecific.SparkEnvVar();
-        sparkEnvVar.setName("spark.env.var");
-        sparkEnvVar.setValue("value");
-        jobClusterSpecific.setSparkEnvVars(List.of(sparkEnvVar));
+        SparkEnvVar sparkEnvVar = new SparkEnvVar("spark.env.var", "value");
+        jobClusterSpecific.setSparkEnvVarsProduction(List.of(sparkEnvVar));
+        jobClusterSpecific.setSparkEnvVarsQa(List.of(sparkEnvVar));
+        jobClusterSpecific.setSparkEnvVarsDevelopment(List.of(sparkEnvVar));
         jobClusterSpecific.setRuntimeEngine(RuntimeEngine.PHOTON);
         databricksJobWorkloadSpecific.setCluster(jobClusterSpecific);
 

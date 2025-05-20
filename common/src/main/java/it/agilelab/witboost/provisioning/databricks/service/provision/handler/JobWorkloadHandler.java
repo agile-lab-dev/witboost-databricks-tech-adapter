@@ -191,7 +191,8 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
                     "Task1",
                     databricksJobWorkloadSpecific.getCluster(),
                     databricksJobWorkloadSpecific.getScheduling(),
-                    databricksJobWorkloadSpecific.getGit());
+                    databricksJobWorkloadSpecific.getGit(),
+                    provisionRequest.dataProduct().getEnvironment());
 
         } catch (Exception e) {
             String errorMessage = String.format(

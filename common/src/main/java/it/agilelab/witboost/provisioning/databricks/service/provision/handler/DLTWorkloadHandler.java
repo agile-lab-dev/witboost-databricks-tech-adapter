@@ -123,7 +123,8 @@ public class DLTWorkloadHandler extends BaseWorkloadHandler {
                     databricksDLTWorkloadSpecific.getPhoton(),
                     notifications,
                     databricksDLTWorkloadSpecific.getChannel(),
-                    databricksDLTWorkloadSpecific.getCluster());
+                    databricksDLTWorkloadSpecific.getCluster(),
+                    provisionRequest.dataProduct().getEnvironment());
             if (eitherCreatedPipeline.isLeft()) return left(eitherCreatedPipeline.getLeft());
 
             String pipelineUrl = "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/pipelines/"

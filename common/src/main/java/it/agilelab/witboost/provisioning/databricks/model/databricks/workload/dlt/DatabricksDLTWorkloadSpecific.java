@@ -1,5 +1,6 @@
 package it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.DatabricksWorkloadSpecific;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -13,6 +14,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Valid
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DatabricksDLTWorkloadSpecific extends DatabricksWorkloadSpecific {
 
     @NotBlank

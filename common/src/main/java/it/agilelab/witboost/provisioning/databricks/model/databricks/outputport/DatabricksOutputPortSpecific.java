@@ -1,5 +1,6 @@
 package it.agilelab.witboost.provisioning.databricks.model.databricks.outputport;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksComponentSpecific;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -9,6 +10,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DatabricksOutputPortSpecific extends DatabricksComponentSpecific {
 
     @NotBlank

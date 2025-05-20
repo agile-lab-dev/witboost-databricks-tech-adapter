@@ -82,12 +82,11 @@ public class DLTWorkloadHandlerTest {
 
     private DLTWorkloadHandler dltWorkloadHandler;
     private DataProduct dataProduct;
-    private Workload workload;
+    private Workload<DatabricksDLTWorkloadSpecific> workload;
     private DatabricksDLTWorkloadSpecific databricksDLTWorkloadSpecific;
 
-    private DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
+    private final DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
             "workspace", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
-    private String workspaceName = "testWorkspace";
 
     @Test
     public void testAzurePermissionsConfigInitialization() {
@@ -114,59 +113,15 @@ public class DLTWorkloadHandlerTest {
                 accountClient,
                 workspaceLevelManagerFactory);
         MockitoAnnotations.openMocks(this);
-        dataProduct = new DataProduct();
-        workload = new Workload();
-
-        DLTClusterSpecific cluster = new DLTClusterSpecific();
-        cluster.setMode(PipelineClusterAutoscaleMode.LEGACY);
-        cluster.setWorkerType("Standard_DS3_v2");
-        cluster.setDriverType("Standard_DS3_v2");
-        cluster.setPolicyId("policyId");
-
-        SparkConf sparkConf = new SparkConf();
-        sparkConf.setName("spark.conf");
-        sparkConf.setValue("value");
-        cluster.setSparkConf(List.of(sparkConf));
-
-        DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
-        specific.setWorkspace("workspace");
-        specific.setPipelineName("pipelineName");
-        specific.setRepoPath("dataproduct/component");
-        specific.setProductEdition(DatabricksDLTWorkloadSpecific.ProductEdition.CORE);
-        specific.setContinuous(true);
-        specific.setNotebooks(List.of("notebook1", "notebook2"));
-        specific.setFiles(List.of("file1", "file2"));
-        specific.setCatalog("catalog");
-        specific.setTarget("target");
-        specific.setPhoton(true);
-        List notifications = new ArrayList();
-        notifications.add(new DatabricksDLTWorkloadSpecific.PipelineNotification(
-                "email@email.com", Collections.singletonList("on-update-test")));
-        notifications.add(new DatabricksDLTWorkloadSpecific.PipelineNotification(
-                "email2@email.com", Collections.singletonList("on-update-test")));
-        specific.setNotifications(notifications);
-        specific.setChannel(DatabricksDLTWorkloadSpecific.PipelineChannel.CURRENT);
-        specific.setCluster(cluster);
-        specific.setMetastore("metastore");
-
-        DatabricksWorkflowWorkloadSpecific.GitSpecific dltGitSpecific =
-                new DatabricksWorkflowWorkloadSpecific.GitSpecific();
-        dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
-        specific.setGit(dltGitSpecific);
-
-        workload.setSpecific(specific);
-        workload.setName("fake_workload");
-
-        dataProduct.setDataProductOwner("user:name.surname@company.it");
-        dataProduct.setDevGroup("group:developers");
+        setUpDataProduct();
+        setUpWorkload();
     }
 
     @Test
     public void provisionWorkload_Success() {
 
-        List<CatalogInfo> catalogList =
+        Iterable<CatalogInfo> iterableCatalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
@@ -174,11 +129,10 @@ public class DLTWorkloadHandlerTest {
         List<MetastoreInfo> metastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
         MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
+        when(metastoresAPI.list()).thenReturn(metastoresList);
 
         PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
@@ -191,11 +145,11 @@ public class DLTWorkloadHandlerTest {
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
 
-        List<User> users =
-                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
 
-        List<Group> groups =
-                Arrays.asList(new Group().setDisplayName("developers").setId("456"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("456"));
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.groups().list(any())).thenReturn(groups);
@@ -221,17 +175,15 @@ public class DLTWorkloadHandlerTest {
     public void provisionWorkload_SuccessNoPermissions() {
 
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
-        List<CatalogInfo> catalogList =
+        Iterable<CatalogInfo> iterableCatalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
 
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
+        Iterable<MetastoreInfo> iterableMetastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
         MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
@@ -248,10 +200,10 @@ public class DLTWorkloadHandlerTest {
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
 
-        List<User> users =
-                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
-        List<Group> groups =
-                Arrays.asList(new Group().setDisplayName("developers").setId("234"));
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("234"));
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.groups().list(any())).thenReturn(groups);
@@ -289,17 +241,15 @@ public class DLTWorkloadHandlerTest {
     public void provisionWorkload_ErrorMappingDpOwner() {
 
         dataProduct.setDataProductOwner("wrong_user");
-        List<CatalogInfo> catalogList =
+        Iterable<CatalogInfo> iterableCatalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
 
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
+        Iterable<MetastoreInfo> iterableMetastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
         MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
@@ -318,7 +268,7 @@ public class DLTWorkloadHandlerTest {
                 .contains("The subject wrong_user is neither a Witboost user nor a group");
     }
 
-    // TODO: Temporarily removed. See annotation in BaseWorkloadHanler.mapUsers
+    // TODO: Temporarily removed. See annotation in BaseWorkloadHandler.mapUsers
 
     //    @Test
     //    public void provisionWorkload_ErrorMappingDevGroup() {
@@ -357,17 +307,15 @@ public class DLTWorkloadHandlerTest {
     public void provisionWorkload_ErrorCreatingRepo() {
 
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
-        List<CatalogInfo> catalogList =
+        Iterable<CatalogInfo> iterableCatalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
 
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
+        Iterable<MetastoreInfo> iterableMetastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
         MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
@@ -387,17 +335,15 @@ public class DLTWorkloadHandlerTest {
     @Test
     public void provisionWorkload_ErrorAssigningPermissions() {
 
-        List<CatalogInfo> catalogList =
+        Iterable<CatalogInfo> iterableCatalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
+        Iterable<MetastoreInfo> iterableMetastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
         MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
@@ -406,10 +352,10 @@ public class DLTWorkloadHandlerTest {
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
 
-        List<User> users =
-                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
-        List<Group> groups =
-                Arrays.asList(new Group().setDisplayName("developers").setId("456"));
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("456"));
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.groups().list(any())).thenReturn(groups);
@@ -435,17 +381,15 @@ public class DLTWorkloadHandlerTest {
     public void provisionWorkload_ErrorCreatingPipeline() {
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
 
-        List<CatalogInfo> catalogList =
+        Iterable<CatalogInfo> iterableCatalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
-        Iterable<CatalogInfo> iterableCatalogList = catalogList;
 
         when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
         when(workspaceClient.catalogs().list(any())).thenReturn(iterableCatalogList);
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
+        Iterable<MetastoreInfo> iterableMetastoresList = Arrays.asList(
                 new MetastoreInfo().setName("metastore").setMetastoreId("id"),
                 new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
 
         MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
@@ -462,11 +406,11 @@ public class DLTWorkloadHandlerTest {
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
 
-        List<User> users =
-                Arrays.asList(new User().setUserName("name.surname@company.it").setId("123"));
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
 
-        List<Group> groups =
-                Arrays.asList(new Group().setDisplayName("developers").setId("456"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("456"));
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.groups().list(any())).thenReturn(groups);
@@ -475,6 +419,7 @@ public class DLTWorkloadHandlerTest {
         RepoPermissions repoPermissions = mock(RepoPermissions.class);
         when(reposAPI.getPermissions(anyString())).thenReturn(repoPermissions);
 
+        dataProduct.setEnvironment("qa");
         ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
         Either<FailedOperation, String> result =
@@ -487,13 +432,77 @@ public class DLTWorkloadHandlerTest {
     }
 
     @Test
+    public void provisionWorkload_ErrorGettingSparkEnvVars() {
+
+        when(workspaceClient.workspace()).thenReturn(workspaceAPI);
+
+        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
+        when(workspaceClient.catalogs().list(any()))
+                .thenReturn(Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2")));
+
+        Iterable<MetastoreInfo> iterableMetastoresList = Arrays.asList(
+                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
+                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+
+        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
+
+        PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
+        when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
+
+        ReposAPI reposAPI = mock(ReposAPI.class);
+        when(workspaceClient.repos()).thenReturn(reposAPI);
+        RepoInfo repoInfo = mock(RepoInfo.class);
+        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+
+        when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
+        when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
+
+        List<User> users = Collections.singletonList(
+                new User().setUserName("name.surname@company.it").setId("123"));
+        List<Group> groups = Collections.singletonList(
+                new Group().setDisplayName("developers").setId("234"));
+
+        when(accountClient.users().list(any())).thenReturn(users);
+        when(accountClient.groups().list(any())).thenReturn(groups);
+        when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
+
+        RepoPermissions repoPermissions = mock(RepoPermissions.class);
+        when(reposAPI.getPermissions(anyString())).thenReturn(repoPermissions);
+
+        dataProduct.setEnvironment("INVALID");
+        ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest =
+                new ProvisionRequest<>(dataProduct, workload, false);
+
+        DatabricksPermissionsConfig.Workload workloadPermissions = new DatabricksPermissionsConfig.Workload();
+        workloadPermissions.setDeveloper("NO_PERMISSIONS");
+        workloadPermissions.setOwner("NO_PERMISSIONS");
+        databricksPermissionsConfig.setWorkload(workloadPermissions);
+        dltWorkloadHandler = new DLTWorkloadHandler(
+                azureAuthConfig,
+                gitCredentialsConfig,
+                databricksPermissionsConfig,
+                accountClient,
+                workspaceLevelManagerFactory);
+
+        Either<FailedOperation, String> result =
+                dltWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
+
+        assert result.isLeft();
+        String expectedError =
+                "An error occurred while getting the Spark environment variables for the pipeline 'pipelineName' in the environment 'INVALID'. The specified environment is invalid. Available options are: DEVELOPMENT, QA, PRODUCTION.";
+        assertTrue(result.getLeft().problems().get(0).description().contains(expectedError));
+    }
+
+    @Test
     public void provisionWorkload_Exception() {
         ProvisionRequest<DatabricksDLTWorkloadSpecific> provisionRequest =
-                new ProvisionRequest<>(dataProduct, new Workload(), false);
+                new ProvisionRequest<>(dataProduct, new Workload<>(), false);
         try {
             dltWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
         } catch (Exception e) {
-            assertEquals(e.getClass(), NullPointerException.class);
+            assertEquals(NullPointerException.class, e.getClass());
         }
     }
 
@@ -507,13 +516,15 @@ public class DLTWorkloadHandlerTest {
         PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
 
-        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
-                new PipelineStateInfo().setPipelineId("pipe1"), new PipelineStateInfo().setPipelineId("pipe2"));
-        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
+        when(pipelinesAPI.listPipelines(any()))
+                .thenReturn(Arrays.asList(
+                        new PipelineStateInfo().setPipelineId("pipe1"),
+                        new PipelineStateInfo().setPipelineId("pipe2")));
 
-        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
-
-        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+        when(pipelinesAPI.listPipelines(any()))
+                .thenReturn(Arrays.asList(
+                        new PipelineStateInfo().setPipelineId("pipe1"),
+                        new PipelineStateInfo().setPipelineId("pipe2")));
 
         Either<FailedOperation, Void> result =
                 dltWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -531,9 +542,8 @@ public class DLTWorkloadHandlerTest {
         PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
 
-        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+        Iterable<PipelineStateInfo> pipelineStateInfoIterable = Arrays.asList(
                 new PipelineStateInfo().setPipelineId("pipe1"), new PipelineStateInfo().setPipelineId("pipe2"));
-        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
 
         when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
 
@@ -558,11 +568,10 @@ public class DLTWorkloadHandlerTest {
 
         List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
                 new PipelineStateInfo().setPipelineId("pipe1"), new PipelineStateInfo().setPipelineId("pipe2"));
-        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
 
-        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfos);
 
-        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
+        when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfos);
 
         Either<FailedOperation, Void> result =
                 dltWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -576,14 +585,13 @@ public class DLTWorkloadHandlerTest {
         PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
 
-        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+        Iterable<PipelineStateInfo> pipelineStateInfoIterable = Arrays.asList(
                 new PipelineStateInfo().setPipelineId("pipe1"), new PipelineStateInfo().setPipelineId("pipe2"));
-        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
         when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
 
         when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
 
-        ProvisionRequest mockProvisionRequest = mock(ProvisionRequest.class);
+        ProvisionRequest<DatabricksDLTWorkloadSpecific> mockProvisionRequest = mock(ProvisionRequest.class);
         Workload<DatabricksDLTWorkloadSpecific> mockComponent = mock(Workload.class);
         DatabricksDLTWorkloadSpecific mockSpecific = mock(DatabricksDLTWorkloadSpecific.class);
         when(mockProvisionRequest.component()).thenReturn(mockComponent);
@@ -607,9 +615,8 @@ public class DLTWorkloadHandlerTest {
         PipelinesAPI pipelinesAPI = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(pipelinesAPI);
 
-        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+        Iterable<PipelineStateInfo> pipelineStateInfoIterable = Arrays.asList(
                 new PipelineStateInfo().setPipelineId("pipe1"), new PipelineStateInfo().setPipelineId("pipe2"));
-        Iterable<PipelineStateInfo> pipelineStateInfoIterable = pipelineStateInfos;
 
         when(pipelinesAPI.listPipelines(any())).thenReturn(pipelineStateInfoIterable);
 
@@ -629,5 +636,56 @@ public class DLTWorkloadHandlerTest {
                 .get(0)
                 .description()
                 .contains("An error occurred while deleting the repo with path /dataproduct/component in workspace.");
+    }
+
+    private void setUpWorkload() {
+        workload = new Workload<>();
+
+        DLTClusterSpecific cluster = new DLTClusterSpecific();
+        cluster.setMode(PipelineClusterAutoscaleMode.LEGACY);
+        cluster.setWorkerType("Standard_DS3_v2");
+        cluster.setDriverType("Standard_DS3_v2");
+        cluster.setPolicyId("policyId");
+
+        SparkConf sparkConf = new SparkConf();
+        sparkConf.setName("spark.conf");
+        sparkConf.setValue("value");
+        cluster.setSparkConf(List.of(sparkConf));
+
+        DatabricksDLTWorkloadSpecific specific = new DatabricksDLTWorkloadSpecific();
+        specific.setWorkspace("workspace");
+        specific.setPipelineName("pipelineName");
+        specific.setRepoPath("dataproduct/component");
+        specific.setProductEdition(DatabricksDLTWorkloadSpecific.ProductEdition.CORE);
+        specific.setContinuous(true);
+        specific.setNotebooks(List.of("notebook1", "notebook2"));
+        specific.setFiles(List.of("file1", "file2"));
+        specific.setCatalog("catalog");
+        specific.setTarget("target");
+        specific.setPhoton(true);
+        List<DatabricksDLTWorkloadSpecific.PipelineNotification> notifications = new ArrayList<>();
+        notifications.add(new DatabricksDLTWorkloadSpecific.PipelineNotification(
+                "email@email.com", Collections.singletonList("on-update-test")));
+        notifications.add(new DatabricksDLTWorkloadSpecific.PipelineNotification(
+                "email2@email.com", Collections.singletonList("on-update-test")));
+        specific.setNotifications(notifications);
+        specific.setChannel(DatabricksDLTWorkloadSpecific.PipelineChannel.CURRENT);
+        specific.setCluster(cluster);
+        specific.setMetastore("metastore");
+
+        DatabricksWorkflowWorkloadSpecific.GitSpecific dltGitSpecific =
+                new DatabricksWorkflowWorkloadSpecific.GitSpecific();
+        dltGitSpecific.setGitRepoUrl("https://github.com/repo.git");
+        specific.setGit(dltGitSpecific);
+
+        workload.setSpecific(specific);
+        workload.setName("fake_workload");
+    }
+
+    private void setUpDataProduct() {
+        dataProduct = new DataProduct();
+        dataProduct.setEnvironment("development");
+        dataProduct.setDataProductOwner("user:name.surname@company.it");
+        dataProduct.setDevGroup("group:developers");
     }
 }

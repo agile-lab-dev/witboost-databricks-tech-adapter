@@ -9,6 +9,9 @@ import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import it.agilelab.witboost.provisioning.databricks.model.Environment;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.SparkEnvVar;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.JobClusterSpecific;
 import java.util.*;
@@ -22,8 +25,8 @@ import org.slf4j.LoggerFactory;
 public class JobManager {
     private final Logger logger = LoggerFactory.getLogger(JobManager.class);
 
-    private WorkspaceClient workspaceClient;
-    private String workspaceName;
+    private final WorkspaceClient workspaceClient;
+    private final String workspaceName;
 
     public JobManager(WorkspaceClient workspaceClient, String workspaceName) {
         this.workspaceClient = workspaceClient;
@@ -42,6 +45,7 @@ public class JobManager {
      * @param jobClusterSpecific The cluster configuration details.
      * @param schedulingSpecific The scheduling parameters.
      * @param jobGitSpecific     The Git-related parameters for the task.
+     * @param environment        The Witboost environment
      * @return Either a Long representing the job ID if successful, or a FailedOperation if an error occurs.
      */
     public Either<FailedOperation, Long> createOrUpdateJobWithNewCluster(
@@ -50,7 +54,8 @@ public class JobManager {
             String taskKey,
             JobClusterSpecific jobClusterSpecific,
             DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
-            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
+            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific,
+            String environment) {
 
         Either<FailedOperation, Iterable<BaseJob>> eitherGetJobs = listJobsWithGivenName(jobName);
 
@@ -62,7 +67,7 @@ public class JobManager {
 
         if (jobList.isEmpty())
             return createJobWithNewCluster(
-                    jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                    jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, environment);
 
         if (jobList.size() != 1) {
             String errorMessage = String.format(
@@ -74,7 +79,14 @@ public class JobManager {
         BaseJob job = jobList.get(0);
 
         return updateJobWithNewCluster(
-                job.getJobId(), jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific);
+                job.getJobId(),
+                jobName,
+                description,
+                taskKey,
+                jobClusterSpecific,
+                schedulingSpecific,
+                jobGitSpecific,
+                environment);
     }
 
     /**
@@ -86,6 +98,7 @@ public class JobManager {
      * @param jobClusterSpecific    The parameters for creating a new cluster.
      * @param schedulingSpecific The parameters for scheduling the job.
      * @param jobGitSpecific        The parameters including the git details for the task.
+     * @param environment        The Witboost environment
      * @return Either a Long representing the job ID if successful, or a FailedOperation.
      */
     private Either<FailedOperation, Long> createJobWithNewCluster(
@@ -94,14 +107,18 @@ public class JobManager {
             String taskKey,
             JobClusterSpecific jobClusterSpecific,
             DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
-            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
+            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific,
+            String environment) {
 
         try {
 
-            logger.info(String.format("Creating job with name %s in %s", jobName, workspaceName));
+            logger.info("Creating job with name {} in {}", jobName, workspaceName);
 
             // Parameters for the notebook
             Map<String, String> map = Map.of("", "");
+            Either<FailedOperation, Map<String, String>> sparkEnvVar =
+                    getSparkEnvVarsForEnvironment(environment, jobClusterSpecific, jobName);
+            if (sparkEnvVar.isLeft()) return left(sparkEnvVar.getLeft());
 
             // Creating a collection of tasks (only one task in this case)
             Collection<Task> tasks = Collections.singletonList(new Task()
@@ -111,11 +128,11 @@ public class JobManager {
                             .setNotebookPath(jobGitSpecific.getGitPath())
                             .setSource(Source.GIT))
                     .setTaskKey(taskKey)
-                    .setNewCluster(getClusterSpecFromSpecific(jobClusterSpecific)));
+                    .setNewCluster(getClusterSpecFromSpecific(jobClusterSpecific, sparkEnvVar.get())));
 
             GitSource gitLabSource = getGitSourceFromSpecific(jobGitSpecific);
 
-            Collection<JobParameterDefinition> jobParameterDefinitions = new ArrayList<>();
+            Collection<JobParameterDefinition> jobParameterDefinitions = getJobParameters(sparkEnvVar.get());
 
             CreateJob createJob = new CreateJob()
                     .setName(jobName)
@@ -130,8 +147,7 @@ public class JobManager {
 
             CreateResponse j = workspaceClient.jobs().create(createJob);
 
-            logger.info(String.format(
-                    "Created new job in %s with name: %s and ID: %d.", workspaceName, jobName, j.getJobId()));
+            logger.info("Created new job in {} with name: {} and ID: {}.", workspaceName, jobName, j.getJobId());
 
             return right(j.getJobId());
 
@@ -153,7 +169,8 @@ public class JobManager {
      * @param taskKey            The task key.
      * @param jobClusterSpecific The updated cluster configuration details.
      * @param schedulingSpecific The updated scheduling parameters.
-     * @param jobGitSpecific     The updated Git-related parameters for the task.
+     * @param jobGitSpecific     The updated Git-related parameters for the task
+     * @param environment        The Witboost environment
      * @return Either a Long representing the job ID if successful, or a FailedOperation if an error occurs.
      */
     private Either<FailedOperation, Long> updateJobWithNewCluster(
@@ -163,12 +180,16 @@ public class JobManager {
             String taskKey,
             JobClusterSpecific jobClusterSpecific,
             DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
-            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
+            DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific,
+            String environment) {
 
         try {
-            logger.info(String.format("Updating job %s in %s", jobName, workspaceName));
+            logger.info("Updating job {} in {}", jobName, workspaceName);
 
             Map<String, String> map = Map.of("", "");
+            Either<FailedOperation, Map<String, String>> sparkEnvVar =
+                    getSparkEnvVarsForEnvironment(environment, jobClusterSpecific, jobName);
+            if (sparkEnvVar.isLeft()) return left(sparkEnvVar.getLeft());
 
             Collection<Task> tasks = Collections.singletonList(new Task()
                     .setDescription(description)
@@ -177,11 +198,11 @@ public class JobManager {
                             .setNotebookPath(jobGitSpecific.getGitPath())
                             .setSource(Source.GIT))
                     .setTaskKey(taskKey)
-                    .setNewCluster(getClusterSpecFromSpecific(jobClusterSpecific)));
+                    .setNewCluster(getClusterSpecFromSpecific(jobClusterSpecific, sparkEnvVar.get())));
 
             GitSource gitLabSource = getGitSourceFromSpecific(jobGitSpecific);
 
-            Collection<JobParameterDefinition> jobParameterDefinitions = new ArrayList<>();
+            Collection<JobParameterDefinition> jobParameterDefinitions = getJobParameters(sparkEnvVar.get());
 
             JobSettings jobSettings = new JobSettings();
             jobSettings
@@ -197,7 +218,7 @@ public class JobManager {
 
             workspaceClient.jobs().update(new UpdateJob().setJobId(jobId).setNewSettings(jobSettings));
 
-            logger.info(String.format("Updated job in %s with name: %s and ID: %d.", workspaceName, jobName, jobId));
+            logger.info("Updated job in {} with name: {} and ID: {}.", workspaceName, jobName, jobId);
 
             return right(jobId);
 
@@ -237,7 +258,7 @@ public class JobManager {
      */
     public Either<FailedOperation, Void> deleteJob(Long jobId) {
         try {
-            logger.info(String.format("Deleting job with ID: %d in %s", jobId, workspaceName));
+            logger.info("Deleting job with ID: {} in {}", jobId, workspaceName);
             workspaceClient.jobs().delete(jobId);
             return right(null);
         } catch (Exception e) {
@@ -282,7 +303,7 @@ public class JobManager {
             String jobName, String description, String existingClusterId, String notebookPath, String taskKey) {
 
         try {
-            logger.info(String.format("Creating job with name %s in %s", jobName, workspaceName));
+            logger.info("Creating job with name {} in {}", jobName, workspaceName);
 
             // Parameters for the notebook
             Map<String, String> map = Map.of("", "");
@@ -301,8 +322,7 @@ public class JobManager {
                     .jobs()
                     .create(new CreateJob().setName(jobName).setTasks(tasks));
 
-            logger.info(String.format(
-                    "Created new job in %s with name: %s and ID: %d.", workspaceName, jobName, j.getJobId()));
+            logger.info("Created new job in {} with name: {} and ID: {}.", workspaceName, jobName, j.getJobId());
             return right(j.getJobId());
         } catch (Exception e) {
             String errorMessage = String.format(
@@ -313,6 +333,13 @@ public class JobManager {
         }
     }
 
+    /**
+     * Converts the provided JobGitSpecific object into a corresponding GitSource instance.
+     * This method maps the Git repository URL and its reference type (branch or tag) into a GitSource object.
+     *
+     * @param jobGitSpecific The Git-related parameters containing repository URL and reference type (branch or tag).
+     * @return A GitSource object that encapsulates the Git repository details and reference information.
+     */
     private GitSource getGitSourceFromSpecific(DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
         GitSource gitLabSource =
                 new GitSource().setGitUrl(jobGitSpecific.getGitRepoUrl()).setGitProvider(GitProvider.GIT_LAB);
@@ -332,18 +359,19 @@ public class JobManager {
         return gitLabSource;
     }
 
+    /**
+     * Creates a ClusterSpec object based on the provided job-cluster-specific configuration
+     * and Spark environment variables.
+     *
+     * @param jobClusterSpecific The configuration details for the job cluster, including Spark version,
+     *                           node types, number of workers, and other cluster-specific attributes.
+     * @param sparkEnvVars       A map of Spark environment variables to be applied to the cluster.
+     * @return A ClusterSpec object containing the final cluster configuration.
+     */
     private com.databricks.sdk.service.compute.ClusterSpec getClusterSpecFromSpecific(
-            JobClusterSpecific jobClusterSpecific) {
+            JobClusterSpecific jobClusterSpecific, Map<String, String> sparkEnvVars) {
 
-        Map<String, String> sparkConfNew = new HashMap<>();
-        if (jobClusterSpecific.getSparkConf() != null)
-            jobClusterSpecific
-                    .getSparkConf()
-                    .forEach(sparkConf -> sparkConfNew.put(sparkConf.getName(), sparkConf.getValue()));
-
-        Map<String, String> envVarNew = new HashMap<>();
-        if (jobClusterSpecific.getSparkEnvVars() != null)
-            jobClusterSpecific.getSparkEnvVars().forEach(envVar -> envVarNew.put(envVar.getName(), envVar.getValue()));
+        Map<String, String> sparkConf = getSparkConfFromSpecific(jobClusterSpecific.getSparkConf());
 
         return new com.databricks.sdk.service.compute.ClusterSpec()
                 .setSparkVersion(jobClusterSpecific.getClusterSparkVersion())
@@ -354,13 +382,21 @@ public class JobManager {
                         .setAvailability(jobClusterSpecific.getAvailability())
                         .setSpotBidMaxPrice(jobClusterSpecific.getSpotBidMaxPrice()))
                 .setDriverNodeTypeId(jobClusterSpecific.getDriverNodeTypeId())
-                .setSparkConf(sparkConfNew)
-                .setSparkEnvVars(envVarNew)
+                .setSparkConf(sparkConf)
+                .setSparkEnvVars(sparkEnvVars)
                 .setRuntimeEngine(jobClusterSpecific.getRuntimeEngine());
     }
 
+    /**
+     * Retrieves the job ID associated with the specified job name from the Databricks workspace.
+     * If no job with the given name exists, or if multiple jobs with the same name are found,
+     * an error is returned.
+     *
+     * @param jobName The name of the job to search for.
+     * @return Either a String representing the job ID if the operation is successful,
+     *         or a FailedOperation if an error occurs (e.g., no job found, multiple jobs found, or an exception occurs).
+     */
     public Either<FailedOperation, String> retrieveJobIdFromName(String jobName) {
-
         try {
             Iterable<BaseJob> jobsIterable = workspaceClient.jobs().list(new ListJobsRequest());
             List<BaseJob> jobListFiltered = StreamSupport.stream(jobsIterable.spliterator(), false)
@@ -390,5 +426,89 @@ public class JobManager {
             logger.error(errorMessage, e);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
         }
+    }
+
+    /**
+     * Converts the provided Spark configuration list into a map.
+     *
+     * @param inputSparkConf A list of Spark configuration objects containing key-value pairs.
+     * @return A map where the key is the configuration name, and the value is the configuration value.
+     */
+    private Map<String, String> getSparkConfFromSpecific(List<SparkConf> inputSparkConf) {
+
+        Map<String, String> sparkConfNew = new HashMap<>();
+        if (inputSparkConf != null)
+            inputSparkConf.forEach(sparkConf -> sparkConfNew.put(sparkConf.getName(), sparkConf.getValue()));
+
+        return sparkConfNew;
+    }
+
+    /**
+     * Retrieves Spark environment variables from the provided list.
+     *
+     * @param inputSparkEnvVars A list of Spark environment variables to process.
+     * @return A map where the key is the variable name and the value is the variable value.
+     */
+    private Map<String, String> getSparkEnvVars(List<SparkEnvVar> inputSparkEnvVars) {
+        Map<String, String> envVarNew = new HashMap<>();
+        if (inputSparkEnvVars != null)
+            inputSparkEnvVars.forEach(envVar -> envVarNew.put(envVar.getName(), envVar.getValue()));
+
+        return envVarNew;
+    }
+
+    /**
+     * Retrieves Spark environment variables based on the specified environment.
+     * Validates the environment and returns the corresponding Spark environment variables for the job.
+     * If the environment is invalid, it returns a failed operation.
+     *
+     * @param environment The target environment, which can be one of DEVELOPMENT, QA, or PRODUCTION.
+     * @param jobClusterSpecific The cluster configuration details, which include environment-specific
+     *                           Spark settings for job clusters.
+     * @param jobName The name of the job for which environment variables are being retrieved.
+     *
+     * @return Either a failed operation indicating an error, or a map of Spark environment variables for the specified environment.
+     */
+    protected Either<FailedOperation, Map<String, String>> getSparkEnvVarsForEnvironment(
+            String environment, JobClusterSpecific jobClusterSpecific, String jobName) {
+        Environment env;
+        try {
+            env = Environment.valueOf(environment.toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            String errorMessage = String.format(
+                    "An error occurred while getting the Spark environment variables for the job '%s' in the environment '%s'. The specified environment is invalid. Available options are: DEVELOPMENT, QA, PRODUCTION. Details: %s",
+                    jobName, environment, e.getMessage());
+            logger.error(errorMessage, e);
+            return left(FailedOperation.singleProblemFailedOperation(errorMessage, e));
+        }
+
+        List<SparkEnvVar> sparkEnvVarEnv =
+                switch (env) {
+                    case DEVELOPMENT -> jobClusterSpecific.getSparkEnvVarsDevelopment();
+                    case QA -> jobClusterSpecific.getSparkEnvVarsQa();
+                    case PRODUCTION -> jobClusterSpecific.getSparkEnvVarsProduction();
+                };
+
+        return right(getSparkEnvVars(sparkEnvVarEnv));
+    }
+
+    /**
+     * Converts a list of Spark environment variables into job parameter definitions.
+     *
+     * @param sparkEnvVars A map of Spark environment variable names and their corresponding values.
+     * @return A collection of `JobParameterDefinition`, each representing a Spark environment variable as a parameter.
+     */
+    private Collection<JobParameterDefinition> getJobParameters(Map<String, String> sparkEnvVars) {
+
+        Collection<JobParameterDefinition> jobParameterDefinitions = new ArrayList<>();
+        if (sparkEnvVars != null) {
+            sparkEnvVars.forEach((key, value) -> {
+                JobParameterDefinition jobParameter = new JobParameterDefinition();
+                jobParameter.setName(key);
+                jobParameter.setDefault(value);
+                jobParameterDefinitions.add(jobParameter);
+            });
+        }
+        return jobParameterDefinitions;
     }
 }

@@ -1,10 +1,10 @@
 package it.agilelab.witboost.provisioning.databricks.client;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 import com.databricks.sdk.WorkspaceClient;
-import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.error.platform.ResourceConflict;
 import com.databricks.sdk.core.error.platform.ResourceDoesNotExist;
@@ -12,6 +12,7 @@ import com.databricks.sdk.service.pipelines.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
+import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.SparkEnvVar;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DLTClusterSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
 import java.util.*;
@@ -33,10 +34,6 @@ public class DLTManagerTest {
 
     DLTManager DLTManager;
 
-    DatabricksConfig mockDatabricksConfig;
-
-    private static final String workspaceName = "example_workspace";
-    private final DLTManager manager = new DLTManager(workspaceClient, workspaceName);
     private static final String pipelineId = "pipelineId";
     private static final String pipelineName = "example_pipeline";
     private static final DatabricksDLTWorkloadSpecific.ProductEdition productEdition =
@@ -47,8 +44,6 @@ public class DLTManagerTest {
     private static final String catalog = "example_catalog";
     private static final String target = "example_target";
     private static final Boolean photon = true;
-    private static final Collection<String> notificationsMails = Arrays.asList("user@example.com");
-    private static final Collection<String> notificationsAlerts = Arrays.asList("alert1", "alert2");
     private static final DatabricksDLTWorkloadSpecific.PipelineChannel channel =
             DatabricksDLTWorkloadSpecific.PipelineChannel.CURRENT;
     private static final CreatePipelineResponse createResponse =
@@ -58,8 +53,8 @@ public class DLTManagerTest {
     private DLTClusterSpecific createDLTClusterSpecific(PipelineClusterAutoscaleMode pipelineClusterAutoscaleMode) {
         DLTClusterSpecific dltClusterSpecific = new DLTClusterSpecific();
         dltClusterSpecific.setMode(pipelineClusterAutoscaleMode);
-        dltClusterSpecific.setMinWorkers(1l);
-        dltClusterSpecific.setMaxWorkers(3l);
+        dltClusterSpecific.setMinWorkers(1L);
+        dltClusterSpecific.setMaxWorkers(3L);
         dltClusterSpecific.setWorkerType("Worker");
         dltClusterSpecific.setDriverType("Driver");
         dltClusterSpecific.setPolicyId("PolicyID");
@@ -70,7 +65,7 @@ public class DLTManagerTest {
     public void setUp() {
         DLTManager = new DLTManager(workspaceClient, "workspace");
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
-        when(workspaceClient.pipelines()).thenReturn(mockPipelines);
+        lenient().when(workspaceClient.pipelines()).thenReturn(mockPipelines);
 
         notifications.clear();
         notifications.put("email@example.com", List.of("alert1", "alert2"));
@@ -93,12 +88,14 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         verify(workspaceClient.pipelines(), times(1)).create(any());
         assertEquals(createResponse.getPipelineId(), result.get());
     }
 
+    @Test
     public void testCreatePipeline_ENHANCEDAutoscale() {
         when(workspaceClient.pipelines().create(any())).thenReturn(createResponse);
 
@@ -115,7 +112,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         verify(workspaceClient.pipelines(), times(1)).create(any());
         assertEquals(createResponse.getPipelineId(), result.get());
@@ -141,7 +139,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         verify(workspaceClient.pipelines(), times(1)).create(any());
         assertEquals(createResponse.getPipelineId(), result.get());
@@ -163,7 +162,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         verify(workspaceClient.pipelines(), times(1)).create(any());
         assertTrue(result.isLeft());
@@ -173,7 +173,7 @@ public class DLTManagerTest {
     }
 
     @Test
-    public void testdeletePipeline() {
+    public void testDeletePipeline() {
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(mockPipelines);
         doNothing().when(mockPipelines).delete(pipelineId);
@@ -183,7 +183,7 @@ public class DLTManagerTest {
     }
 
     @Test
-    public void testdeleteResourceDoesNotExists() {
+    public void testDeleteResourceDoesNotExists() {
         String expectedError = "resource does not exists";
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(mockPipelines);
@@ -198,7 +198,7 @@ public class DLTManagerTest {
     }
 
     @Test
-    public void testdeletePipeline_Exception() {
+    public void testDeletePipeline_Exception() {
         when(workspaceClient.pipelines()).thenThrow(new RuntimeException("Exception"));
 
         Either<FailedOperation, Void> result = DLTManager.deletePipeline(pipelineId);
@@ -210,7 +210,8 @@ public class DLTManagerTest {
 
     @Test
     public void testListPipelines() {
-        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(new PipelineStateInfo().setName("pipelineName"));
+        List<PipelineStateInfo> pipelineStateInfos =
+                Collections.singletonList(new PipelineStateInfo().setName("pipelineName"));
 
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
         when(workspaceClient.pipelines()).thenReturn(mockPipelines);
@@ -236,7 +237,7 @@ public class DLTManagerTest {
     public void testUpdatePipeline() {
         DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
 
-        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+        List<PipelineStateInfo> pipelineStateInfos = Collections.singletonList(
                 new PipelineStateInfo().setName("example_pipeline").setPipelineId(pipelineId));
 
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
@@ -254,7 +255,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         verify(workspaceClient.pipelines(), times(1)).update(any(EditPipeline.class));
         assertTrue(result.isRight());
@@ -265,7 +267,7 @@ public class DLTManagerTest {
     public void testUpdatePipeline_Exception() {
         DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
 
-        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+        List<PipelineStateInfo> pipelineStateInfos = Collections.singletonList(
                 new PipelineStateInfo().setName("example_pipeline").setPipelineId(pipelineId));
 
         PipelinesAPI mockPipelines = mock(PipelinesAPI.class);
@@ -284,7 +286,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         verify(workspaceClient.pipelines(), times(1)).update(any(EditPipeline.class));
         assertTrue(result.isLeft());
@@ -330,7 +333,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         assertTrue(result.isLeft());
         assertEquals(
@@ -358,7 +362,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         assertTrue(result.isLeft());
         assertEquals(
@@ -386,7 +391,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         verify(workspaceClient.pipelines(), times(1)).create(any());
         assertTrue(result.isLeft());
@@ -411,7 +417,8 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         verify(workspaceClient.pipelines(), times(1)).create(any());
         assertTrue(result.isLeft());
@@ -427,7 +434,7 @@ public class DLTManagerTest {
         Boolean photon = true;
 
         DLTClusterSpecific dltClusterSpecific = createDLTClusterSpecific(PipelineClusterAutoscaleMode.ENHANCED);
-        List<PipelineStateInfo> pipelineStateInfos = Arrays.asList(
+        List<PipelineStateInfo> pipelineStateInfos = Collections.singletonList(
                 new PipelineStateInfo().setName("example_pipeline").setPipelineId(pipelineId));
 
         when(workspaceClient.pipelines().listPipelines(any())).thenReturn(pipelineStateInfos);
@@ -443,11 +450,84 @@ public class DLTManagerTest {
                 photon,
                 notifications,
                 channel,
-                dltClusterSpecific);
+                dltClusterSpecific,
+                "development");
 
         assertTrue(result.isLeft());
         assertEquals(
                 "An error occurred while updating the DLT Pipeline example_pipeline in workspace, Details: it is mandatory to have at least one notebook or file.",
                 result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_ValidEnvironment_Development() {
+        DLTClusterSpecific mockDLTClusterSpecific = mock(DLTClusterSpecific.class);
+        List<SparkEnvVar> devEnvVars = List.of(new SparkEnvVar("dev_key1", "dev_value1"));
+        when(mockDLTClusterSpecific.getSparkEnvVarsDevelopment()).thenReturn(devEnvVars);
+
+        Either<FailedOperation, Map<String, String>> result =
+                DLTManager.getSparkEnvVarsForEnvironment("development", mockDLTClusterSpecific, "pipeline_name");
+
+        assertTrue(result.isRight());
+        assertEquals(Map.of("dev_key1", "dev_value1"), result.get());
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_ValidEnvironment_Qa() {
+        DLTClusterSpecific mockDLTClusterSpecific = mock(DLTClusterSpecific.class);
+        List<SparkEnvVar> qaEnvVars = List.of(new SparkEnvVar("qa_key1", "qa_value1"));
+        when(mockDLTClusterSpecific.getSparkEnvVarsQa()).thenReturn(qaEnvVars);
+
+        Either<FailedOperation, Map<String, String>> result =
+                DLTManager.getSparkEnvVarsForEnvironment("qa", mockDLTClusterSpecific, "pipeline_name");
+
+        assertTrue(result.isRight());
+        assertEquals(Map.of("qa_key1", "qa_value1"), result.get());
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_ValidEnvironment_Prod() {
+        DLTClusterSpecific mockDLTClusterSpecific = mock(DLTClusterSpecific.class);
+        List<SparkEnvVar> prodEnvVars = List.of(new SparkEnvVar("prod_key1", "prod_value1"));
+        when(mockDLTClusterSpecific.getSparkEnvVarsProduction()).thenReturn(prodEnvVars);
+
+        Either<FailedOperation, Map<String, String>> result =
+                DLTManager.getSparkEnvVarsForEnvironment("production", mockDLTClusterSpecific, "pipeline_name");
+
+        assertTrue(result.isRight());
+        assertEquals(Map.of("prod_key1", "prod_value1"), result.get());
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_InvalidEnvironment() {
+        DLTClusterSpecific mockDLTClusterSpecific = mock(DLTClusterSpecific.class);
+
+        Either<FailedOperation, Map<String, String>> result =
+                DLTManager.getSparkEnvVarsForEnvironment("INVALID", mockDLTClusterSpecific, "pipeline_name");
+
+        assertTrue(result.isLeft());
+        assert (result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains(
+                        "An error occurred while getting the Spark environment variables for the pipeline 'pipeline_name' in the environment 'INVALID'. The specified environment is invalid. Available options are: DEVELOPMENT, QA, PRODUCTION. "
+                                + "Details: No enum constant it.agilelab.witboost.provisioning.databricks.model.Environment.INVALID"));
+    }
+
+    @Test
+    public void testGetSparkEnvVarsForEnvironment_NullEnvironment() {
+        DLTClusterSpecific mockDLTClusterSpecific = mock(DLTClusterSpecific.class);
+
+        Either<FailedOperation, Map<String, String>> result =
+                DLTManager.getSparkEnvVarsForEnvironment(null, mockDLTClusterSpecific, "pipeline_name");
+
+        assertTrue(result.isLeft());
+        assert (result.getLeft()
+                .problems()
+                .get(0)
+                .description()
+                .contains(
+                        "An error occurred while getting the Spark environment variables for the pipeline 'pipeline_name' in the environment 'null'. The specified environment is invalid. Available options are: DEVELOPMENT, QA, PRODUCTION."));
     }
 }
