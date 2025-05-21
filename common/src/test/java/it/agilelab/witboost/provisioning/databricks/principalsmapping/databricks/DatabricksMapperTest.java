@@ -2,13 +2,21 @@ package it.agilelab.witboost.provisioning.databricks.principalsmapping.databrick
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.databricks.sdk.AccountClient;
+import com.databricks.sdk.service.iam.AccountGroupsAPI;
+import com.databricks.sdk.service.iam.Group;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
@@ -24,9 +32,12 @@ class DatabricksMapperTest {
     private final Set<String> wrongIdentity = Set.of("wrong:id");
     private final Set<String> emptySet = Set.of();
 
+    @Mock
+    AccountClient accountClient;
+
     @BeforeEach
     void setUp() {
-        mapper = new DatabricksMapper();
+        mapper = new DatabricksMapper(accountClient);
     }
 
     @Test
@@ -59,6 +70,9 @@ class DatabricksMapperTest {
 
     @Test
     void testMapWitboostGroupIdentityToDatabricksGroups() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("dev")));
         Map<String, Either<Throwable, String>> res = mapper.map(inputGroup);
 
         assertEquals(1, res.size());

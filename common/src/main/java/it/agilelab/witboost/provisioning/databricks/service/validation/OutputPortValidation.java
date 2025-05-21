@@ -55,17 +55,17 @@ public class OutputPortValidation {
 
         String tableFullName = catalogName + "." + schemaName + "." + tableName;
 
-        String workspaceName = component.getSpecific().getWorkspace();
+        String workspace = component.getSpecific().getWorkspace();
 
         Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherWorkspaceExists =
-                workspaceHandler.getWorkspaceInfo(workspaceName);
+                workspaceHandler.getWorkspaceInfo(workspace);
         if (eitherWorkspaceExists.isLeft()) {
             return (left(eitherWorkspaceExists.getLeft()));
         }
 
         Optional<DatabricksWorkspaceInfo> databricksWorkspaceInfoOptional = eitherWorkspaceExists.get();
         if (databricksWorkspaceInfoOptional.isEmpty()) {
-            String errorMessage = String.format("Validation failed. Workspace '%s' not found.", workspaceName);
+            String errorMessage = String.format("Validation failed. Workspace '%s' not found.", workspace);
             logger.error(errorMessage);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }

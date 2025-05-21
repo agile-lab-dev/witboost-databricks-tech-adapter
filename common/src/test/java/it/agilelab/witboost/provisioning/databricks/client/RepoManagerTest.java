@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.error.platform.BadRequest;
 import com.databricks.sdk.core.error.platform.ResourceAlreadyExists;
 import com.databricks.sdk.service.workspace.*;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
@@ -70,6 +71,28 @@ public class RepoManagerTest {
     }
 
     @Test
+    public void createRepo_BadRequest_ResourceAlreadyExists__CreationSkipped() {
+        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new BadRequest("RESOURCE_ALREADY_EXISTS error", null));
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
+        List<ObjectInfo> objectInfos = Arrays.asList(new ObjectInfo()
+                .setObjectType(ObjectType.REPO)
+                .setObjectId(123l)
+                .setPath("/Users/testaccount/testfolder/testcomponent"));
+
+        Iterable<ObjectInfo> objectInfoIterable = objectInfos;
+        when(reposAPI.get(123l))
+                .thenReturn(new RepoInfo()
+                        .setPath("/Users/testaccount/testfolder/testcomponent")
+                        .setId(123l));
+
+        when(workspaceClient.workspace().list(anyString())).thenReturn(objectInfoIterable);
+        var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
+
+        assert result.isRight();
+        assertEquals(Right(123l), result);
+    }
+
+    @Test
     public void createRepo_ResourceAlreadyExists_ErrorRetrievingInfos() {
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
@@ -84,6 +107,29 @@ public class RepoManagerTest {
                 .description()
                 .contains(
                         "Details: seems that the repository already exists but it is impossible to retrieve information about it.");
+    }
+
+    @Test
+    public void createRepo_BadRequest() {
+        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new BadRequest("error", null));
+        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
+        List<ObjectInfo> objectInfos = Arrays.asList(new ObjectInfo()
+                .setObjectType(ObjectType.REPO)
+                .setObjectId(123l)
+                .setPath("/Users/testaccount/testfolder/testcomponent"));
+
+        Iterable<ObjectInfo> objectInfoIterable = objectInfos;
+        when(reposAPI.get(123l))
+                .thenReturn(new RepoInfo()
+                        .setPath("/Users/testaccount/testfolder/testcomponent")
+                        .setId(123l));
+
+        when(workspaceClient.workspace().list(anyString())).thenReturn(objectInfoIterable);
+        var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
+
+        assert result.isLeft();
+        String errorMessage = "An error occurred while creating the repo with URL gitUrl in workspace.";
+        assert (result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 
     @Test

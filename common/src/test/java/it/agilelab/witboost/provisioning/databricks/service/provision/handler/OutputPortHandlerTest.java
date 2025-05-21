@@ -8,10 +8,13 @@ import static org.mockito.Mockito.*;
 
 import com.azure.resourcemanager.AzureResourceManager;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
+import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.service.catalog.*;
+import com.databricks.sdk.service.iam.AccountGroupsAPI;
+import com.databricks.sdk.service.iam.Group;
 import com.databricks.sdk.service.sql.*;
 import com.databricks.sdk.service.workspace.WorkspaceAPI;
 import com.witboost.provisioning.model.Column;
@@ -50,6 +53,9 @@ class OutputPortHandlerTest {
     @MockBean
     private AzureResourceManager azureResourceManager;
 
+    @MockBean
+    private AccountClient accountClient;
+
     @Autowired
     private OutputPortHandler outputPortHandler;
 
@@ -86,6 +92,10 @@ class OutputPortHandlerTest {
 
     @Test
     public void provisionOutputPort_Success() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("dev_group")));
+
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
@@ -166,6 +176,10 @@ class OutputPortHandlerTest {
 
     @Test
     public void provisionOutputPort_SuccessWithEmptySchema() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
+
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequestEmptySchema();
 
         WorkspaceClient workspaceClient = mock(WorkspaceClient.class);
@@ -590,10 +604,14 @@ class OutputPortHandlerTest {
 
         StatementStatus statementStatusMockPoll = mock(StatementStatus.class);
 
+        var error = new ServiceError();
+        when(statementStatusMockPoll.getError()).thenReturn(error.setMessage("Error!"));
+
         when(workspaceClient.statementExecution()).thenReturn(mock(StatementExecutionAPI.class));
         StatementResponse statementResponse = new StatementResponse();
         statementResponse.setStatementId("id");
-        statementResponse.setStatus(new StatementStatus().setState(StatementState.CANCELED));
+        statementResponse.setStatus(
+                new StatementStatus().setState(StatementState.CANCELED).setError(error));
         when(workspaceClient.statementExecution().executeStatement(any())).thenReturn(statementResponse);
         when(workspaceClient.statementExecution().getStatement("id")).thenReturn(statementResponse);
 
@@ -607,7 +625,7 @@ class OutputPortHandlerTest {
 
         assertTrue(result.isLeft());
         String messageError = "Status of statement (id: id): CANCELED. ";
-        assertEquals(messageError, result.getLeft().problems().get(0).description());
+        assertTrue(result.getLeft().problems().get(0).description().contains(messageError));
     }
 
     @Test
@@ -659,6 +677,9 @@ class OutputPortHandlerTest {
 
     @Test
     public void updateAcl_Success() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
@@ -684,6 +705,9 @@ class OutputPortHandlerTest {
 
     @Test
     public void updateAcl_DatabricksMappingFailure() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
@@ -756,6 +780,9 @@ class OutputPortHandlerTest {
 
     @Test
     public void updateAcl_AssigningTablePermissionsFailure() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("group_test")));
 
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
@@ -784,18 +811,21 @@ class OutputPortHandlerTest {
                 .problems()
                 .get(0)
                 .description()
-                .equalsIgnoreCase(
+                .contains(
                         "An error occurred while adding permission SELECT for object 'catalog_op.schema_op.view' for principal a@email.com. Please try again and if the error persists contact the platform team. Details: PermissionError");
         assert result.getLeft()
                 .problems()
                 .get(1)
                 .description()
-                .equalsIgnoreCase(
+                .contains(
                         "An error occurred while adding permission SELECT for object 'catalog_op.schema_op.view' for principal group_test. Please try again and if the error persists contact the platform team. Details: PermissionError");
     }
 
     @Test
     public void updateAcl_NoSelectGrantsToRemoveSuccess() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
@@ -834,6 +864,9 @@ class OutputPortHandlerTest {
 
     @Test
     public void updateAcl_TwoGrantsToRemoveSuccess() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
@@ -888,6 +921,9 @@ class OutputPortHandlerTest {
 
     @Test
     public void updateAcl_currentPrivilegeAssignmentsNull() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
@@ -919,6 +955,9 @@ class OutputPortHandlerTest {
 
     @Test
     public void updateAcl_DpOwnerPermissionsAreNotRemoved_Development() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         ProvisionRequest<DatabricksOutputPortSpecific> provisionRequest = createOPProvisionRequest();
 
@@ -968,6 +1007,9 @@ class OutputPortHandlerTest {
 
     @Test
     public void updateAcl_DpOwnerPermissionsAreRemoved_QA() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         dataProduct.setEnvironment("QA");
 

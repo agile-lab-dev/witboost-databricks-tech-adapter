@@ -71,7 +71,7 @@ public class AzureWorkspaceManager {
      * @param skuType                   The SKU type for the workspace.
      * @return Either a DatabricksWorkspaceInfo if the operation is successful, or a FailedOperation.
      */
-    public synchronized Either<FailedOperation, DatabricksWorkspaceInfo> createWorkspace(
+    public synchronized Either<FailedOperation, DatabricksWorkspaceInfo> createIfNotExistsWorkspace(
             String workspaceName,
             String region,
             String existingResourceGroupName,

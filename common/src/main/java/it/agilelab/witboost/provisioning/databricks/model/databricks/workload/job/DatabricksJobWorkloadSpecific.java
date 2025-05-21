@@ -22,9 +22,6 @@ public class DatabricksJobWorkloadSpecific extends DatabricksWorkloadSpecific {
 
     private String description;
 
-    @NotBlank
-    private String metastore;
-
     @Valid
     @NotNull
     private JobGitSpecific git;

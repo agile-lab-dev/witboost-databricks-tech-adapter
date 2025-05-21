@@ -15,6 +15,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.object.Sche
 import it.agilelab.witboost.provisioning.databricks.model.databricks.object.View;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +31,12 @@ public class UnityCatalogManager {
     private final Logger logger = LoggerFactory.getLogger(UnityCatalogManager.class);
 
     public Either<FailedOperation, Void> attachMetastore(String metastoreName) {
+        if (metastoreName == null || metastoreName.isBlank()) {
+            String errorMessage =
+                    "Provided metastore name is empty. Please ensure it's present if you're managing the workspace via the Tech Adapter.";
+            logger.error(errorMessage);
+            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+        }
 
         try {
             logger.info(
@@ -60,7 +67,11 @@ public class UnityCatalogManager {
 
         boolean catalogExists = eitherCatalogExists.get();
 
-        if (!catalogExists) return createCatalog(catalogName);
+        if (!catalogExists) {
+            logger.info("Catalog '{}' doesn't exist, creating", catalogName);
+            var createCatalog = createCatalog(catalogName);
+            if (createCatalog.isLeft()) return left(createCatalog.getLeft());
+        } else logger.info("Catalog '{}' already exists, skipping creation", catalogName);
 
         return right(null);
     }
@@ -110,12 +121,17 @@ public class UnityCatalogManager {
 
     public Either<FailedOperation, Boolean> checkCatalogExistence(String catalogName) {
         try {
-            var catalogsList = workspaceClient.catalogs().list(new ListCatalogsRequest());
-            if (catalogsList != null) {
-                for (CatalogInfo catalogInfo : catalogsList) {
-                    if (catalogInfo.getName().equalsIgnoreCase(catalogName)) {
-                        return right(true);
-                    }
+            var catalogsList = StreamSupport.stream(
+                            workspaceClient
+                                    .catalogs()
+                                    .list(new ListCatalogsRequest())
+                                    .spliterator(),
+                            false)
+                    .toList();
+            logger.debug("Catalogs present: {}", catalogsList);
+            for (CatalogInfo catalogInfo : catalogsList) {
+                if (catalogInfo.getName().equalsIgnoreCase(catalogName)) {
+                    return right(true);
                 }
             }
 
@@ -136,7 +152,11 @@ public class UnityCatalogManager {
 
         boolean schemaExists = eitherSchemaExists.get();
 
-        if (!schemaExists) return createSchema(catalogName, schemaName);
+        if (!schemaExists) {
+            logger.info("Schema '{}' doesn't exist on catalog '{}', creating", schemaName, catalogName);
+            var createSchema = createSchema(catalogName, schemaName);
+            if (createSchema.isLeft()) return left(createSchema.getLeft());
+        } else logger.info("Schema '{}' on catalog '{}' already exists, skipping creation", schemaName, catalogName);
 
         return right(null);
     }
@@ -177,12 +197,13 @@ public class UnityCatalogManager {
                         schemaName, catalogName, catalogName)))));
             } else {
                 // checkCatalogExistence returns Right(true), so the catalog exists, so I can proceed with schemas check
-                var schemasList = workspaceClient.schemas().list(catalogName);
-                if (schemasList != null) {
-                    for (SchemaInfo schemaInfo : schemasList) {
-                        if (schemaInfo.getName().equalsIgnoreCase(schemaName)) {
-                            return right(true);
-                        }
+                var schemasList = StreamSupport.stream(
+                                workspaceClient.schemas().list(catalogName).spliterator(), false)
+                        .toList();
+                logger.debug("Schemas present in catalog {}: {}", catalogName, schemasList);
+                for (SchemaInfo schemaInfo : schemasList) {
+                    if (schemaInfo.getName().equalsIgnoreCase(schemaName)) {
+                        return right(true);
                     }
                 }
             }

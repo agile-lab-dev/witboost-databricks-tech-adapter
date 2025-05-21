@@ -242,8 +242,6 @@ public class ValidationServiceTest {
                 .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
         when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
 
-        when(workspaceHandlerMock.getWorkspaceHost("workspace_name")).thenReturn(right("http://workspace"));
-
         TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
         when(tableExistsResponseMock.getTableExists()).thenReturn(true);
 
@@ -290,7 +288,6 @@ public class ValidationServiceTest {
         when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
                 .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
         when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
-        when(workspaceHandlerMock.getWorkspaceHost("workspace_name")).thenReturn(right("http://workspace"));
 
         TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
         when(tableExistsResponseMock.getTableExists()).thenReturn(true);

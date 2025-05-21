@@ -3,6 +3,7 @@ package it.agilelab.witboost.provisioning.databricks.service.provision.handler;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
+import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.catalog.*;
 import com.databricks.sdk.service.sql.*;
@@ -41,6 +42,7 @@ public class OutputPortHandler {
     private final AzureMapper azureMapper;
     private final DatabricksAuthConfig databricksAuthConfig;
     private final DatabricksPermissionsConfig databricksPermissionsConfig;
+    private final AccountClient accountClient;
 
     @Autowired
     public OutputPortHandler(
@@ -50,7 +52,8 @@ public class OutputPortHandler {
             MiscConfig miscConfig,
             AzureMapper azureMapper,
             DatabricksAuthConfig databricksAuthConfig,
-            DatabricksPermissionsConfig databricksPermissionsConfig) {
+            DatabricksPermissionsConfig databricksPermissionsConfig,
+            AccountClient accountClient) {
         this.azureAuthConfig = azureAuthConfig;
         this.gitCredentialsConfig = gitCredentialsConfig;
         this.azurePermissionsManager = azurePermissionsManager;
@@ -58,6 +61,7 @@ public class OutputPortHandler {
         this.azureMapper = azureMapper;
         this.databricksAuthConfig = databricksAuthConfig;
         this.databricksPermissionsConfig = databricksPermissionsConfig;
+        this.accountClient = accountClient;
     }
 
     /**
@@ -111,10 +115,15 @@ public class OutputPortHandler {
                     databricksOutputPortSpecific.getSchemaName(),
                     databricksOutputPortSpecific.getTableName());
 
-            Either<FailedOperation, Void> eitherAttachedMetastore =
-                    unityCatalogManager.attachMetastore(databricksOutputPortSpecific.getMetastore());
+            // If the workspace is set to not be managed by the tech adapter, we don't attach the metastore ourselves
+            if (databricksWorkspaceInfo.isManaged()) {
+                Either<FailedOperation, Void> eitherAttachedMetastore =
+                        unityCatalogManager.attachMetastore(databricksOutputPortSpecific.getMetastore());
 
-            if (eitherAttachedMetastore.isLeft()) return left(eitherAttachedMetastore.getLeft());
+                if (eitherAttachedMetastore.isLeft()) return left(eitherAttachedMetastore.getLeft());
+            } else {
+                logger.info("Skipping metastore attachment as workspace is not managed by Tech Adapter");
+            }
 
             // Catalog
             Either<FailedOperation, Void> eitherCreatedCatalog =
@@ -170,7 +179,7 @@ public class OutputPortHandler {
             // TODO: This is a temporary solution. Remove or update this logic in the future.
             if (!devGroup.startsWith("group:")) devGroup = "group:" + devGroup;
 
-            DatabricksMapper databricksMapper = new DatabricksMapper();
+            DatabricksMapper databricksMapper = new DatabricksMapper(accountClient);
 
             Map<String, Either<Throwable, String>> eitherMap = databricksMapper.map(Set.of(dpOwner, devGroup));
 
@@ -598,7 +607,10 @@ public class OutputPortHandler {
                     logger.info(logMessage + "Still polling.");
                     break;
                 case FAILED, CANCELED, CLOSED:
-                    String errorMessage = String.format(logMessage);
+                    String errorMessage = String.format(
+                            "%s. Details: %s",
+                            logMessage,
+                            getStatementResponse.getStatus().getError().getMessage());
                     logger.error(errorMessage);
                     return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
                 case SUCCEEDED:
@@ -763,7 +775,7 @@ public class OutputPortHandler {
                 "Start updating Access Control List for %s.%s.%s", catalogNameOP, schemaNameOP, viewNameOP));
 
         // Mapping of refs entities
-        DatabricksMapper databricksMapper = new DatabricksMapper();
+        DatabricksMapper databricksMapper = new DatabricksMapper(accountClient);
 
         List<String> refs = updateAclRequest.getRefs();
         Set<String> refsSet = new HashSet<>(refs);

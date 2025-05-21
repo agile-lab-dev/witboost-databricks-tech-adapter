@@ -36,9 +36,9 @@ public class BaseWorkloadHandler {
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
     protected final AzureAuthConfig azureAuthConfig;
     protected final GitCredentialsConfig gitCredentialsConfig;
-    protected final DatabricksPermissionsConfig databricksPermissionsConfig;
     protected final AccountClient accountClient;
     protected final WorkspaceLevelManagerFactory workspaceLevelManagerFactory;
+    protected final DatabricksPermissionsConfig databricksPermissionsConfig;
 
     @Autowired
     public BaseWorkloadHandler(
@@ -49,8 +49,8 @@ public class BaseWorkloadHandler {
             WorkspaceLevelManagerFactory workspaceLevelManagerFactory) {
         this.azureAuthConfig = azureAuthConfig;
         this.gitCredentialsConfig = gitCredentialsConfig;
-        this.databricksPermissionsConfig = databricksPermissionsConfig;
         this.accountClient = accountClient;
+        this.databricksPermissionsConfig = databricksPermissionsConfig;
         this.workspaceLevelManagerFactory = workspaceLevelManagerFactory;
     }
 
@@ -102,19 +102,35 @@ public class BaseWorkloadHandler {
 
             repoPath = String.format("/%s", repoPath);
 
+            logger.info(
+                    "Creating repository in workspace '{}' synchronizing git repository '{}{}'",
+                    databricksWorkspaceInfo.getName(),
+                    gitRepo,
+                    repoPath);
             var repoManager = new RepoManager(workspaceClient, databricksWorkspaceInfo.getName());
             Either<FailedOperation, Long> eitherCreatedRepo =
                     repoManager.createRepo(gitRepo, gitCredentialsConfig.getProvider(), repoPath);
             if (eitherCreatedRepo.isLeft()) return left(eitherCreatedRepo.getLeft());
 
-            IdentityManager identityManager = new IdentityManager(accountClient, databricksWorkspaceInfo);
-            Either<FailedOperation, Void> eitherUpdateUser =
-                    identityManager.createOrUpdateUserWithAdminPrivileges(ownerName);
-            if (eitherUpdateUser.isLeft()) return eitherUpdateUser;
+            // If the workspace is set to not be managed by the tech adapter, we don't add the users and groups to the
+            // workspace
+            if (databricksWorkspaceInfo.isManaged()) {
+                logger.info(
+                        "Adding project owner '{}' and development group '{}' to workspace '{}' as admins",
+                        ownerName,
+                        developerGroupName,
+                        databricksWorkspaceInfo.getName());
+                IdentityManager identityManager = new IdentityManager(accountClient, databricksWorkspaceInfo);
+                Either<FailedOperation, Void> eitherUpdateUser =
+                        identityManager.createOrUpdateUserWithAdminPrivileges(ownerName);
+                if (eitherUpdateUser.isLeft()) return eitherUpdateUser;
 
-            Either<FailedOperation, Void> eitherUpdateGroup =
-                    identityManager.createOrUpdateGroupWithUserPrivileges(developerGroupName);
-            if (eitherUpdateGroup.isLeft()) return eitherUpdateGroup;
+                Either<FailedOperation, Void> eitherUpdateGroup =
+                        identityManager.createOrUpdateGroupWithUserPrivileges(developerGroupName);
+                if (eitherUpdateGroup.isLeft()) return eitherUpdateGroup;
+            } else
+                logger.info(
+                        "Skipping upsert of project owner and development group to workspace since workspace is not set to be managed by the Tech Adapter.");
 
             String repoId = eitherCreatedRepo.get().toString();
             String ownerPermissionLevelConfig =
@@ -122,10 +138,21 @@ public class BaseWorkloadHandler {
 
             Either<FailedOperation, Void> eitherPermissionsToDPOwner;
 
+            logger.info("Updating permissions to project owner '{}' for repository with id '{}'", ownerName, repoId);
             if (ownerPermissionLevelConfig.equalsIgnoreCase("NO_PERMISSIONS")) {
+                logger.info(
+                        "Configuration set as '{}', removing all permissions on repository '{}' for owner '{}'",
+                        ownerPermissionLevelConfig,
+                        repoId,
+                        ownerName);
                 eitherPermissionsToDPOwner = repoManager.removePermissionsToUser(repoId, ownerName);
             } else {
                 RepoPermissionLevel ownerPermissionLevel = RepoPermissionLevel.valueOf(ownerPermissionLevelConfig);
+                logger.info(
+                        "Assigning permission '{}' on repository '{}' for owner '{}'",
+                        ownerPermissionLevelConfig,
+                        repoId,
+                        developerGroupName);
                 eitherPermissionsToDPOwner =
                         repoManager.assignPermissionsToUser(repoId, ownerName, ownerPermissionLevel);
             }
@@ -138,11 +165,25 @@ public class BaseWorkloadHandler {
                     databricksPermissionsConfig.getWorkload().getDeveloper();
             Either<FailedOperation, Void> eitherPermissionsToDevelopers;
 
+            logger.info(
+                    "Updating permissions to development group '{}' for repository with id '{}'",
+                    developerGroupName,
+                    repoId);
             if (devGroupPermissionLevelConfig.equalsIgnoreCase("NO_PERMISSIONS")) {
+                logger.info(
+                        "Configuration set as '{}', removing all permissions on repository '{}' for development group '{}'",
+                        ownerPermissionLevelConfig,
+                        repoId,
+                        developerGroupName);
                 eitherPermissionsToDevelopers = repoManager.removePermissionsToGroup(repoId, developerGroupName);
             } else {
                 RepoPermissionLevel devGroupPermissionLevel =
                         RepoPermissionLevel.valueOf(devGroupPermissionLevelConfig);
+                logger.info(
+                        "Assigning permission '{}' on repository '{}' for development group '{}'",
+                        devGroupPermissionLevelConfig,
+                        repoId,
+                        developerGroupName);
                 eitherPermissionsToDevelopers =
                         repoManager.assignPermissionsToGroup(repoId, developerGroupName, devGroupPermissionLevel);
             }
@@ -182,7 +223,7 @@ public class BaseWorkloadHandler {
 
     protected Either<FailedOperation, Map<String, String>> mapPrincipals(ProvisionRequest<?> provisionRequest) {
         try {
-            DatabricksMapper databricksMapper = new DatabricksMapper();
+            DatabricksMapper databricksMapper = new DatabricksMapper(accountClient);
 
             // TODO: This is a temporary solution. Remove or update this logic in the future.
             String devGroup = provisionRequest.dataProduct().getDevGroup();

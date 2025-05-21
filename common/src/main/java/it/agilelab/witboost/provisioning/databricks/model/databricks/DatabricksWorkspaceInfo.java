@@ -18,6 +18,11 @@ public class DatabricksWorkspaceInfo {
     private String azureResourceUrl;
     private ProvisioningState provisioningState;
 
+    /**
+     * Whether the tech adapter should manage the workspace (that is, upsert it, manage users/groups and permissions, etc.)
+     */
+    private boolean isManaged;
+
     public DatabricksWorkspaceInfo(
             String name,
             String id,
@@ -31,5 +36,21 @@ public class DatabricksWorkspaceInfo {
         this.azureResourceId = azureResourceId;
         this.azureResourceUrl = azureResourceUrl;
         this.provisioningState = provisioningState;
+        this.isManaged = true;
+    }
+
+    public DatabricksWorkspaceInfo(
+            String databricksHost,
+            String id,
+            String azureResourceId,
+            String azureResourceUrl,
+            ProvisioningState provisioningState) {
+        this.name = databricksHost;
+        this.id = id;
+        this.databricksHost = databricksHost;
+        this.azureResourceId = azureResourceId;
+        this.azureResourceUrl = azureResourceUrl;
+        this.provisioningState = provisioningState;
+        this.isManaged = false;
     }
 }

@@ -112,7 +112,6 @@ public class JobWorkloadHandlerTest {
         schedulingSpecific.setJavaTimezoneId("UTC");
         databricksJobWorkloadSpecific.setScheduling(schedulingSpecific);
         databricksJobWorkloadSpecific.setWorkspace("workspace");
-        databricksJobWorkloadSpecific.setMetastore("metastore");
         workload.setSpecific(databricksJobWorkloadSpecific);
     }
 
@@ -255,6 +254,9 @@ public class JobWorkloadHandlerTest {
 
     @Test
     public void provisionWorkload_ErrorMappingDpOwner() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         dataProduct.setDataProductOwner("wrong_user");
         List<CatalogInfo> catalogList =
@@ -412,6 +414,8 @@ public class JobWorkloadHandlerTest {
 
     @Test
     public void provisionWorkload_ErrorUpdatingUser() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
@@ -432,7 +436,8 @@ public class JobWorkloadHandlerTest {
         when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
-        when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
         when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
         when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
@@ -453,6 +458,10 @@ public class JobWorkloadHandlerTest {
 
     @Test
     public void provisionWorkload_ErrorUpdatingGroup() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
+
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
@@ -495,7 +504,7 @@ public class JobWorkloadHandlerTest {
                 .problems()
                 .get(0)
                 .description()
-                .contains("Group developers not found at Databricks account level.");
+                .contains("Group 'developers' not found at Databricks account level.");
     }
 
     @Test

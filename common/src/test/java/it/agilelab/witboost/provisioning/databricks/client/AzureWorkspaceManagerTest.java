@@ -84,7 +84,7 @@ public class AzureWorkspaceManagerTest {
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
 
-        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createWorkspace(
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createIfNotExistsWorkspace(
                 workspaceName, region, existingResourceGroupName, managedResourceGroupId, skuType);
 
         assertTrue(result.isRight());
@@ -129,7 +129,7 @@ public class AzureWorkspaceManagerTest {
 
         when(mockWorkspaces.list()).thenReturn(mockPagedIterable);
 
-        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createWorkspace(
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createIfNotExistsWorkspace(
                 workspaceName, region, existingResourceGroupName, managedResourceGroupId, skuType);
 
         assertTrue(result.isRight());
@@ -147,7 +147,7 @@ public class AzureWorkspaceManagerTest {
         String errorMessage = "Failed to create workspace";
         RuntimeException exception = new RuntimeException(errorMessage);
 
-        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createWorkspace(
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createIfNotExistsWorkspace(
                 workspaceName, region, existingResourceGroupName, managedResourceGroupId, skuType);
 
         assertTrue(result.isLeft());
@@ -185,7 +185,7 @@ public class AzureWorkspaceManagerTest {
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenThrow(new RuntimeException(errorMessage));
 
-        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createWorkspace(
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceManager.createIfNotExistsWorkspace(
                 workspaceName, region, existingResourceGroupName, managedResourceGroupId, skuType);
 
         assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));

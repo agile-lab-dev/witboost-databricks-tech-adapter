@@ -132,6 +132,7 @@ public class OutputPortReverseProvisionHandlerTest {
         columnInfos.add(new ColumnInfo()
                 .setName("col_1")
                 .setTypeName(ColumnTypeName.INT)
+                .setComment("col_1 description")
                 .setNullable(true)
                 .setTypeText("int"));
         columnInfos.add(new ColumnInfo()
@@ -152,7 +153,7 @@ public class OutputPortReverseProvisionHandlerTest {
         Column col2 = listColumns.get(1);
 
         assertEquals("col_1", col1.getName());
-        assertEquals("int", col1.getDescription());
+        assertEquals("col_1 description", col1.getDescription());
         assertEquals("INT", col1.getDataType());
         assertEquals(Optional.empty(), col1.getArrayDataType());
         assertEquals(Optional.empty(), col1.getDataLength());
@@ -366,6 +367,7 @@ public class OutputPortReverseProvisionHandlerTest {
                 .setName("col_1")
                 .setTypeName(ColumnTypeName.INT)
                 .setNullable(false)
+                .setComment("col_1 description")
                 .setTypeText("int"));
         columnInfos.add(new ColumnInfo()
                 .setName("col_2")
@@ -397,7 +399,7 @@ public class OutputPortReverseProvisionHandlerTest {
         Column col2 = listColumns.get(1);
 
         assertEquals("col_1", col1.getName());
-        assertEquals("int", col1.getDescription());
+        assertEquals("col_1 description", col1.getDescription());
         assertEquals("INT", col1.getDataType());
         assertEquals(Optional.empty(), col1.getArrayDataType());
         assertEquals(Optional.empty(), col1.getDataLength());
@@ -459,6 +461,7 @@ public class OutputPortReverseProvisionHandlerTest {
                 .setName("col_1")
                 .setTypeName(ColumnTypeName.INT)
                 .setNullable(false)
+                .setComment("col_1 description")
                 .setTypeText("int"));
         columnInfos.add(new ColumnInfo()
                 .setName("col_2")
@@ -478,7 +481,7 @@ public class OutputPortReverseProvisionHandlerTest {
         Column col2 = listColumns.get(1);
 
         assertEquals("col_1", col1.getName());
-        assertEquals("int", col1.getDescription());
+        assertEquals("col_1 description", col1.getDescription());
         assertEquals("INT", col1.getDataType());
         assertEquals(Optional.empty(), col1.getArrayDataType());
         assertEquals(Optional.empty(), col1.getDataLength());
@@ -535,7 +538,7 @@ public class OutputPortReverseProvisionHandlerTest {
         updatesExpected.put("spec.mesh.specific.schemaName", "schema_PARAMS");
         updatesExpected.put("spec.mesh.specific.tableName", "table_PARAMS");
 
-        updatesExpected.put("witboost.parameters.schemaDefinition", Collections.emptyList());
+        updatesExpected.put("witboost.parameters.schemaDefinition.schemaColumns", Collections.emptyList());
         updatesExpected.put("witboost.parameters.catalogName", "catalog_PARAMS");
         updatesExpected.put("witboost.parameters.schemaName", "schema_PARAMS");
         updatesExpected.put("witboost.parameters.tableName", "table_PARAMS");
@@ -641,7 +644,7 @@ public class OutputPortReverseProvisionHandlerTest {
 
         assertEquals(ReverseProvisioningStatus.StatusEnum.FAILED, status.getStatus());
         assertEquals(
-                "It's not possible to inherit table details from a VIEW. ",
+                "It's not possible to inherit Table Details from a VIEW, only the Schema. Please try again choosing to inherit the Schema only.",
                 status.getLogs().get(0).getMessage());
     }
 

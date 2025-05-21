@@ -40,7 +40,7 @@ dataProduct:
       tags: [ ]
       readsFrom: [ ]
       specific:
-        workspace: healthcare_databricks-test_0_development
+        workspace: healthcare_databricks-test_0_development # Either a name of the workspace to be created, or a URL to an existing Workspace
         pipelineName: newPipeline
         productEdition: ADVANCED
         continuous: false
@@ -53,7 +53,7 @@ dataProduct:
         notebook_hash:
           "/Workspace/Users/<deploy_user>/<dp_name>_<dp_major_version>/<component_name>/main": hash_main
         files: [ ]
-        metastore: metastoreName
+        metastore: metastoreName # Not used if workspace provides a URL to an existing Workspace
         catalog: dp_catalog
         target: schema
         photon: false

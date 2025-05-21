@@ -2,6 +2,7 @@ package it.agilelab.witboost.provisioning.databricks.model.databricks.outputport
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksComponentSpecific;
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,7 +14,8 @@ import lombok.Setter;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class DatabricksOutputPortSpecific extends DatabricksComponentSpecific {
 
-    @NotBlank
+    // Can be null when the workspace creation is disabled
+    @Nullable
     private String metastore;
 
     @NotBlank

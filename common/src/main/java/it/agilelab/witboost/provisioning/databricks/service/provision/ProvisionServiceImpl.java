@@ -3,15 +3,11 @@ package it.agilelab.witboost.provisioning.databricks.service.provision;
 import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 
-import com.azure.resourcemanager.databricks.AzureDatabricksManager;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
-import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.catalog.TableInfo;
 import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
-import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
 import it.agilelab.witboost.provisioning.databricks.client.JobManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
@@ -33,7 +29,6 @@ import it.agilelab.witboost.provisioning.databricks.service.validation.Validatio
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,10 +48,7 @@ public class ProvisionServiceImpl implements ProvisionService {
     private final String WORKLOAD_KIND = "workload";
     private final String OUTPUTPORT_KIND = "outputport";
     private final Logger logger = LoggerFactory.getLogger(ProvisionServiceImpl.class);
-    private final Function<ApiClientConfigParams, ApiClient> apiClientFactory;
-    private final AzureDatabricksManager azureDatabricksManager;
-    private final AzureWorkspaceManager azureWorkspaceManager;
-    private MiscConfig miscConfig;
+    private final MiscConfig miscConfig;
 
     public ProvisionServiceImpl(
             ValidationService validationService,
@@ -66,9 +58,6 @@ public class ProvisionServiceImpl implements ProvisionService {
             WorkspaceHandler workspaceHandler,
             OutputPortHandler outputPortHandler,
             ForkJoinPool forkJoinPool,
-            Function<ApiClientConfigParams, ApiClient> apiClientFactory,
-            AzureDatabricksManager azureDatabricksManager,
-            AzureWorkspaceManager azureWorkspaceManager,
             MiscConfig miscConfig) {
         this.validationService = validationService;
         this.jobWorkloadHandler = jobWorkloadHandler;
@@ -76,9 +65,6 @@ public class ProvisionServiceImpl implements ProvisionService {
         this.forkJoinPool = forkJoinPool;
         this.dltWorkloadHandler = dltWorkloadHandler;
         this.outputPortHandler = outputPortHandler;
-        this.apiClientFactory = apiClientFactory;
-        this.azureDatabricksManager = azureDatabricksManager;
-        this.azureWorkspaceManager = azureWorkspaceManager;
         this.workflowWorkloadHandler = workflowWorkloadHandler;
         this.miscConfig = miscConfig;
     }
@@ -309,10 +295,10 @@ public class ProvisionServiceImpl implements ProvisionService {
         logger.info(message);
 
         DatabricksWorkflowWorkloadSpecific specific = (DatabricksWorkflowWorkloadSpecific) component.getSpecific();
-        String workspaceName = specific.getWorkspace();
+        String workspace = specific.getWorkspace();
 
         Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherWorkspaceExists =
-                workspaceHandler.getWorkspaceInfo(workspaceName);
+                workspaceHandler.getWorkspaceInfo(workspace);
         if (eitherWorkspaceExists.isLeft()) {
             return (left(eitherWorkspaceExists.getLeft()));
         }
@@ -323,7 +309,7 @@ public class ProvisionServiceImpl implements ProvisionService {
             // following steps
             message = String.format(
                     "Validation for deployment of %s succeeded. Workspace '%s' not found.",
-                    component.getName(), workspaceName);
+                    component.getName(), workspace);
             logger.info(message);
             return right(null);
         }
@@ -339,7 +325,7 @@ public class ProvisionServiceImpl implements ProvisionService {
 
         // Does the workflow already exists in the workspace?
         String workflowName = specific.getWorkflow().getSettings().getName();
-        JobManager jobManager = new JobManager(workspaceClient, workspaceName);
+        JobManager jobManager = new JobManager(workspaceClient, workspace);
         Either<FailedOperation, Iterable<BaseJob>> eitherWorkflows = jobManager.listJobsWithGivenName(workflowName);
         if (eitherWorkflows.isLeft()) return left(eitherWorkflows.getLeft());
         Iterable<BaseJob> workflows = eitherWorkflows.get();
@@ -354,7 +340,7 @@ public class ProvisionServiceImpl implements ProvisionService {
             // More than one workflow with the same name
             String errorMessage = String.format(
                     "Error during validation for deployment of %s. Found more than one workflow named %s in workspace %s. Please leave this name only to the workflow linked to the Witboost component.",
-                    component.getName(), workflowName, workspaceName);
+                    component.getName(), workflowName, workspace);
             logger.error(errorMessage);
             return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
         }
@@ -380,7 +366,7 @@ public class ProvisionServiceImpl implements ProvisionService {
                 // In the development environment, reverse provisioning is explicitly required
                 String errorMessage = String.format(
                         "Error during validation for deployment of %s. The request workflow [name: %s, id: %d, workspace: %s] is different from that found on Databricks. Kindly perform reverse provisioning and try again.",
-                        component.getName(), workflowName, existingWorkflow.getJobId(), workspaceName);
+                        component.getName(), workflowName, existingWorkflow.getJobId(), workspace);
                 logger.error(errorMessage);
                 return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
             }
@@ -405,7 +391,7 @@ public class ProvisionServiceImpl implements ProvisionService {
                         "An error occurred during the validation process for the deployment of %s. "
                                 + "It is not permitted to replace a NON-empty workflow [name: %s, id: %d, workspace: %s] with an empty one. "
                                 + "Kindly perform reverse provisioning and try again.",
-                        component.getName(), workflowName, existingWorkflow.getJobId(), workspaceName);
+                        component.getName(), workflowName, existingWorkflow.getJobId(), workspace);
                 logger.error(errorMessage);
                 return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
             }
@@ -640,6 +626,11 @@ public class ProvisionServiceImpl implements ProvisionService {
         failure.problems()
                 .forEach(problem ->
                         errors.append("-").append(problem.description()).append("\n"));
+        if (failure.problems().stream().anyMatch(problem -> !problem.solutions().isEmpty())) {
+            errors.append("Possible solutions: ");
+            failure.problems().forEach(problem -> problem.solutions()
+                    .forEach(solution -> errors.append("-").append(solution).append("\n")));
+        }
         logger.error(errors.toString());
         updateStatus(token, ProvisioningStatus.StatusEnum.FAILED, errors.toString());
     }

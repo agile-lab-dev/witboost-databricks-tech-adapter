@@ -40,7 +40,7 @@ dataProduct:
       tags: [ ]
       readsFrom: [ ]
       specific:
-        workspace: healthcare_databricks-test_0_development
+        workspace: healthcare_databricks-test_0_development # Either a name of the workspace to be created, or a URL to an existing Workspace
         jobName: healthcare_databricks-test_0_databricks-job
         description: null
         repoPath: databrickstest_0/databricksjob

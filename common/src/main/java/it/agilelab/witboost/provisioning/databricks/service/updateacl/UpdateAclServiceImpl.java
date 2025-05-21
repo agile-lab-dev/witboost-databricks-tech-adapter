@@ -60,10 +60,10 @@ public class UpdateAclServiceImpl implements UpdateAclService {
         DatabricksOutputPortSpecific databricksOutputPortSpecific =
                 (DatabricksOutputPortSpecific) provisionRequest.component().getSpecific();
 
-        String workspaceName = databricksOutputPortSpecific.getWorkspaceOP();
+        String workspace = databricksOutputPortSpecific.getWorkspaceOP();
 
         Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherDatabricksWorkspaceInfo =
-                workspaceHandler.getWorkspaceInfo(workspaceName);
+                workspaceHandler.getWorkspaceInfo(workspace);
         if (eitherDatabricksWorkspaceInfo.isLeft()) {
             return new ProvisioningStatus(
                     ProvisioningStatus.StatusEnum.FAILED, "Update Acl failed while getting workspace info");

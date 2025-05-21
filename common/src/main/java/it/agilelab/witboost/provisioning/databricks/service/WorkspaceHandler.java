@@ -6,6 +6,7 @@ import static io.vavr.control.Either.right;
 import com.azure.resourcemanager.AzureResourceManager;
 import com.azure.resourcemanager.authorization.fluent.models.RoleAssignmentInner;
 import com.azure.resourcemanager.authorization.models.PrincipalType;
+import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
@@ -13,11 +14,7 @@ import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager
 import it.agilelab.witboost.provisioning.databricks.client.SkuType;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.common.ProvisioningException;
-import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
-import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
+import it.agilelab.witboost.provisioning.databricks.config.*;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Specific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
@@ -29,6 +26,7 @@ import it.agilelab.witboost.provisioning.databricks.permissions.AzurePermissions
 import it.agilelab.witboost.provisioning.databricks.principalsmapping.azure.AzureMapper;
 import java.util.*;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +47,9 @@ public class WorkspaceHandler {
     private final Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
     private static final String RESOURCE_ID_FORMAT =
             "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Databricks/workspaces/%s";
+
+    private final Pattern databricksUrlPattern =
+            Pattern.compile("(?:https://)?adb-(\\d+)\\.\\d+\\.azuredatabricks\\.net");
 
     @Autowired
     public WorkspaceHandler(
@@ -75,8 +76,18 @@ public class WorkspaceHandler {
     public <T extends Specific> Either<FailedOperation, DatabricksWorkspaceInfo> provisionWorkspace(
             ProvisionRequest<T> provisionRequest) {
 
+        var eitherWorkspaceInfo = getWorkspaceInfo(provisionRequest);
+
+        // If the workspace information exists and is set to not be managed by the tech adapter, we immediately return
+        // and avoid provisioning the workspace
+        if (eitherWorkspaceInfo.isRight()
+                && eitherWorkspaceInfo.get().isPresent()
+                && !eitherWorkspaceInfo.get().get().isManaged()) {
+            return right(eitherWorkspaceInfo.get().get());
+        }
+
         Either<FailedOperation, DatabricksWorkspaceInfo> eitherNewWorkspace =
-                createDatabricksWorkspace(provisionRequest);
+                createIfNotExistsDatabricksWorkspace(provisionRequest);
 
         if (eitherNewWorkspace.isLeft()) return left(eitherNewWorkspace.getLeft());
 
@@ -102,52 +113,37 @@ public class WorkspaceHandler {
                 PrincipalType.GROUP);
         if (devGroupAzurePermissions.isLeft()) return left(devGroupAzurePermissions.getLeft());
 
-        return right(eitherNewWorkspace.get());
+        return right(databricksWorkspaceInfo);
     }
 
+    /**
+     * Returns the information of a Databricks Workspace from a ProvisionRequest
+     * @param provisionRequest ProvisionRequest with the specific field.
+     *                         If the `workspace` field in the specific class contains a valid Databricks Workspace URL, the `isManaged` property will be set to false, signaling the workspace must not be managed by the Tech Adapter.
+     * @return An Optional containing the databricks workspace information if existent, or a FailedOperation if the method failed
+     */
     public <T extends Specific> Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> getWorkspaceInfo(
             ProvisionRequest<T> provisionRequest) {
-
-        String workspaceName = getWorkspaceName(provisionRequest)
-                .getOrElseThrow(() -> new ProvisioningException("Failed to get workspace name"));
-
-        String managedResourceGroupId = String.format(
-                "/subscriptions/%s/resourceGroups/%s-rg", azurePermissionsConfig.getSubscriptionId(), workspaceName);
-
-        Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherGetWorkspace =
-                azureWorkspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
-
-        return eitherGetWorkspace;
+        return getWorkspaceName(provisionRequest).flatMap(this::getWorkspaceInfo);
     }
 
-    public Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> getWorkspaceInfo(String workspaceName) {
-
-        String managedResourceGroupId = String.format(
-                "/subscriptions/%s/resourceGroups/%s-rg", azurePermissionsConfig.getSubscriptionId(), workspaceName);
-
-        Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherGetWorkspace =
-                azureWorkspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
-
-        return eitherGetWorkspace;
-    }
-
-    public Either<FailedOperation, String> getWorkspaceHost(String workspaceName) {
-
-        try {
+    /**
+     * Returns the information of a Databricks Workspace
+     * @param workspaceInfo Either the workspace name to be created or the workspace URL of an existent workspace
+     * @return An Optional containing the databricks workspace information if existent, or a FailedOperation if the method failed
+     */
+    public Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> getWorkspaceInfo(String workspaceInfo) {
+        var matcher = databricksUrlPattern.matcher(workspaceInfo);
+        if (matcher.find()) {
+            var workspaceID = matcher.group(1);
+            return right(Optional.of(new DatabricksWorkspaceInfo(
+                    workspaceInfo, workspaceID, null, workspaceInfo, ProvisioningState.SUCCEEDED)));
+        } else {
             String managedResourceGroupId = String.format(
                     "/subscriptions/%s/resourceGroups/%s-rg",
-                    azurePermissionsConfig.getSubscriptionId(), workspaceName);
+                    azurePermissionsConfig.getSubscriptionId(), workspaceInfo);
 
-            Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherGetWorkspace =
-                    azureWorkspaceManager.getWorkspace(workspaceName, managedResourceGroupId);
-
-            return right(eitherGetWorkspace.get().get().getDatabricksHost());
-
-        } catch (Exception e) {
-            String errorMessage =
-                    String.format("An error occurred while retrieving workspace host. Details: %s", e.getMessage());
-            logger.error(errorMessage, e);
-            return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage, e))));
+            return azureWorkspaceManager.getWorkspace(workspaceInfo, managedResourceGroupId);
         }
     }
 
@@ -173,7 +169,7 @@ public class WorkspaceHandler {
         }
     }
 
-    <T extends Specific> Either<FailedOperation, DatabricksWorkspaceInfo> createDatabricksWorkspace(
+    <T extends Specific> Either<FailedOperation, DatabricksWorkspaceInfo> createIfNotExistsDatabricksWorkspace(
             ProvisionRequest<T> provisionRequest) {
         try {
 
@@ -189,12 +185,13 @@ public class WorkspaceHandler {
                     ? SkuType.TRIAL
                     : SkuType.PREMIUM;
 
-            Either<FailedOperation, DatabricksWorkspaceInfo> eitherNewWorkspace = azureWorkspaceManager.createWorkspace(
-                    workspaceName,
-                    "westeurope",
-                    azurePermissionsConfig.getResourceGroup(),
-                    managedResourceGroupId,
-                    skuType);
+            Either<FailedOperation, DatabricksWorkspaceInfo> eitherNewWorkspace =
+                    azureWorkspaceManager.createIfNotExistsWorkspace(
+                            workspaceName,
+                            "westeurope",
+                            azurePermissionsConfig.getResourceGroup(),
+                            managedResourceGroupId,
+                            skuType);
 
             if (eitherNewWorkspace.isRight())
                 logger.info(String.format(
@@ -211,17 +208,20 @@ public class WorkspaceHandler {
         }
     }
 
-    protected <T extends Specific> Either<FailedOperation, Void> manageAzurePermissions(
+    protected Either<FailedOperation, Void> manageAzurePermissions(
             DatabricksWorkspaceInfo databricksWorkspaceInfo,
             String entity,
             String roleDefinitionId,
             PrincipalType principalType) {
 
+        if (roleDefinitionId == null) return right(null);
+
         try {
             Set<String> inputEntity = Set.of(entity);
 
             String message = String.format(
-                    "Managing permissions of %s for workspace %s", entity, databricksWorkspaceInfo.getName());
+                    "Managing permissions of %s for workspace %s. Assigning role definition %s",
+                    entity, databricksWorkspaceInfo.getName(), roleDefinitionId);
             logger.info(message);
 
             Map<String, Either<Throwable, String>> res = azureMapper.map(inputEntity);
@@ -229,7 +229,7 @@ public class WorkspaceHandler {
 
             if (entityMap.isLeft()) {
                 String errorMessage = String.format(
-                        "Failed to get AzureID of: %s. Details:",
+                        "Failed to get AzureID of: %s. Details: %s",
                         entity, entityMap.getLeft().getMessage());
                 logger.error(errorMessage, entityMap.getLeft());
                 return left(
@@ -242,7 +242,6 @@ public class WorkspaceHandler {
                 return assignPermissionsToEntity(
                         databricksWorkspaceInfo, entityMap.get(), roleDefinitionId, principalType);
             }
-
         } catch (Exception e) {
             String errorMessage = String.format(
                     "An error occurred while handling permissions of %s for the Azure resource %s. Details: %s",
@@ -323,6 +322,15 @@ public class WorkspaceHandler {
                 logger.error(errorMessage);
                 return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
             }
+
+            if (workspaceName == null || workspaceName.isEmpty()) {
+                String errorMessage = String.format(
+                        "The provided specific section of the component '%s' doesn't contain a workspace name",
+                        provisionRequest.component().getName());
+                logger.error(errorMessage);
+                return left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
+            }
+
             return right(workspaceName);
 
         } catch (Exception e) {

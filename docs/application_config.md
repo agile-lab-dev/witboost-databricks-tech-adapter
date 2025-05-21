@@ -77,15 +77,17 @@ The provisioner uses a service principal to authenticate against Microsoft Graph
 * **permissions.auth_clientId**: The client ID of the service principal, provided via  `${PERMISSIONS_AZURE_CLIENT_ID}`.
 * **permissions.auth_tenantId**: The Azure tenant ID of the service principal, provided via `${PERMISSIONS_AZURE_TENANT_ID}`.
 * **permissions.auth_clientSecret**: The client secret of the service principal, provided via `${PERMISSIONS_AZURE_CLIENT_SECRET}`.
-* **permissions.subscriptionId**: The Azure subscription ID, provided via `${AZURE_SUBSCRIPTION_ID}`. Used to construct the resource ID.
-* **permissions.resourceGroup**: The Azure resource group name, provided via `${AZURE_RESOURCE_GROUP_NAME}`. Used to construct the resource ID.
-* **permissions.dpOwnerRoleDefinitionId**: Specifies the role for the Data Product owner. It can be set to `"no_permissions"` or filled with an ID from Azure RBAC roles. If set to `"no_permissions"`, all direct permissions on the resource (not inherited ones) will be removed.
-* **permissions.devGroupRoleDefinitionId**: Specifies the role for the Developer group. It can be set to `"no_permissions"` or filled with an ID from Azure RBAC roles. If set to `"no_permissions"`, all direct permissions on the resource (not inherited ones) will be removed.
+* **permissions.subscriptionId**: The Azure subscription ID, provided via `${AZURE_SUBSCRIPTION_ID}`. Used to construct the resource ID. If the Workspace already exists and should not be managed by the Tech Adapter, this value can be omitted as it's not used.
+* **permissions.resourceGroup**: The Azure resource group name, provided via `${AZURE_RESOURCE_GROUP_NAME}`. Used to construct the resource ID. If the Workspace already exists and should not be managed by the Tech Adapter, this value can be omitted as it's not used.
+* **permissions.dpOwnerRoleDefinitionId**: Specifies the role for the Data Product owner. It can be set to `"no_permissions"` or filled with an ID from Azure RBAC roles. If set to `"no_permissions"`, all direct permissions on the resource (not inherited ones) will be removed. If the Workspace already exists and should not be managed by the Tech Adapter, this value can be omitted as it's not used.
+* **permissions.devGroupRoleDefinitionId**: Specifies the role for the Developer group. It can be set to `"no_permissions"` or filled with an ID from Azure RBAC roles. If set to `"no_permissions"`, all direct permissions on the resource (not inherited ones) will be removed. If the Workspace already exists and should not be managed by the Tech Adapter, this value can be omitted as it's not used.
 
 
 ## `databricks` Section
 
-This section handles authentication and permissions for Databricks.
+This section handles authentication and permissions for Databricks. 
+
+The Tech Adapter is configured to create a Workspace as part of its deployment process, unless it receives as input in the `specific.workspace` field a [Databricks Workspace URL](https://learn.microsoft.com/en-us/azure/databricks/workspace/workspace-details#per-workspace-url) rather than the Workspace name.
 
 ```yaml
 databricks:
@@ -136,7 +138,7 @@ forkjoin:
 
 ## `usecasetemplateid` Section
 
-Expected useCaseTemplateId values in request bodies to identify the type of component that sent the request.
+Expected useCaseTemplateId values in request bodies to identify the type of component that sent the request. The use case template id must be added without the version section of the id.
 
 ```yaml
 usecasetemplateid:

@@ -22,10 +22,7 @@ import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
-import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
-import it.agilelab.witboost.provisioning.databricks.config.DatabricksPermissionsConfig;
-import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
+import it.agilelab.witboost.provisioning.databricks.config.*;
 import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.Workload;
@@ -239,6 +236,9 @@ public class DLTWorkloadHandlerTest {
 
     @Test
     public void provisionWorkload_ErrorMappingDpOwner() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         dataProduct.setDataProductOwner("wrong_user");
         Iterable<CatalogInfo> iterableCatalogList =
@@ -305,6 +305,9 @@ public class DLTWorkloadHandlerTest {
 
     @Test
     public void provisionWorkload_ErrorCreatingRepo() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
         Iterable<CatalogInfo> iterableCatalogList =

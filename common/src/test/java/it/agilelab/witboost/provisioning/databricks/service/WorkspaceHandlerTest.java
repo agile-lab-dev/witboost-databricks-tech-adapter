@@ -14,7 +14,6 @@ import com.azure.resourcemanager.databricks.implementation.WorkspaceImpl;
 import com.azure.resourcemanager.databricks.implementation.WorkspacesImpl;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
-import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
 import com.databricks.sdk.service.iam.GroupsAPI;
@@ -28,10 +27,7 @@ import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager
 import it.agilelab.witboost.provisioning.databricks.client.SkuType;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
-import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
-import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
+import it.agilelab.witboost.provisioning.databricks.config.*;
 import it.agilelab.witboost.provisioning.databricks.model.*;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.SparkConf;
@@ -135,6 +131,8 @@ public class WorkspaceHandlerTest {
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+        when(azureWorkspaceManager.getWorkspace(eq("testWorkspace"), anyString()))
+                .thenReturn(right(Optional.empty()));
 
         WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
         when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
@@ -148,7 +146,7 @@ public class WorkspaceHandlerTest {
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
-        when(azureWorkspaceManager.createWorkspace(
+        when(azureWorkspaceManager.createIfNotExistsWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(right(databricksWorkspaceInfo));
 
@@ -179,6 +177,8 @@ public class WorkspaceHandlerTest {
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+        when(azureWorkspaceManager.getWorkspace(eq("testWorkspace"), anyString()))
+                .thenReturn(right(Optional.empty()));
 
         WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
         when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
@@ -192,7 +192,7 @@ public class WorkspaceHandlerTest {
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
-        when(azureWorkspaceManager.createWorkspace(
+        when(azureWorkspaceManager.createIfNotExistsWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(right(databricksWorkspaceInfo));
 
@@ -223,6 +223,8 @@ public class WorkspaceHandlerTest {
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+        when(azureWorkspaceManager.getWorkspace(eq("testWorkspace"), anyString()))
+                .thenReturn(right(Optional.empty()));
 
         WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
         when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
@@ -236,7 +238,7 @@ public class WorkspaceHandlerTest {
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
-        when(azureWorkspaceManager.createWorkspace(
+        when(azureWorkspaceManager.createIfNotExistsWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(right(databricksWorkspaceInfo));
 
@@ -267,6 +269,8 @@ public class WorkspaceHandlerTest {
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+        when(azureWorkspaceManager.getWorkspace(eq("testWorkspace"), anyString()))
+                .thenReturn(right(Optional.empty()));
 
         WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
         when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
@@ -280,7 +284,7 @@ public class WorkspaceHandlerTest {
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
-        when(azureWorkspaceManager.createWorkspace(
+        when(azureWorkspaceManager.createIfNotExistsWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(right(databricksWorkspaceInfo));
 
@@ -312,6 +316,8 @@ public class WorkspaceHandlerTest {
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+        when(azureWorkspaceManager.getWorkspace(eq("testWorkspace"), anyString()))
+                .thenReturn(right(Optional.empty()));
 
         WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
         when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
@@ -325,7 +331,7 @@ public class WorkspaceHandlerTest {
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
-        when(azureWorkspaceManager.createWorkspace(
+        when(azureWorkspaceManager.createIfNotExistsWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(right(databricksWorkspaceInfo));
 
@@ -373,7 +379,9 @@ public class WorkspaceHandlerTest {
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
-        when(azureWorkspaceManager.createWorkspace(
+        when(azureWorkspaceManager.getWorkspace(eq("testWorkspace"), anyString()))
+                .thenReturn(right(Optional.empty()));
+        when(azureWorkspaceManager.createIfNotExistsWorkspace(
                         eq("testWorkspace"), eq("westeurope"), anyString(), anyString(), any()))
                 .thenReturn(right(databricksWorkspaceInfo));
 
@@ -412,6 +420,8 @@ public class WorkspaceHandlerTest {
 
         WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
         when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+        when(azureWorkspaceManager.getWorkspace(eq("testWorkspace"), anyString()))
+                .thenReturn(right(Optional.empty()));
 
         WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
         when(mockWorkspaces.define(workspaceName)).thenReturn(mockWorkspaceImpl);
@@ -426,7 +436,8 @@ public class WorkspaceHandlerTest {
                 .thenReturn(workspaceClient);
 
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("error")));
-        when(azureWorkspaceManager.createWorkspace(eq(workspaceName), eq(region), anyString(), anyString(), any()))
+        when(azureWorkspaceManager.createIfNotExistsWorkspace(
+                        eq(workspaceName), eq(region), anyString(), anyString(), any()))
                 .thenReturn(Either.left(failedOperation));
 
         Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceHandler.provisionWorkspace(provisionRequest);
@@ -498,27 +509,6 @@ public class WorkspaceHandlerTest {
     }
 
     @Test
-    public void testRetrieveWorkspaceHost_Success() {
-
-        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
-                "ws_name", "ws_id", "ws_host", "test", "ws_arurl", ProvisioningState.SUCCEEDED);
-
-        when(azureWorkspaceManager.getWorkspace(
-                        "ws_name", "/subscriptions/testSubscriptionId/resourceGroups/ws_name-rg"))
-                .thenReturn(right(Optional.of(databricksWorkspaceInfo)));
-
-        assertEquals("ws_host", workspaceHandler.getWorkspaceHost("ws_name").get());
-    }
-
-    @Test
-    public void testRetrieveWorkspaceHost_Failed() {
-
-        when(azureWorkspaceManager.getWorkspace(anyString(), anyString())).thenThrow(new DatabricksException("Error"));
-
-        assertTrue(workspaceHandler.getWorkspaceHost("any").isLeft());
-    }
-
-    @Test
     public void testHandleNoPermissions_Success() {
         DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
@@ -557,19 +547,54 @@ public class WorkspaceHandlerTest {
 
     @Test
     public void testCreateDatabricksWorkspace_ExceptionHandling() {
-        when(azureWorkspaceManager.createWorkspace(
+        when(azureWorkspaceManager.createIfNotExistsWorkspace(
                         anyString(), anyString(), anyString(), anyString(), any(SkuType.class)))
                 .thenThrow(new RuntimeException("Workspace creation failed"));
 
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
 
         Either<FailedOperation, DatabricksWorkspaceInfo> result =
-                workspaceHandler.createDatabricksWorkspace(provisionRequest);
+                workspaceHandler.createIfNotExistsDatabricksWorkspace(provisionRequest);
 
         assertTrue(result.isLeft());
         assertEquals(
                 "An error occurred while creating workspace for component null. Please try again and if the error persists contact the platform team. Details: Workspace creation failed",
                 result.getLeft().problems().get(0).description());
+    }
+
+    @Test
+    public void provisionWorkspace_NotManagedWorkspace_Success() {
+
+        azureAuthConfig.setSkuType("PREMIUM");
+        ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest = createJobProvisionRequest();
+        provisionRequest.component().getSpecific().setWorkspace("adb-123456789012.12.azuredatabricks.net");
+
+        WorkspacesImpl mockWorkspaces = mock(WorkspacesImpl.class);
+        when(azureDatabricksManager.workspaces()).thenReturn(mockWorkspaces);
+
+        WorkspaceImpl mockWorkspaceImpl = mock(WorkspaceImpl.class);
+        when(mockWorkspaces.define(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withRegion(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withExistingResourceGroup(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
+        when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+                .thenReturn(workspaceClient);
+
+        DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
+                "adb-123456789012.12.azuredatabricks.net", "123456789012", null, "test", ProvisioningState.SUCCEEDED);
+
+        Map<String, Either<Throwable, String>> mockres = new HashMap<>();
+        mockres.put(dataProduct.getDataProductOwner(), right("azureId"));
+        mockres.put(dataProduct.getDevGroup(), right("azureGroupId"));
+        when(azureMapper.map(anySet())).thenReturn(mockres);
+
+        Either<FailedOperation, DatabricksWorkspaceInfo> result = workspaceHandler.provisionWorkspace(provisionRequest);
+
+        assertTrue(result.isRight());
+        assertEquals(result.get().getName(), databricksWorkspaceInfo.getName());
+        assertEquals(result.get().getId(), databricksWorkspaceInfo.getId());
     }
 
     private ProvisionRequest<DatabricksJobWorkloadSpecific> createJobProvisionRequest() {

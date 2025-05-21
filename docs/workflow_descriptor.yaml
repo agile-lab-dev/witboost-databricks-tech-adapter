@@ -40,7 +40,7 @@ dataProduct:
       tags: [ ]
       readsFrom: [ ]
       specific:
-        workspace: healthcare_databricks-test_0_qa
+        workspace: healthcare_databricks-test_0_qa # Either a name of the workspace to be created, or a URL to an existing Workspace
         override: false
         repoPath: databrickstest_0/databricks-workflow
         git:

@@ -74,7 +74,7 @@ Workspace provisioning takes care of creating the Workspace and applying permiss
 
 The permissions that are applied involve the Owner of the system and the associated Developer Group. On Azure environments, they are granted a configurable role that can act on the Workspace resource. Typically, such role has the "CAN_MANAGE" permission level.
 
-If the Workspace already exists, no operation is performed.
+If the Workspace already exists, only alignment operations are performed, like users, groups and permissions alignment. Workspace creation and management can be disabled if the user provides a URL for an existing workspace rather than a name to be used on creation.
 
 ![Workspace Provisioning](img/hld-workload-workspace-provisioning.png)
 
@@ -115,7 +115,7 @@ After the Workspace has been provisioned, if a Workload of type workflow is to b
 
 Before proceeding with the workflow deployment, the request is validated according to the diagram shown in the diagram below. During this phase, it is checked that no workflow is unintentionally overwritten. The request will also contain an `override` field, which is automatically set to `false` after each reverse provisioning operation and is used to enable or disable overwriting.
 
-![hld-workload-workflow-validation-for-provisioning.png](img%2Fhld-workload-workflow-validation-for-provisioning.png)
+![hld-workload-workflow-validation-for-provisioning.png](img/hld-workload-workflow-validation-for-provisioning.png)
 
 #### Workflow Deployment
 

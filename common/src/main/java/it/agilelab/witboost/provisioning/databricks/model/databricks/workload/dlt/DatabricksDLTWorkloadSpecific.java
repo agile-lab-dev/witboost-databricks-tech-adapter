@@ -2,6 +2,7 @@ package it.agilelab.witboost.provisioning.databricks.model.databricks.workload.d
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.DatabricksWorkloadSpecific;
+import jakarta.annotation.Nullable;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -32,7 +33,8 @@ public class DatabricksDLTWorkloadSpecific extends DatabricksWorkloadSpecific {
 
     private List<@NotBlank String> files;
 
-    @NotBlank
+    // Can be null when the workspace creation is disabled
+    @Nullable
     private String metastore;
 
     @NotBlank

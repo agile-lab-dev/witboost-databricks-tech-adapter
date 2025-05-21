@@ -57,12 +57,25 @@ public class UnityCatalogManagerTest {
     }
 
     @Test
-    public void testCreateCatalog() {
-        List<MetastoreInfo> metastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
+    public void testAttachMetastore_EmptyMetastore() {
+        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("");
+        assertTrue(result.isLeft());
+        String errorMessage =
+                "Provided metastore name is empty. Please ensure it's present if you're managing the workspace via the Tech Adapter.";
+        assert (result.getLeft().problems().get(0).description().contains(errorMessage));
+    }
 
+    @Test
+    public void testAttachMetastore_NullMetastore() {
+        Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore(null);
+        assertTrue(result.isLeft());
+        String errorMessage =
+                "Provided metastore name is empty. Please ensure it's present if you're managing the workspace via the Tech Adapter.";
+        assert (result.getLeft().problems().get(0).description().contains(errorMessage));
+    }
+
+    @Test
+    public void testCreateCatalog() {
         List<CatalogInfo> catalogList =
                 Arrays.asList(new CatalogInfo().setName("catalog1"), new CatalogInfo().setName("catalog2"));
 
@@ -104,11 +117,6 @@ public class UnityCatalogManagerTest {
 
     @Test
     public void testAttachMetastore_Exception() {
-        List<MetastoreInfo> metastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-        Iterable<MetastoreInfo> iterableMetastoresList = metastoresList;
-
         Either<FailedOperation, Void> result = unityCatalogManager.attachMetastore("metastore");
         assertTrue(result.isLeft());
         assertEquals(

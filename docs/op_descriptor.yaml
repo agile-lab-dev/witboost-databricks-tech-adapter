@@ -75,14 +75,14 @@ dataProduct:
       sampleData: {}
       semanticLinking: []
       specific:
-        metastore: metastore
-        workspace: healthcare_databricks-test_0_development
+        metastore: metastore # Not used if workspace provides a URL to an existing Workspace
+        workspace: healthcare_databricks-test_0_development # Either a name of the workspace to be created, or a URL to an existing Workspace
         catalogName: my_catalog
         schemaName: my_schema
         tableName: my_table
         viewName: my_view
         sqlWarehouseName: Serverless Starter Warehouse
-        workspaceOP: healthcare_databricks-test_0_development
+        workspaceOP: healthcare_databricks-test_0_development # Either a name of the workspace to be created, or a URL to an existing Workspace
         catalogNameOP: my_catalog_op
         schemaNameOP: my_schema_op
         viewNameOP: output_port_name

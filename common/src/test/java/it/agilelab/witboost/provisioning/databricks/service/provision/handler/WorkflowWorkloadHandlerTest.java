@@ -211,6 +211,9 @@ public class WorkflowWorkloadHandlerTest {
 
     @Test
     public void provisionWorkflow_ErrorMappingDpOwner() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         dataProduct.setDataProductOwner("wrong_user");
         List<CatalogInfo> catalogList =
@@ -405,6 +408,8 @@ public class WorkflowWorkloadHandlerTest {
 
     @Test
     public void provisionWorkflow_ErrorUpdatingUser() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+
         ProvisionRequest<DatabricksWorkflowWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
@@ -426,7 +431,8 @@ public class WorkflowWorkloadHandlerTest {
         when(repoInfo.getId()).thenReturn(123l);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
-        when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
         when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
         when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
@@ -447,6 +453,10 @@ public class WorkflowWorkloadHandlerTest {
 
     @Test
     public void provisionWorkflow_ErrorUpdatingGroup() {
+        AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
+        when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
+        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
+
         ProvisionRequest<DatabricksWorkflowWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
@@ -489,7 +499,7 @@ public class WorkflowWorkloadHandlerTest {
                 .problems()
                 .get(0)
                 .description()
-                .contains("Group developers not found at Databricks account level.");
+                .contains("Group 'developers' not found at Databricks account level.");
     }
 
     @Test

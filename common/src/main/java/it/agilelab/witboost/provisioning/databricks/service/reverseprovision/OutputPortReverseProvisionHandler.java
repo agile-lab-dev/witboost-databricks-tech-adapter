@@ -57,22 +57,21 @@ public class OutputPortReverseProvisionHandler {
 
         String tableFullName = catalogName + "." + schemaName + "." + tableName;
 
-        String workspaceName =
-                params.getEnvironmentSpecificConfig().getSpecific().getWorkspace();
+        String workspace = params.getEnvironmentSpecificConfig().getSpecific().getWorkspace();
 
-        logger.info("workspace for reverse provisioning: " + workspaceName);
+        logger.info("workspace for reverse provisioning: " + workspace);
 
         Either<FailedOperation, Optional<DatabricksWorkspaceInfo>> eitherWorkspaceExists =
-                workspaceHandler.getWorkspaceInfo(workspaceName);
+                workspaceHandler.getWorkspaceInfo(workspace);
         if (eitherWorkspaceExists.isLeft()) {
             return handleReverseProvisioningStatusFailed(
-                    String.format("Error while retrieving workspace info of %s", workspaceName));
+                    String.format("Error while retrieving workspace info of %s", workspace));
         }
 
         Optional<DatabricksWorkspaceInfo> databricksWorkspaceInfoOptional = eitherWorkspaceExists.get();
         if (databricksWorkspaceInfoOptional.isEmpty()) {
             return handleReverseProvisioningStatusFailed(
-                    String.format("Validation failed. Workspace '%s' not found.", workspaceName));
+                    String.format("Validation failed. Workspace '%s' not found.", workspace));
         }
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = databricksWorkspaceInfoOptional.get();
@@ -81,7 +80,7 @@ public class OutputPortReverseProvisionHandler {
                 workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
         if (eitherWorkspaceClient.isLeft()) {
             return handleReverseProvisioningStatusFailed(
-                    String.format("Error while retrieving workspace client for workspace %s.", workspaceName));
+                    String.format("Error while retrieving workspace client for workspace %s.", workspace));
         }
 
         WorkspaceClient workspaceClient = eitherWorkspaceClient.get();
@@ -120,7 +119,7 @@ public class OutputPortReverseProvisionHandler {
 
         HashMap<Object, Object> updates = new HashMap<>();
         updates.put("spec.mesh.dataContract.schema", columnsList);
-        updates.put("witboost.parameters.schemaDefinition", columnsList);
+        updates.put("witboost.parameters.schemaDefinition.schemaColumns", columnsList);
 
         if (reverseProvisioningOption.equalsIgnoreCase(SCHEMA_AND_DETAILS)) {
             updates.put("spec.mesh.specific.catalogName", catalogName);
@@ -174,7 +173,7 @@ public class OutputPortReverseProvisionHandler {
                     Column column = new Column();
                     column.setName(col.getName());
                     column.setDataType(openMetaDataType);
-                    column.setDescription(col.getTypeText());
+                    column.setDescription(col.getComment() != null ? col.getComment() : col.getTypeText());
                     switch (typeName) {
                         case DECIMAL -> {
                             column.setPrecision(
@@ -300,8 +299,9 @@ public class OutputPortReverseProvisionHandler {
         // Check, in case of reverseProvisioningOption = SCHEMA_AND_DETAILS, that the source table is not a VIEW
         if (reverseProvisioningOption.equalsIgnoreCase(SCHEMA_AND_DETAILS)) {
             if (tableInfo.getTableType().toString().equalsIgnoreCase(VIEW)) {
-                return Either.left(handleReverseProvisioningStatusFailed(
-                        "It's not possible to inherit table details from a VIEW. "));
+                return Either.left(
+                        handleReverseProvisioningStatusFailed(
+                                "It's not possible to inherit Table Details from a VIEW, only the Schema. Please try again choosing to inherit the Schema only."));
             }
         }
 

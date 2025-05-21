@@ -7,7 +7,6 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.error.platform.BadRequest;
 import com.databricks.sdk.core.error.platform.ResourceAlreadyExists;
 import com.databricks.sdk.core.error.platform.ResourceDoesNotExist;
-import com.databricks.sdk.service.iam.*;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
