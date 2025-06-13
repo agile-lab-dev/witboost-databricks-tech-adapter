@@ -99,11 +99,14 @@ After the Workspace has been provisioned, if a Workload of type Job is to be pro
 
 #### Job Deployment
 
-In the provisioning phase of the Workload a Job is created inside the Databricks Workspace based on the configuration set by the user (entry point, run as user, scheduling, compute resources, etc).
+In the provisioning phase of the Workload a Job is created inside the Databricks Workspace based on the configuration set by the user (entry point, scheduling, compute resources, etc).
 
 The Job is configured to point to a specific branch (typical for development environments) or tag (typical for QA/production) of the git repository. The job is named as follows: `$Domain_$DPName_$MajorVersion_$ComponentName_$Environment`
 
 Each Workload's git repository is linked to the Workspace in a folder under `/Workspace/<dp_name>_<dp_major_version>/<component_name>` with its own name (normalized). Developer and owner have configurable permissions on this folder. Finally, the `deploy user` has full permissions since is the owner of the folder.
+
+
+It is possible to specify which Service Principal should be used to run the Job by setting the `specific.runAsPrincipalName` field in the provisioning request. If this field is provided, the Job will run as the indicated Service Principal. Otherwise, the Service Principal used to authenticate the microservice will be used by default.
 
 ![Job Provisioning](img/hld-workload-job-provisioning.png)
 

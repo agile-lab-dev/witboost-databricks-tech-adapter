@@ -20,6 +20,8 @@ import com.databricks.sdk.service.pipelines.PipelineStateInfo;
 import com.databricks.sdk.service.pipelines.PipelinesAPI;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.bean.WorkspaceClientConfig;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManager;
 import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.*;
@@ -32,11 +34,11 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.Da
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DLTClusterSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
 import java.util.*;
+import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -74,13 +76,18 @@ public class DLTWorkloadHandlerTest {
     @MockBean
     private AzureResourceManager azureResourceManager;
 
-    @Mock
+    @MockBean
     WorkspaceLevelManagerFactory workspaceLevelManagerFactory;
+
+    @Mock
+    WorkspaceLevelManager workspaceLevelManager;
+
+    @MockBean
+    private Function<WorkspaceClientConfig.WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
 
     private DLTWorkloadHandler dltWorkloadHandler;
     private DataProduct dataProduct;
     private Workload<DatabricksDLTWorkloadSpecific> workload;
-    private DatabricksDLTWorkloadSpecific databricksDLTWorkloadSpecific;
 
     private final DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
             "workspace", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
@@ -108,10 +115,15 @@ public class DLTWorkloadHandlerTest {
                 gitCredentialsConfig,
                 databricksPermissionsConfig,
                 accountClient,
-                workspaceLevelManagerFactory);
-        MockitoAnnotations.openMocks(this);
+                workspaceLevelManagerFactory,
+                workspaceClientFactory);
         setUpDataProduct();
         setUpWorkload();
+
+        lenient()
+                .when(workspaceLevelManagerFactory.createDatabricksWorkspaceLevelManager(any(WorkspaceClient.class)))
+                .thenReturn(workspaceLevelManager);
+        lenient().when(workspaceLevelManager.setGitCredentials(any(), any())).thenReturn(Either.right(null));
     }
 
     @Test
@@ -136,8 +148,8 @@ public class DLTWorkloadHandlerTest {
 
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
@@ -191,8 +203,8 @@ public class DLTWorkloadHandlerTest {
 
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
@@ -225,7 +237,8 @@ public class DLTWorkloadHandlerTest {
                 gitCredentialsConfig,
                 databricksPermissionsConfig,
                 accountClient,
-                workspaceLevelManagerFactory);
+                workspaceLevelManagerFactory,
+                workspaceClientFactory);
 
         Either<FailedOperation, String> result =
                 dltWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -331,7 +344,7 @@ public class DLTWorkloadHandlerTest {
 
         assert result.isLeft();
         String errorMessage =
-                "Cannot invoke \"com.databricks.sdk.service.workspace.ReposAPI.create(com.databricks.sdk.service.workspace.CreateRepo)";
+                "An error occurred while creating the repo with URL https://github.com/repo.git in workspace.";
         assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }
 
@@ -366,8 +379,8 @@ public class DLTWorkloadHandlerTest {
 
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
 
         when(reposAPI.getPermissions(anyString())).thenThrow(new DatabricksException("permissions exception"));
 
@@ -403,8 +416,8 @@ public class DLTWorkloadHandlerTest {
 
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
@@ -456,8 +469,8 @@ public class DLTWorkloadHandlerTest {
 
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
@@ -487,7 +500,8 @@ public class DLTWorkloadHandlerTest {
                 gitCredentialsConfig,
                 databricksPermissionsConfig,
                 accountClient,
-                workspaceLevelManagerFactory);
+                workspaceLevelManagerFactory,
+                workspaceClientFactory);
 
         Either<FailedOperation, String> result =
                 dltWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);

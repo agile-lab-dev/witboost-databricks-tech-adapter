@@ -40,16 +40,14 @@ public class RepoManager {
      */
     public Either<FailedOperation, Long> createRepo(String gitUrl, String provider, String absoluteRepoPath) {
         try {
-            logger.info(
-                    String.format("Creating repo with URL %s at %s in %s", gitUrl, absoluteRepoPath, workspaceName));
+            logger.info("Creating repo with URL {} at {} in {}", gitUrl, absoluteRepoPath, workspaceName);
             var repoInfo = workspaceClient
                     .repos()
-                    .create(new CreateRepo()
+                    .create(new CreateRepoRequest()
                             .setUrl(gitUrl)
                             .setProvider(provider)
                             .setPath(absoluteRepoPath));
-            logger.info(String.format(
-                    "Repo with URL %s created successfully at %s in %s", gitUrl, absoluteRepoPath, workspaceName));
+            logger.info("Repo with URL {} created successfully at {} in {}", gitUrl, absoluteRepoPath, workspaceName);
 
             return right(repoInfo.getId());
 
@@ -75,9 +73,11 @@ public class RepoManager {
 
     @NotNull
     private Either<FailedOperation, Long> handleExistingRepository(String gitUrl, String absoluteRepoPath) {
-        logger.warn(String.format(
-                "Creation of repo with URL %s skipped. It already exists in the folder %s (workspace %s).",
-                gitUrl, absoluteRepoPath, workspaceName));
+        logger.warn(
+                "Creation of repo with URL {} skipped. It already exists in the folder {} (workspace {}).",
+                gitUrl,
+                absoluteRepoPath,
+                workspaceName);
 
         int lastIndex = absoluteRepoPath.lastIndexOf('/');
         String dataProductFolderPath = absoluteRepoPath.substring(0, lastIndex);
@@ -88,7 +88,7 @@ public class RepoManager {
         if (dataProductFolderContent != null) {
             for (ObjectInfo objectInfo : dataProductFolderContent) {
                 if (objectInfo.getObjectType().equals(ObjectType.REPO)) {
-                    RepoInfo repoInfo = workspaceClient.repos().get(objectInfo.getObjectId());
+                    GetRepoResponse repoInfo = workspaceClient.repos().get(objectInfo.getObjectId());
                     if (repoInfo.getPath().equalsIgnoreCase(absoluteRepoPath)) {
                         return right(repoInfo.getId());
                     }
@@ -112,9 +112,11 @@ public class RepoManager {
     public Either<FailedOperation, Void> deleteRepo(String gitUrl, String absoluteRepoPath) {
         try {
 
-            logger.info(String.format(
-                    "Attempting to delete repo with path %s and URL %s in %s.",
-                    absoluteRepoPath, gitUrl, workspaceName));
+            logger.info(
+                    "Attempting to delete repo with path {} and URL {} in {}.",
+                    absoluteRepoPath,
+                    gitUrl,
+                    workspaceName);
 
             int lastIndex = absoluteRepoPath.lastIndexOf('/');
             String dataProductFolderPath = absoluteRepoPath.substring(0, lastIndex);
@@ -125,28 +127,34 @@ public class RepoManager {
             if (dataProductFolderContent != null) {
                 for (ObjectInfo objectInfo : dataProductFolderContent) {
                     if (objectInfo.getObjectType().equals(ObjectType.REPO)) {
-                        RepoInfo repoInfo = workspaceClient.repos().get(objectInfo.getObjectId());
+                        GetRepoResponse repoInfo = workspaceClient.repos().get(objectInfo.getObjectId());
                         if (repoInfo.getUrl().equalsIgnoreCase(gitUrl)
                                 && repoInfo.getPath().equalsIgnoreCase(absoluteRepoPath)) {
                             workspaceClient.repos().delete(new DeleteRepoRequest().setRepoId(repoInfo.getId()));
-                            logger.info(String.format(
-                                    "Repo %s (id: %s) in %s deleted successfully.",
-                                    absoluteRepoPath, repoInfo.getId(), workspaceName));
+                            logger.info(
+                                    "Repo {} (id: {}) in {} deleted successfully.",
+                                    absoluteRepoPath,
+                                    repoInfo.getId(),
+                                    workspaceName);
                             return right(null);
                         }
                     }
                 }
             }
 
-            logger.info(String.format(
-                    "Repo with path %s and URL %s not found in %s. Deletion skipped.",
-                    absoluteRepoPath, gitUrl, workspaceName));
+            logger.info(
+                    "Repo with path {} and URL {} not found in {}. Deletion skipped.",
+                    absoluteRepoPath,
+                    gitUrl,
+                    workspaceName);
             return right(null);
 
         } catch (ResourceDoesNotExist e) {
-            logger.info(String.format(
-                    "Repo with path %s and URL %s not found in %s. Deletion skipped.",
-                    absoluteRepoPath, gitUrl, workspaceName));
+            logger.info(
+                    "Repo with path {} and URL {} not found in {}. Deletion skipped.",
+                    absoluteRepoPath,
+                    gitUrl,
+                    workspaceName);
             return right(null);
         } catch (Exception e) {
 

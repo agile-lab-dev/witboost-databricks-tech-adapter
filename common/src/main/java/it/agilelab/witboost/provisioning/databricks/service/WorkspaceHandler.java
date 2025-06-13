@@ -9,7 +9,7 @@ import com.azure.resourcemanager.authorization.models.PrincipalType;
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.bean.WorkspaceClientConfig;
 import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
 import it.agilelab.witboost.provisioning.databricks.client.SkuType;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
@@ -44,7 +44,7 @@ public class WorkspaceHandler {
     private final AzureResourceManager azureResourceManager;
     private final AzurePermissionsManager azurePermissionsManager;
     private final AzureWorkspaceManager azureWorkspaceManager;
-    private final Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
+    private final Function<WorkspaceClientConfig.WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
     private static final String RESOURCE_ID_FORMAT =
             "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Databricks/workspaces/%s";
 
@@ -60,7 +60,7 @@ public class WorkspaceHandler {
             AzureAuthConfig azureAuthConfig,
             AzureMapper azureMapper,
             AzurePermissionsManager azurePermissionsManager,
-            Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory,
+            Function<WorkspaceClientConfig.WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory,
             AzureResourceManager azureResourceManager) {
         this.azureWorkspaceManager = azureWorkspaceManager;
         this.azurePermissionsConfig = azurePermissionsConfig;
@@ -151,14 +151,15 @@ public class WorkspaceHandler {
             DatabricksWorkspaceInfo databricksWorkspaceInfo) {
         try {
 
-            WorkspaceClientConfigParams workspaceClientConfigParams = new WorkspaceClientConfigParams(
-                    databricksAuthConfig,
-                    azureAuthConfig,
-                    gitCredentialsConfig,
-                    databricksWorkspaceInfo.getDatabricksHost(),
-                    databricksWorkspaceInfo.getName());
+            WorkspaceClientConfig.WorkspaceClientConfigParams workspaceClientAzureConfigParams =
+                    new WorkspaceClientConfig.WorkspaceClientConfigParams(
+                            WorkspaceClientConfig.WorkspaceClientConfigParams.AuthType.AZURE,
+                            databricksAuthConfig,
+                            azureAuthConfig,
+                            databricksWorkspaceInfo.getDatabricksHost(),
+                            databricksWorkspaceInfo.getName());
 
-            return right(workspaceClientFactory.apply(workspaceClientConfigParams));
+            return right(workspaceClientFactory.apply(workspaceClientAzureConfigParams));
 
         } catch (Exception e) {
             String errorMessage = String.format(

@@ -8,10 +8,6 @@ import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
-import com.databricks.sdk.service.catalog.CatalogInfo;
-import com.databricks.sdk.service.catalog.CatalogsAPI;
-import com.databricks.sdk.service.catalog.MetastoreInfo;
-import com.databricks.sdk.service.catalog.MetastoresAPI;
 import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
 import com.databricks.sdk.service.iam.*;
@@ -22,6 +18,9 @@ import com.databricks.sdk.service.jobs.JobsAPI;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
+import it.agilelab.witboost.provisioning.databricks.bean.WorkspaceClientConfig;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManager;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
@@ -34,14 +33,13 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.Sp
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.JobClusterSpecific;
 import jakarta.validation.constraints.NotNull;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -51,6 +49,7 @@ import org.springframework.context.annotation.Import;
 
 @SpringBootTest
 @Import(TestConfig.class)
+@ExtendWith(MockitoExtension.class)
 public class JobWorkloadHandlerTest {
     @Autowired
     private AzurePermissionsConfig azurePermissionsConfig;
@@ -67,23 +66,34 @@ public class JobWorkloadHandlerTest {
     @Autowired
     AzureAuthConfig azureAuthConfig;
 
+    @MockBean
+    WorkspaceLevelManagerFactory workspaceLevelManagerFactory;
+
+    @Mock
+    WorkspaceLevelManager workspaceLevelManager;
+
+    @MockBean
+    Function<WorkspaceClientConfig.WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
+
     private DataProduct dataProduct;
     private Workload<DatabricksJobWorkloadSpecific> workload;
 
     private final DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
             "workspace", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
+
     private final String workspaceName = "testWorkspace";
+    private final String runAsSPDisplayName = "service-principal-name";
 
     @BeforeEach
     public void setUp() {
-        MockitoAnnotations.openMocks(this);
-
         dataProduct = new DataProduct();
         dataProduct.setDataProductOwner("user:name.surname@company.it");
         dataProduct.setDevGroup("group:developers");
         dataProduct.setEnvironment("development");
 
         setUpWorkload();
+
+        workspaceInfo.setManaged(true);
     }
 
     private void setUpWorkload() {
@@ -94,6 +104,7 @@ public class JobWorkloadHandlerTest {
         databricksJobWorkloadSpecific.setWorkspace(workspaceName);
         databricksJobWorkloadSpecific.setJobName("jobName");
         databricksJobWorkloadSpecific.setRepoPath("dataproduct/component");
+        databricksJobWorkloadSpecific.setRunAsPrincipalName(runAsSPDisplayName);
 
         DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
                 new DatabricksJobWorkloadSpecific.JobGitSpecific();
@@ -159,22 +170,26 @@ public class JobWorkloadHandlerTest {
         mockJobAPI(workspaceClient);
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+        when(workspaceLevelManagerFactory.createDatabricksWorkspaceLevelManager(any(WorkspaceClient.class)))
+                .thenReturn(workspaceLevelManager);
+        when(workspaceLevelManager.setGitCredentials(any(), any())).thenReturn(Either.right(null));
+        when(workspaceLevelManager.getServicePrincipalFromName(any()))
+                .thenReturn(Either.right(new ServicePrincipal()
+                        .setDisplayName("servicePrincipalDisplayName")
+                        .setId("456")
+                        .setApplicationId("servicePrincipalAppId")));
+        when(workspaceLevelManager.generateSecretForServicePrincipal(anyLong(), anyString()))
+                .thenReturn(Either.right(new AbstractMap.SimpleEntry<>("secret", "secretId")));
+        when(workspaceClientFactory.apply(any())).thenReturn(workspaceClient);
+        when(workspaceLevelManager.deleteServicePrincipalSecret(anyLong(), anyString()))
+                .thenReturn(Either.right(null));
 
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(metastoresList);
-
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(workspaceClient.repos().create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
-        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
-        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
         List<User> users = Collections.singletonList(
                 new User().setUserName("name.surname@company.it").setId("123"));
@@ -206,19 +221,11 @@ public class JobWorkloadHandlerTest {
 
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(metastoresList);
-
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
 
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123L);
 
         RepoPermissions repoPermissions = mock(RepoPermissions.class);
@@ -227,8 +234,6 @@ public class JobWorkloadHandlerTest {
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
-        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
-        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
         List<User> users = Collections.singletonList(
                 new User().setUserName("name.surname@company.it").setId("123"));
@@ -238,6 +243,20 @@ public class JobWorkloadHandlerTest {
 
         when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.groups().list(any())).thenReturn(groups);
+
+        when(workspaceLevelManagerFactory.createDatabricksWorkspaceLevelManager(any(WorkspaceClient.class)))
+                .thenReturn(workspaceLevelManager);
+        when(workspaceLevelManager.setGitCredentials(any(), any())).thenReturn(Either.right(null));
+        when(workspaceLevelManager.getServicePrincipalFromName(any()))
+                .thenReturn(Either.right(new ServicePrincipal()
+                        .setDisplayName("servicePrincipalDisplayName")
+                        .setId("456")
+                        .setApplicationId("servicePrincipalAppId")));
+        when(workspaceLevelManager.generateSecretForServicePrincipal(anyLong(), anyString()))
+                .thenReturn(Either.right(new AbstractMap.SimpleEntry<>("secret", "secretId")));
+        when(workspaceClientFactory.apply(any())).thenReturn(workspaceClient);
+        when(workspaceLevelManager.deleteServicePrincipalSecret(anyLong(), anyString()))
+                .thenReturn(Either.right(null));
 
         when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
 
@@ -259,19 +278,6 @@ public class JobWorkloadHandlerTest {
         when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         dataProduct.setDataProductOwner("wrong_user");
-        List<CatalogInfo> catalogList =
-                Arrays.asList(new CatalogInfo().setName("catalog"), new CatalogInfo().setName("catalog2"));
-
-        when(workspaceClient.catalogs()).thenReturn(mock(CatalogsAPI.class));
-        when(workspaceClient.catalogs().list(any())).thenReturn(catalogList);
-
-        List<MetastoreInfo> metastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(metastoresList);
 
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
@@ -346,11 +352,6 @@ public class JobWorkloadHandlerTest {
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, true);
 
-        DatabricksWorkspaceInfo databricksWorkspaceInfo =
-                new DatabricksWorkspaceInfo(workspaceName, "123", "test", "test", "test", ProvisioningState.SUCCEEDED);
-
-        Optional<DatabricksWorkspaceInfo> optionalDatabricksWorkspaceInfo = Optional.of(databricksWorkspaceInfo);
-
         Iterable<BaseJob> baseJobIterable = Arrays.asList(new BaseJob().setJobId(1L), new BaseJob().setJobId(2L));
 
         JobsAPI jobsAPI = mock(JobsAPI.class);
@@ -362,7 +363,7 @@ public class JobWorkloadHandlerTest {
 
         Iterable<ObjectInfo> objectInfos = mock(Iterable.class);
         when(workspaceAPI.list(anyString())).thenReturn(objectInfos);
-        RepoInfo repoInfo = mock(RepoInfo.class);
+        GetRepoResponse repoInfo = mock(GetRepoResponse.class);
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
         when(reposAPI.get(anyLong())).thenReturn(repoInfo);
@@ -423,27 +424,17 @@ public class JobWorkloadHandlerTest {
         mockJobAPI(workspaceClient);
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
-        Iterable<MetastoreInfo> iterableMetastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+        when(workspaceLevelManagerFactory.createDatabricksWorkspaceLevelManager(any(WorkspaceClient.class)))
+                .thenReturn(workspaceLevelManager);
+        when(workspaceLevelManager.setGitCredentials(any(), any())).thenReturn(Either.right(null));
 
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
-
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(workspaceClient.repos().create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
         when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
-        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
-        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
-
-        RepoPermissions repoPermissions = mock(RepoPermissions.class);
-        when(workspaceClient.repos().getPermissions(anyString())).thenReturn(repoPermissions);
-        when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
 
         Either<FailedOperation, String> result =
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -460,41 +451,16 @@ public class JobWorkloadHandlerTest {
     public void provisionWorkload_ErrorUpdatingGroup() {
         AccountGroupsAPI accountGroupsAPIMock = mock(AccountGroupsAPI.class);
         when(accountClient.groups()).thenReturn(accountGroupsAPIMock);
-        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
+        //        when(accountGroupsAPIMock.list(any())).thenReturn(List.of(new Group().setDisplayName("developers")));
 
         ProvisionRequest<DatabricksJobWorkloadSpecific> provisionRequest =
                 new ProvisionRequest<>(dataProduct, workload, false);
 
         mockReposAPI(workspaceClient);
         mockJobAPI(workspaceClient);
-        when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
-
-        List<MetastoreInfo> metastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(metastoresList);
-
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
-        when(repoInfo.getId()).thenReturn(123L);
-
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
-        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
-        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
-
-        List<User> users = Collections.singletonList(
-                new User().setUserName("name.surname@company.it").setId("123"));
-
-        when(accountClient.users().list(any())).thenReturn(users);
         when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
-
-        RepoPermissions repoPermissions = mock(RepoPermissions.class);
-        when(workspaceClient.repos().getPermissions(anyString())).thenReturn(repoPermissions);
-        when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
 
         Either<FailedOperation, String> result =
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -517,22 +483,12 @@ public class JobWorkloadHandlerTest {
         mockJobAPI(workspaceClient);
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
-
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(metastoresList);
-
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(workspaceClient.repos().create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
-        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
-        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
         List<User> users = Collections.singletonList(
                 new User().setUserName("name.surname@company.it").setId("123"));
@@ -546,6 +502,22 @@ public class JobWorkloadHandlerTest {
         when(workspaceClient.repos().getPermissions(anyString())).thenReturn(repoPermissions);
         when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
         when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
+
+        lenient()
+                .when(workspaceLevelManagerFactory.createDatabricksWorkspaceLevelManager(any(WorkspaceClient.class)))
+                .thenReturn(workspaceLevelManager);
+        lenient().when(workspaceLevelManager.setGitCredentials(any(), any())).thenReturn(Either.right(null));
+        lenient()
+                .when(workspaceLevelManager.getServicePrincipalFromName(any()))
+                .thenReturn(Either.right(new ServicePrincipal()
+                        .setDisplayName("servicePrincipalDisplayName")
+                        .setId("456")
+                        .setApplicationId("servicePrincipalAppId")));
+        when(workspaceLevelManager.generateSecretForServicePrincipal(anyLong(), anyString()))
+                .thenReturn(Either.right(new AbstractMap.SimpleEntry<>("secret", "secretId")));
+        when(workspaceClientFactory.apply(any())).thenReturn(workspaceClient);
+        when(workspaceLevelManager.deleteServicePrincipalSecret(anyLong(), anyString()))
+                .thenReturn(Either.right(null));
 
         Either<FailedOperation, String> result =
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -617,6 +589,7 @@ public class JobWorkloadHandlerTest {
         WorkspaceAPI workspaceAPI = mock(WorkspaceAPI.class);
         String errorMessage = "This is a workspace list exception";
         when(workspaceAPI.list(anyString())).thenThrow(new RuntimeException(errorMessage));
+        when(workspaceClient.workspace()).thenReturn(workspaceAPI);
 
         Either<FailedOperation, Void> result =
                 jobWorkloadHandler.unprovisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
@@ -629,6 +602,7 @@ public class JobWorkloadHandlerTest {
                 .get(0)
                 .description()
                 .contains("An error occurred while deleting the repo with path /dataproduct/component in workspace.");
+        assert result.getLeft().problems().get(0).description().contains(errorMessage);
     }
 
     @Test
@@ -659,22 +633,16 @@ public class JobWorkloadHandlerTest {
         mockJobAPI(workspaceClient);
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
-        List<MetastoreInfo> metastoresList = Arrays.asList(
-                new MetastoreInfo().setName("metastore").setMetastoreId("id"),
-                new MetastoreInfo().setName("metastore2").setMetastoreId("id2"));
+        when(workspaceLevelManagerFactory.createDatabricksWorkspaceLevelManager(any(WorkspaceClient.class)))
+                .thenReturn(workspaceLevelManager);
+        when(workspaceLevelManager.setGitCredentials(any(), any())).thenReturn(Either.right(null));
 
-        MetastoresAPI metastoresAPI = mock(MetastoresAPI.class);
-        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
-        when(metastoresAPI.list()).thenReturn(metastoresList);
-
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(workspaceClient.repos().create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123L);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
         when(accountClient.groups()).thenReturn(mock(AccountGroupsAPI.class));
-        when(workspaceClient.users()).thenReturn(mock(UsersAPI.class));
-        when(workspaceClient.groups()).thenReturn(mock(GroupsAPI.class));
 
         List<User> users = Collections.singletonList(
                 new User().setUserName("name.surname@company.it").setId("123"));
@@ -689,7 +657,7 @@ public class JobWorkloadHandlerTest {
         when(repoPermissions.getAccessControlList()).thenReturn(Collections.emptyList());
         when(accountClient.workspaceAssignment()).thenReturn(mock(WorkspaceAssignmentAPI.class));
 
-        when(workspaceClient.jobs().create(any())).thenReturn(new CreateResponse().setJobId(null));
+        //        when(workspaceClient.jobs().create(any())).thenReturn(new CreateResponse().setJobId(null));
         Either<FailedOperation, String> result =
                 jobWorkloadHandler.provisionWorkload(provisionRequest, workspaceClient, workspaceInfo);
 
@@ -704,14 +672,14 @@ public class JobWorkloadHandlerTest {
         JobsAPI jobsAPI = mock(JobsAPI.class);
         CreateResponse createResponse = mock(CreateResponse.class);
         Job job = mock(Job.class);
-        when(workspaceClient.jobs()).thenReturn(jobsAPI);
-        when(jobsAPI.create(any())).thenReturn(createResponse);
-        when(createResponse.getJobId()).thenReturn(123L);
-        when(jobsAPI.get(anyLong())).thenReturn(job);
+        lenient().when(workspaceClient.jobs()).thenReturn(jobsAPI);
+        lenient().when(jobsAPI.create(any())).thenReturn(createResponse);
+        lenient().when(createResponse.getJobId()).thenReturn(123L);
+        lenient().when(jobsAPI.get(anyLong())).thenReturn(job);
     }
 
     private void mockReposAPI(WorkspaceClient workspaceClient) {
         ReposAPI reposAPI = mock(ReposAPI.class);
-        when(workspaceClient.repos()).thenReturn(reposAPI);
+        lenient().when(workspaceClient.repos()).thenReturn(reposAPI);
     }
 }

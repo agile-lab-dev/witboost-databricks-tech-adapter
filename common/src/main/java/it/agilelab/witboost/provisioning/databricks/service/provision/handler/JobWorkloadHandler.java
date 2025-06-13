@@ -5,10 +5,13 @@ import static io.vavr.control.Either.right;
 
 import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.service.iam.ServicePrincipal;
 import com.databricks.sdk.service.jobs.BaseJob;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.bean.WorkspaceClientConfig;
 import it.agilelab.witboost.provisioning.databricks.client.JobManager;
 import it.agilelab.witboost.provisioning.databricks.client.RepoManager;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManager;
 import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
@@ -19,6 +22,7 @@ import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import java.util.*;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,13 +39,15 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
             GitCredentialsConfig gitCredentialsConfig,
             DatabricksPermissionsConfig databricksPermissionsConfig,
             AccountClient accountClient,
-            WorkspaceLevelManagerFactory workspaceLevelManagerFactory) {
+            WorkspaceLevelManagerFactory workspaceLevelManagerFactory,
+            Function<WorkspaceClientConfig.WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory) {
         super(
                 azureAuthConfig,
                 gitCredentialsConfig,
                 databricksPermissionsConfig,
                 accountClient,
-                workspaceLevelManagerFactory);
+                workspaceLevelManagerFactory,
+                workspaceClientFactory);
     }
 
     /**
@@ -81,6 +87,18 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
                     dpOwnerDatabricksId,
                     dpDevGroupDatabricksId);
             if (eitherCreatedRepo.isLeft()) return left(eitherCreatedRepo.getLeft());
+
+            String runAsPrincipalName =
+                    provisionRequest.component().getSpecific().getRunAsPrincipalName();
+            if (runAsPrincipalName != null && !runAsPrincipalName.isBlank()) {
+                var setGitCred = setServicePrincipalGitCredentials(
+                        workspaceClient,
+                        databricksWorkspaceInfo.getDatabricksHost(),
+                        databricksWorkspaceInfo.getName(),
+                        runAsPrincipalName);
+
+                if (setGitCred.isLeft()) return left(setGitCred.getLeft());
+            }
 
             Either<FailedOperation, Long> eitherCreatedJob =
                     createJob(provisionRequest, workspaceClient, databricksWorkspaceInfo.getName());
@@ -185,10 +203,26 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
 
             var jobManager = new JobManager(workspaceClient, workspaceName);
 
+            String runAsPrincipalApplicationID = null;
+
+            if (databricksJobWorkloadSpecific.getRunAsPrincipalName() != null
+                    && !databricksJobWorkloadSpecific.getRunAsPrincipalName().isBlank()) {
+
+                WorkspaceLevelManager workspaceLevelManager =
+                        workspaceLevelManagerFactory.createDatabricksWorkspaceLevelManager(workspaceClient);
+
+                Either<FailedOperation, ServicePrincipal> eitherRunAsPrincipal =
+                        workspaceLevelManager.getServicePrincipalFromName(
+                                databricksJobWorkloadSpecific.getRunAsPrincipalName());
+                if (eitherRunAsPrincipal.isLeft()) return left(eitherRunAsPrincipal.getLeft());
+                runAsPrincipalApplicationID = eitherRunAsPrincipal.get().getApplicationId();
+            }
+
             return jobManager.createOrUpdateJobWithNewCluster(
                     databricksJobWorkloadSpecific.getJobName(),
                     databricksJobWorkloadSpecific.getDescription(),
                     "Task1",
+                    runAsPrincipalApplicationID,
                     databricksJobWorkloadSpecific.getCluster(),
                     databricksJobWorkloadSpecific.getScheduling(),
                     databricksJobWorkloadSpecific.getGit(),

@@ -22,8 +22,8 @@ azure:
     auth_clientSecret: ${PERMISSIONS_AZURE_CLIENT_SECRET}
     subscriptionId: ${AZURE_SUBSCRIPTION_ID}
     resourceGroup: ${AZURE_RESOURCE_GROUP_NAME}
-    dpOwnerRoleDefinitionId: ""  #Fill with "no_permissions" or one of the IDs defined at https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/general
-    devGroupRoleDefinitionId: "" #Fill with "no_permissions" or one of the IDs defined at https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/general
+    dpOwnerRoleDefinitionId: ""   #Fill with "no_permissions" or one of the IDs defined at https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/general
+    devGroupRoleDefinitionId: ""  #Fill with "no_permissions" or one of the IDs defined at https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/general
 
 databricks:
   auth:

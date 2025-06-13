@@ -17,7 +17,7 @@ import com.witboost.provisioning.model.Column;
 import com.witboost.provisioning.model.DataContract;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
-import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.bean.ApiClientConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
@@ -48,7 +48,7 @@ public class OutputPortValidationTest {
     private WorkspaceHandler workspaceHandler;
 
     @Mock
-    private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
+    private Function<ApiClientConfig.ApiClientConfigParams, ApiClient> apiClientFactory;
 
     private OutputPortValidation outputPortValidation;
 

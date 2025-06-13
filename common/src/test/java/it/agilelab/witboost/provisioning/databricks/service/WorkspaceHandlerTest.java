@@ -22,7 +22,7 @@ import com.databricks.sdk.service.jobs.Job;
 import com.databricks.sdk.service.jobs.JobSettings;
 import com.databricks.sdk.service.pipelines.PipelineClusterAutoscaleMode;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.bean.WorkspaceClientConfig;
 import it.agilelab.witboost.provisioning.databricks.client.AzureWorkspaceManager;
 import it.agilelab.witboost.provisioning.databricks.client.SkuType;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
@@ -79,7 +79,7 @@ public class WorkspaceHandlerTest {
     private WorkspaceHandler workspaceHandler;
 
     @MockBean
-    private Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
+    private Function<WorkspaceClientConfig.WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
 
     @MockBean
     private AzureClient azureClient;
@@ -141,7 +141,7 @@ public class WorkspaceHandlerTest {
         when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
@@ -187,7 +187,7 @@ public class WorkspaceHandlerTest {
         when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
@@ -233,7 +233,7 @@ public class WorkspaceHandlerTest {
         when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
@@ -279,7 +279,7 @@ public class WorkspaceHandlerTest {
         when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
@@ -326,7 +326,7 @@ public class WorkspaceHandlerTest {
         when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
@@ -374,7 +374,7 @@ public class WorkspaceHandlerTest {
         when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
@@ -432,7 +432,7 @@ public class WorkspaceHandlerTest {
                 .thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         var failedOperation = new FailedOperation(Collections.singletonList(new Problem("error")));
@@ -463,7 +463,7 @@ public class WorkspaceHandlerTest {
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
 
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         Either<FailedOperation, WorkspaceClient> result = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
@@ -479,7 +479,7 @@ public class WorkspaceHandlerTest {
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(
                 "testWorkspace", "test", "test", "test", "test", ProvisioningState.SUCCEEDED);
 
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenThrow(new RuntimeException(errorMessage));
 
         Either<FailedOperation, WorkspaceClient> result = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
@@ -579,7 +579,7 @@ public class WorkspaceHandlerTest {
         when(mockWorkspaceImpl.withManagedResourceGroupId(anyString())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.withSku(any())).thenReturn(mockWorkspaceImpl);
         when(mockWorkspaceImpl.create()).thenReturn(mockWorkspaceImpl);
-        when(workspaceClientFactory.apply(any(WorkspaceClientConfigParams.class)))
+        when(workspaceClientFactory.apply(any(WorkspaceClientConfig.WorkspaceClientConfigParams.class)))
                 .thenReturn(workspaceClient);
 
         DatabricksWorkspaceInfo databricksWorkspaceInfo = new DatabricksWorkspaceInfo(

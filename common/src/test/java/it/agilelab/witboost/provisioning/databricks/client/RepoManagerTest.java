@@ -38,65 +38,66 @@ public class RepoManagerTest {
 
     @Test
     public void createRepo_Success() {
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
-        when(repoInfo.getId()).thenReturn(123l);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
+        when(repoInfo.getId()).thenReturn(123L);
 
         var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isRight();
-        assertEquals(Right(123l), result);
+        assertEquals(Right(123L), result);
     }
 
     @Test
     public void createRepo_ResourceAlreadyExists_CreationSkipped() {
-        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new ResourceAlreadyExists("error", null));
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenThrow(new ResourceAlreadyExists("error", null));
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
         List<ObjectInfo> objectInfos = Arrays.asList(new ObjectInfo()
                 .setObjectType(ObjectType.REPO)
-                .setObjectId(123l)
+                .setObjectId(123L)
                 .setPath("/Users/testaccount/testfolder/testcomponent"));
 
         Iterable<ObjectInfo> objectInfoIterable = objectInfos;
-        when(reposAPI.get(123l))
-                .thenReturn(new RepoInfo()
+        when(reposAPI.get(123L))
+                .thenReturn(new GetRepoResponse()
                         .setPath("/Users/testaccount/testfolder/testcomponent")
-                        .setId(123l));
+                        .setId(123L));
 
         when(workspaceClient.workspace().list(anyString())).thenReturn(objectInfoIterable);
         var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isRight();
-        assertEquals(Right(123l), result);
+        assertEquals(Right(123L), result);
     }
 
     @Test
     public void createRepo_BadRequest_ResourceAlreadyExists__CreationSkipped() {
-        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new BadRequest("RESOURCE_ALREADY_EXISTS error", null));
+        when(reposAPI.create(any(CreateRepoRequest.class)))
+                .thenThrow(new BadRequest("RESOURCE_ALREADY_EXISTS error", null));
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
         List<ObjectInfo> objectInfos = Arrays.asList(new ObjectInfo()
                 .setObjectType(ObjectType.REPO)
-                .setObjectId(123l)
+                .setObjectId(123L)
                 .setPath("/Users/testaccount/testfolder/testcomponent"));
 
         Iterable<ObjectInfo> objectInfoIterable = objectInfos;
-        when(reposAPI.get(123l))
-                .thenReturn(new RepoInfo()
+        when(reposAPI.get(123L))
+                .thenReturn(new GetRepoResponse()
                         .setPath("/Users/testaccount/testfolder/testcomponent")
-                        .setId(123l));
+                        .setId(123L));
 
         when(workspaceClient.workspace().list(anyString())).thenReturn(objectInfoIterable);
         var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isRight();
-        assertEquals(Right(123l), result);
+        assertEquals(Right(123L), result);
     }
 
     @Test
     public void createRepo_ResourceAlreadyExists_ErrorRetrievingInfos() {
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
-        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new ResourceAlreadyExists("error", null));
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenThrow(new ResourceAlreadyExists("error", null));
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
         var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
@@ -111,18 +112,18 @@ public class RepoManagerTest {
 
     @Test
     public void createRepo_BadRequest() {
-        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new BadRequest("error", null));
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenThrow(new BadRequest("error", null));
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
         List<ObjectInfo> objectInfos = Arrays.asList(new ObjectInfo()
                 .setObjectType(ObjectType.REPO)
-                .setObjectId(123l)
+                .setObjectId(123L)
                 .setPath("/Users/testaccount/testfolder/testcomponent"));
 
         Iterable<ObjectInfo> objectInfoIterable = objectInfos;
-        when(reposAPI.get(123l))
-                .thenReturn(new RepoInfo()
+        when(reposAPI.get(123L))
+                .thenReturn(new GetRepoResponse()
                         .setPath("/Users/testaccount/testfolder/testcomponent")
-                        .setId(123l));
+                        .setId(123L));
 
         when(workspaceClient.workspace().list(anyString())).thenReturn(objectInfoIterable);
         var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
@@ -135,7 +136,7 @@ public class RepoManagerTest {
     @Test
     public void createRepo_Exception() {
         String errorMessage = "This is an exception ";
-        when(reposAPI.create(any(CreateRepo.class))).thenThrow(new RuntimeException(errorMessage));
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenThrow(new RuntimeException(errorMessage));
 
         var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
         assert result.isLeft();
@@ -146,13 +147,13 @@ public class RepoManagerTest {
     public void deleteRepo_Success() {
         WorkspaceAPI workspaceAPI = mock(WorkspaceAPI.class);
         List<ObjectInfo> objectInfos =
-                Arrays.asList(new ObjectInfo().setObjectType(ObjectType.REPO).setObjectId(123l));
+                Arrays.asList(new ObjectInfo().setObjectType(ObjectType.REPO).setObjectId(123L));
         Iterable<ObjectInfo> objectInfoIterable = objectInfos;
 
         when(workspaceClient.workspace()).thenReturn(workspaceAPI);
         when(workspaceAPI.list(anyString())).thenReturn(objectInfoIterable);
 
-        RepoInfo repoInfo = mock(RepoInfo.class);
+        GetRepoResponse repoInfo = mock(GetRepoResponse.class);
         when(reposAPI.get(anyLong())).thenReturn(repoInfo);
         when(repoInfo.getUrl()).thenReturn("gitUrl");
         when(repoInfo.getPath()).thenReturn("/Users/user/dataproduct/component");
@@ -168,7 +169,7 @@ public class RepoManagerTest {
     public void deleteRepo_EmptyWorkspace() {
         ReposAPI reposAPI = mock(ReposAPI.class);
         WorkspaceAPI workspaceAPI = mock(WorkspaceAPI.class);
-        RepoInfo repoInfo = mock(RepoInfo.class);
+        GetRepoResponse repoInfo = mock(GetRepoResponse.class);
         when(reposAPI.get(anyLong())).thenReturn(repoInfo);
         when(repoInfo.getUrl()).thenReturn("gitUrl");
 

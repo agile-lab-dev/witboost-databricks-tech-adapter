@@ -7,7 +7,7 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.witboost.provisioning.model.Column;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.bean.ApiClientConfig;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
@@ -29,15 +29,13 @@ public class OutputPortValidation {
     private static final Logger logger = LoggerFactory.getLogger(OutputPortValidation.class);
     private final MiscConfig miscConfig;
     private final WorkspaceHandler workspaceHandler;
-    private final Function<ApiClientConfigParams, ApiClient> apiClientFactory;
 
     @Autowired
     public OutputPortValidation(
             MiscConfig miscConfig,
             WorkspaceHandler workspaceHandler,
-            Function<ApiClientConfigParams, ApiClient> apiClientFactory) {
+            Function<ApiClientConfig.ApiClientConfigParams, ApiClient> apiClientFactory) {
         this.miscConfig = miscConfig;
-        this.apiClientFactory = apiClientFactory;
         this.workspaceHandler = workspaceHandler;
     }
 

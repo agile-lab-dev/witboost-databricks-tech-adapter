@@ -28,8 +28,7 @@ public class IdentityManager {
     /**
      * Creates or updates a user in the workspace based on the user details from the account. User will have ADMIN
      * privileges.
-     *
-     * This method first checks if the user exists in the account. If the user exists, it creates or update the user in the
+     * This method first checks if the user exists in the account. If the user exists, it creates or updates the user in the
      * workspace importing it from the account.
      *
      * @param username The username of the user to create or update.
@@ -39,11 +38,11 @@ public class IdentityManager {
 
         try {
 
-            logger.info(String.format("Importing/updating user %s in %s", username, databricksWorkspaceInfo.getName()));
+            logger.info("Importing/updating user {} in {}", username, databricksWorkspaceInfo.getName());
             String filter = String.format("username eq '%s'", username);
             Collection<WorkspacePermission> workspacePermissions = new ArrayList<>();
             workspacePermissions.add(WorkspacePermission.ADMIN);
-            // Check user in account
+            // Check user in the account
             Optional<User> accountUser = StreamSupport.stream(
                             accountClient
                                     .users()
@@ -80,8 +79,7 @@ public class IdentityManager {
     /**
      * Creates or updates a group in the workspace based on the user details from the account. Group will have USER
      * permissions.
-     *
-     * This method first checks if the group exists in the account. If the group exists, it creates or update the group in the
+     * This method first checks if the group exists in the account. If the group exists, it creates or updates the group in the
      * workspace importing it from the account.
      *
      * @param groupName The username of the user to create or update.
@@ -90,8 +88,7 @@ public class IdentityManager {
     public Either<FailedOperation, Void> createOrUpdateGroupWithUserPrivileges(String groupName) {
 
         try {
-            logger.info(
-                    String.format("Importing/updating group %s in %s", groupName, databricksWorkspaceInfo.getName()));
+            logger.info("Importing/updating group {} in {}", groupName, databricksWorkspaceInfo.getName());
 
             String filter = String.format("displayName eq '%s'", groupName);
             Collection<WorkspacePermission> workspacePermissions = new ArrayList<>();

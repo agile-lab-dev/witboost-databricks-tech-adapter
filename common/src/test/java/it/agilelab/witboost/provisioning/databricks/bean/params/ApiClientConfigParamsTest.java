@@ -3,6 +3,7 @@ package it.agilelab.witboost.provisioning.databricks.bean.params;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import it.agilelab.witboost.provisioning.databricks.bean.ApiClientConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
@@ -28,7 +29,7 @@ class ApiClientConfigParamsTest {
 
     @Test
     void testConstructorAndGetters() {
-        ApiClientConfigParams params = new ApiClientConfigParams(
+        ApiClientConfig.ApiClientConfigParams params = new ApiClientConfig.ApiClientConfigParams(
                 mockDatabricksAuthConfig, mockAzureAuthConfig, mockGitCredentialsConfig, workspaceHost, workspaceName);
 
         assertEquals(mockDatabricksAuthConfig, params.getDatabricksAuthConfig());

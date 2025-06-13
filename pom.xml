@@ -26,66 +26,52 @@
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <jackson.version>2.17.0</jackson.version>
+        <jackson.version>2.19.0</jackson.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>io.vavr</groupId>
-                <artifactId>vavr</artifactId>
-                <version>0.10.4</version>
-            </dependency>
-            <dependency>
-                <groupId>org.openapitools</groupId>
-                <artifactId>jackson-databind-nullable</artifactId>
-                <version>0.2.6</version>
-            </dependency>
-            <dependency>
-                <groupId>io.swagger.parser.v3</groupId>
-                <artifactId>swagger-parser</artifactId>
-                <version>2.1.22</version>
-            </dependency>
-
+            <!--Databricks dependencies -->
             <dependency>
                 <groupId>com.databricks</groupId>
                 <artifactId>databricks-sdk-java</artifactId>
-                <version>0.31.1</version>
+                <version>0.50.0</version>
             </dependency>
 
             <dependency>
                 <groupId>com.azure.resourcemanager</groupId>
                 <artifactId>azure-resourcemanager-databricks</artifactId>
-                <version>1.0.0-beta.4</version>
+                <version>1.0.0</version>
             </dependency>
 
-
+            <!--Azure dependencies -->
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-identity</artifactId>
-                <version>1.12.2</version>
+                <version>1.16.1</version>
                 <scope>compile</scope>
             </dependency>
 
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-core-management</artifactId>
-                <version>1.13.0</version>
+                <version>1.17.0</version>
             </dependency>
 
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-core</artifactId>
-                <version>1.49.1</version>
+                <version>1.55.3</version>
             </dependency>
 
             <dependency>
-                <groupId>io.grpc</groupId>
-                <artifactId>grpc-context</artifactId>
-                <version>1.63.0</version>
+                <groupId>com.azure.resourcemanager</groupId>
+                <artifactId>azure-resourcemanager</artifactId>
+                <version>2.50.0</version>
             </dependency>
 
+            <!--Jackson dependencies -->
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
@@ -101,6 +87,32 @@
                 <artifactId>jackson-annotations</artifactId>
                 <version>${jackson.version}</version>
             </dependency>
+
+            <!--Other-->
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-context</artifactId>
+                <version>1.72.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.vavr</groupId>
+                <artifactId>vavr</artifactId>
+                <version>0.10.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.openapitools</groupId>
+                <artifactId>jackson-databind-nullable</artifactId>
+                <version>0.2.6</version>
+            </dependency>
+            <dependency>
+                <groupId>io.swagger.parser.v3</groupId>
+                <artifactId>swagger-parser</artifactId>
+                <version>2.1.22</version>
+            </dependency>
+
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-codec-http</artifactId>
@@ -110,14 +122,9 @@
             <dependency>
                 <groupId>com.microsoft.graph</groupId>
                 <artifactId>microsoft-graph</artifactId>
-                <version>6.8.0</version>
+                <version>6.38.0</version>
             </dependency>
 
-            <dependency>
-                <groupId>com.azure.resourcemanager</groupId>
-                <artifactId>azure-resourcemanager</artifactId>
-                <version>2.38.0</version>
-            </dependency>
 
             <dependency>
                 <groupId>nl.jqno.equalsverifier</groupId>
@@ -134,7 +141,7 @@
             <dependency>
                 <groupId>com.witboost.provisioning</groupId>
                 <artifactId>java-tech-adapter-framework-model</artifactId>
-                <version>1.0.0-2.2.0</version>
+                <version>1.1.0-2.2.0</version>
             </dependency>
 
         </dependencies>

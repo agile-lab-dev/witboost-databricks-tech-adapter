@@ -17,6 +17,8 @@ import com.databricks.sdk.service.jobs.*;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManager;
+import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.AzurePermissionsConfig;
@@ -58,6 +60,12 @@ public class WorkflowWorkloadHandlerTest {
     @Autowired
     AzureAuthConfig azureAuthConfig;
 
+    @MockBean
+    WorkspaceLevelManagerFactory workspaceLevelManagerFactory;
+
+    @Mock
+    WorkspaceLevelManager workspaceLevelManager;
+
     private DataProduct dataProduct;
     private Workload workload;
     private DatabricksWorkflowWorkloadSpecific databricksWorkflowWorkloadSpecific;
@@ -89,6 +97,11 @@ public class WorkflowWorkloadHandlerTest {
         workload.setName("workload");
         dataProduct.setDataProductOwner("user:name.surname@company.it");
         dataProduct.setDevGroup("group:developers");
+
+        lenient()
+                .when(workspaceLevelManagerFactory.createDatabricksWorkspaceLevelManager(any(WorkspaceClient.class)))
+                .thenReturn(workspaceLevelManager);
+        lenient().when(workspaceLevelManager.setGitCredentials(any(), any())).thenReturn(Either.right(null));
     }
 
     @Test
@@ -123,8 +136,8 @@ public class WorkflowWorkloadHandlerTest {
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
         when(metastoresAPI.list()).thenReturn(metastoresList);
 
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(workspaceClient.repos().create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123l);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
@@ -172,8 +185,8 @@ public class WorkflowWorkloadHandlerTest {
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
 
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(reposAPI.create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123l);
 
         RepoPermissions repoPermissions = mock(RepoPermissions.class);
@@ -322,7 +335,7 @@ public class WorkflowWorkloadHandlerTest {
 
         Iterable<ObjectInfo> objectInfos = mock(Iterable.class);
         when(workspaceAPI.list(anyString())).thenReturn(objectInfos);
-        RepoInfo repoInfo = mock(RepoInfo.class);
+        GetRepoResponse repoInfo = mock(GetRepoResponse.class);
         ReposAPI reposAPI = mock(ReposAPI.class);
         when(workspaceClient.repos()).thenReturn(reposAPI);
         when(reposAPI.get(anyLong())).thenReturn(repoInfo);
@@ -426,8 +439,8 @@ public class WorkflowWorkloadHandlerTest {
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
         when(metastoresAPI.list()).thenReturn(iterableMetastoresList);
 
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(workspaceClient.repos().create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123l);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
@@ -472,8 +485,8 @@ public class WorkflowWorkloadHandlerTest {
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
         when(metastoresAPI.list()).thenReturn(metastoresList);
 
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(workspaceClient.repos().create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123l);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));
@@ -599,8 +612,8 @@ public class WorkflowWorkloadHandlerTest {
         when(workspaceClient.metastores()).thenReturn(metastoresAPI);
         when(metastoresAPI.list()).thenReturn(metastoresList);
 
-        RepoInfo repoInfo = mock(RepoInfo.class);
-        when(workspaceClient.repos().create(any(CreateRepo.class))).thenReturn(repoInfo);
+        CreateRepoResponse repoInfo = mock(CreateRepoResponse.class);
+        when(workspaceClient.repos().create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123l);
 
         when(accountClient.users()).thenReturn(mock(AccountUsersAPI.class));

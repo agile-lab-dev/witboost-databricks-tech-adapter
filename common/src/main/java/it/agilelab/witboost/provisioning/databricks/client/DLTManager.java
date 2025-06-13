@@ -479,7 +479,7 @@ public class DLTManager {
      * Validates the environment and returns the corresponding Spark environment variables for the Delta Live Table (DLT) pipeline.
      * If the environment is invalid, returns a failed operation.
      *
-     * @param environment The target environment, which can be one of DEVELOPMENT, QA, or PRODUCTION.
+     * @param environment The Witboost environment
      * @param dltClusterSpecific The cluster-specific configurations containing environment-specific Spark variables.
      * @param pipelineName The name of the pipeline for which environment variables are being retrieved.
      * @return Either a failed operation indicating an error, or a map of Spark environment variables for the specified environment.

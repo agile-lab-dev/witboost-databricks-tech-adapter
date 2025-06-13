@@ -42,6 +42,7 @@ public class JobManagerTest {
     private static final String jobName = "MyJob";
     private static final String description = "Description of the job";
     private static final String taskKey = "task123";
+    private static final String runAs = "test-principal";
     private static final String gitRepoUrl = "https://github.com/user/repo.git";
     private static final String notebookPath = "/path/to/notebook";
 
@@ -131,7 +132,14 @@ public class JobManagerTest {
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
+                jobName,
+                description,
+                taskKey,
+                runAs,
+                jobClusterSpecific,
+                schedulingSpecific,
+                jobGitSpecific,
+                "development");
 
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
@@ -150,8 +158,14 @@ public class JobManagerTest {
         when(workspaceClient.jobs().create(any())).thenReturn(createResponse);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
-
+                jobName,
+                description,
+                taskKey,
+                runAs,
+                jobClusterSpecific,
+                schedulingSpecific,
+                jobGitSpecific,
+                "development");
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
 
@@ -171,8 +185,14 @@ public class JobManagerTest {
         when(workspaceClient.jobs().list(any())).thenReturn(baseJobList);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
-
+                jobName,
+                description,
+                taskKey,
+                runAs,
+                jobClusterSpecific,
+                schedulingSpecific,
+                jobGitSpecific,
+                "development");
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
 
@@ -192,8 +212,14 @@ public class JobManagerTest {
         when(workspaceClient.jobs().list(any())).thenReturn(baseJobList);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
-
+                jobName,
+                description,
+                taskKey,
+                runAs,
+                jobClusterSpecific,
+                schedulingSpecific,
+                jobGitSpecific,
+                "development");
         assertTrue(result.isRight());
         assertEquals(123L, result.get().longValue());
 
@@ -214,8 +240,14 @@ public class JobManagerTest {
         when(workspaceClient.jobs().list(any())).thenReturn(baseJobList);
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
-
+                jobName,
+                description,
+                taskKey,
+                runAs,
+                jobClusterSpecific,
+                schedulingSpecific,
+                jobGitSpecific,
+                "development");
         assertTrue(result.isLeft());
         assertEquals(
                 "Error trying to update the job 'MyJob'. The job name is not unique in workspace.",
@@ -232,8 +264,14 @@ public class JobManagerTest {
         when(workspaceClient.jobs().create(any())).thenThrow(new RuntimeException("Failed to create job"));
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
-
+                jobName,
+                description,
+                taskKey,
+                runAs,
+                jobClusterSpecific,
+                schedulingSpecific,
+                jobGitSpecific,
+                "development");
         assertTrue(result.isLeft());
     }
 
@@ -253,8 +291,14 @@ public class JobManagerTest {
         doThrow(new DatabricksException("Exception")).when(mockJobs).update(any(UpdateJob.class));
 
         Either<FailedOperation, Long> result = jobManager.createOrUpdateJobWithNewCluster(
-                jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, "development");
-
+                jobName,
+                description,
+                taskKey,
+                runAs,
+                jobClusterSpecific,
+                schedulingSpecific,
+                jobGitSpecific,
+                "development");
         assertTrue(result.isLeft());
         assertEquals(
                 "An error occurred while updating the job MyJob in workspace. Please try again and if the error persists contact the platform team. Details: Exception",

@@ -2,16 +2,10 @@ package it.agilelab.witboost.provisioning.databricks.bean;
 
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
-import com.databricks.sdk.service.workspace.CreateCredentials;
-import com.databricks.sdk.service.workspace.UpdateCredentials;
-import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
-import it.agilelab.witboost.provisioning.databricks.config.GitCredentialsConfig;
-import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import lombok.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -25,87 +19,111 @@ public class WorkspaceClientConfig {
 
     @Bean
     public Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory() {
-        return arg -> createWorkspaceClient(arg);
+        return this::createWorkspaceClient;
+    }
+
+    protected DatabricksConfig buildAzureDatabricksConfig(WorkspaceClientConfigParams workspaceClientConfigParams) {
+        return new DatabricksConfig()
+                .setHost(workspaceClientConfigParams.getWorkspaceHost())
+                .setAccountId(
+                        workspaceClientConfigParams.getDatabricksAuthConfig().getAccountId())
+                .setAzureTenantId(
+                        workspaceClientConfigParams.getAzureAuthConfig().getTenantId())
+                .setAzureClientId(
+                        workspaceClientConfigParams.getAzureAuthConfig().getClientId())
+                .setAzureClientSecret(
+                        workspaceClientConfigParams.getAzureAuthConfig().getClientSecret());
+    }
+
+    protected DatabricksConfig buildOAuthDatabricksConfig(WorkspaceClientConfigParams workspaceClientConfigParams) {
+        return new DatabricksConfig()
+                .setHost(workspaceClientConfigParams.getWorkspaceHost())
+                .setClientId(workspaceClientConfigParams.getDatabricksClientID())
+                .setClientSecret(workspaceClientConfigParams.getDatabricksClientSecret());
     }
 
     @Bean
     @Scope(value = "prototype")
     public WorkspaceClient createWorkspaceClient(WorkspaceClientConfigParams workspaceClientConfigParams) {
-
         try {
-            DatabricksConfig config = buildDatabricksConfig(
-                    workspaceClientConfigParams.getDatabricksAuthConfig(),
-                    workspaceClientConfigParams.getAzureAuthConfig(),
-                    workspaceClientConfigParams.getWorkspaceHost());
-            WorkspaceClient workspaceClient = new WorkspaceClient(config);
+            DatabricksConfig config;
 
-            setGitCredentials(
-                    workspaceClient,
-                    workspaceClientConfigParams.getGitCredentialsConfig(),
-                    workspaceClientConfigParams.getWorkspaceName());
-            return workspaceClient;
+            if (workspaceClientConfigParams.getAuthType() == null) {
+                throw new IllegalArgumentException("Invalid auth type: null");
+            }
+
+            return switch (workspaceClientConfigParams.getAuthType()) {
+                case AZURE -> {
+                    config = buildAzureDatabricksConfig(workspaceClientConfigParams);
+                    yield new WorkspaceClient(config);
+                }
+                case OAUTH -> {
+                    config = buildOAuthDatabricksConfig(workspaceClientConfigParams);
+                    yield new WorkspaceClient(config);
+                }
+                default -> throw new IllegalArgumentException(
+                        "Invalid auth type: " + workspaceClientConfigParams.getAuthType());
+            };
 
         } catch (Exception e) {
             String errorMessage = String.format(
-                    "Error initializing the workspaceClient for %s. Please try again and if the error persists contact the platform team. Details: %s",
+                    "Error initializing the workspaceClient for %s.Please try again and if the error persists contact the platform team. Details: %s",
                     workspaceClientConfigParams.getWorkspaceName(), e.getMessage());
             logger.error(errorMessage, e);
             throw new RuntimeException(errorMessage, e);
         }
     }
 
-    protected DatabricksConfig buildDatabricksConfig(
-            DatabricksAuthConfig databricksAuthConfig, AzureAuthConfig azureAuthConfig, String workspaceHost) {
-        return new DatabricksConfig()
-                .setHost(workspaceHost)
-                .setAccountId(databricksAuthConfig.getAccountId())
-                .setAzureTenantId(azureAuthConfig.getTenantId())
-                .setAzureClientId(azureAuthConfig.getClientId())
-                .setAzureClientSecret(azureAuthConfig.getClientSecret());
-    }
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WorkspaceClientConfigParams {
 
-    protected void setGitCredentials(
-            WorkspaceClient workspaceClient, GitCredentialsConfig gitCredentialsConfig, String workspaceName) {
-        try {
+        public enum AuthType {
+            AZURE,
+            OAUTH
+        }
 
-            Optional.ofNullable(workspaceClient.gitCredentials().list())
-                    .map(credentials -> StreamSupport.stream(credentials.spliterator(), false))
-                    .orElse(Stream.empty()) // If list of gitCredentials is null, use an empty stream
-                    .filter(credentialInfo ->
-                            credentialInfo.getGitProvider().equalsIgnoreCase(gitCredentialsConfig.getProvider()))
-                    .findFirst()
-                    .ifPresentOrElse(
-                            credentialInfo -> { // If credentials already exist, update them
-                                logger.warn(
-                                        "Credentials for {} for the workspace {} already exist. Updating them with the ones provided",
-                                        gitCredentialsConfig.getProvider().toUpperCase(),
-                                        workspaceName);
-                                workspaceClient
-                                        .gitCredentials()
-                                        .update(new UpdateCredentials()
-                                                .setCredentialId(credentialInfo.getCredentialId())
-                                                .setGitUsername(gitCredentialsConfig.getUsername())
-                                                .setPersonalAccessToken(gitCredentialsConfig.getToken())
-                                                .setGitProvider(gitCredentialsConfig
-                                                        .getProvider()
-                                                        .toUpperCase()));
-                            },
-                            () -> {
-                                // If credentials don't exist or gitCredentials().list() is null, create new ones
-                                workspaceClient
-                                        .gitCredentials()
-                                        .create(new CreateCredentials()
-                                                .setPersonalAccessToken(gitCredentialsConfig.getToken())
-                                                .setGitUsername(gitCredentialsConfig.getUsername())
-                                                .setGitProvider(gitCredentialsConfig.getProvider()));
-                            });
-        } catch (Exception e) {
-            // Catching possible exceptions generated by Databricks
-            String errorMessage = String.format(
-                    "Error setting Git credentials for %s. Please try again and if the error persists contact the platform team. Details: %s",
-                    workspaceName, e.getMessage());
-            logger.error(errorMessage, e);
-            throw new RuntimeException(errorMessage, e);
+        private AuthType authType;
+
+        // Azure auth
+        private DatabricksAuthConfig databricksAuthConfig;
+        private AzureAuthConfig azureAuthConfig;
+
+        // OAuth
+        private String databricksClientID;
+        private String databricksClientSecret;
+
+        // Common
+        private String workspaceHost;
+        private String workspaceName;
+
+        // Azure-auth
+        public WorkspaceClientConfigParams(
+                AuthType authType,
+                DatabricksAuthConfig databricksAuthConfig,
+                AzureAuthConfig azureAuthConfig,
+                String workspaceHost,
+                String workspaceName) {
+            this.authType = authType;
+            this.databricksAuthConfig = databricksAuthConfig;
+            this.azureAuthConfig = azureAuthConfig;
+            this.workspaceHost = workspaceHost;
+            this.workspaceName = workspaceName;
+        }
+
+        // OAuth
+        public WorkspaceClientConfigParams(
+                AuthType authType,
+                String databricksClientID,
+                String databricksClientSecret,
+                String workspaceHost,
+                String workspaceName) {
+            this.authType = authType;
+            this.databricksClientID = databricksClientID;
+            this.databricksClientSecret = databricksClientSecret;
+            this.workspaceHost = workspaceHost;
         }
     }
 }

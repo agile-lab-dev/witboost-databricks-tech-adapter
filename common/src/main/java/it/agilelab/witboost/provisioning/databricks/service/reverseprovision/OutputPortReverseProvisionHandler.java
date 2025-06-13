@@ -238,6 +238,7 @@ public class OutputPortReverseProvisionHandler {
         typeMap.put(Pattern.compile("^TIMESTAMP$"), "TIMESTAMP");
         typeMap.put(Pattern.compile("^TINYINT$"), "TINYINT");
         typeMap.put(Pattern.compile("^VARIANT$"), "VARIANT");
+        typeMap.put(Pattern.compile("^LONG$"), "LONG");
 
         return typeMap;
     }

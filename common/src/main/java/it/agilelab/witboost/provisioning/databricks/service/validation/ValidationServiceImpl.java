@@ -6,7 +6,7 @@ import static io.vavr.control.Either.right;
 import com.databricks.sdk.core.ApiClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.bean.ApiClientConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
@@ -37,13 +37,13 @@ public class ValidationServiceImpl implements ValidationService {
     private static final Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
     private Map<String, List<Class<? extends Specific>>> kindToSpecificClasses = new HashMap<>();
-    private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
+    private Function<ApiClientConfig.ApiClientConfigParams, ApiClient> apiClientFactory;
     private WorkspaceHandler workspaceHandler;
     private MiscConfig miscConfig;
     private WorkloadTemplatesConfig workloadTemplatesConfig;
 
     public ValidationServiceImpl(
-            Function<ApiClientConfigParams, ApiClient> apiClientFactory,
+            Function<ApiClientConfig.ApiClientConfigParams, ApiClient> apiClientFactory,
             MiscConfig miscConfig,
             WorkspaceHandler workspaceHandler,
             WorkloadTemplatesConfig workloadTemplatesConfig) {

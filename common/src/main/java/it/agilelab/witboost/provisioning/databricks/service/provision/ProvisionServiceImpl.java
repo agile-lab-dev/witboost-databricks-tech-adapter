@@ -332,7 +332,7 @@ public class ProvisionServiceImpl implements ProvisionService {
         List<BaseJob> workflowList = new ArrayList<>();
         if (workflows != null) workflows.forEach(workflowList::add);
 
-        if (workflowList.size() == 0) {
+        if (workflowList.isEmpty()) {
             // No workflow with the same name
             logger.info(String.format("Validation for deployment of %s succeeded.", component.getName()));
             return right(null);

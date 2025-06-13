@@ -6,6 +6,7 @@ import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.service.workspace.*;
 import io.vavr.control.Either;
+import it.agilelab.witboost.provisioning.databricks.bean.WorkspaceClientConfig;
 import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.config.*;
@@ -17,6 +18,7 @@ import it.agilelab.witboost.provisioning.databricks.model.databricks.workflow.Da
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.dlt.DatabricksDLTWorkloadSpecific;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.job.DatabricksJobWorkloadSpecific;
 import java.util.Map;
+import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,6 +68,9 @@ public class BaseWorkloadHandlerTest {
     @Mock
     WorkspaceLevelManagerFactory workspaceLevelManagerFactory;
 
+    @MockBean
+    private Function<WorkspaceClientConfig.WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
+
     private BaseWorkloadHandler baseWorkloadHandler;
     private DataProduct dataProduct;
     private DatabricksDLTWorkloadSpecific databricksDLTWorkloadSpecific;
@@ -84,7 +89,8 @@ public class BaseWorkloadHandlerTest {
                 gitCredentialsConfig,
                 databricksPermissionsConfig,
                 accountClient,
-                workspaceLevelManagerFactory);
+                workspaceLevelManagerFactory,
+                workspaceClientFactory);
         MockitoAnnotations.openMocks(this);
         dataProduct = new DataProduct();
     }

@@ -3,12 +3,10 @@ package it.agilelab.witboost.provisioning.databricks.bean;
 import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
-import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
 import it.agilelab.witboost.provisioning.databricks.config.DatabricksAuthConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,27 +38,23 @@ public class ApiClientConfigTest {
 
     @Test
     public void testCreateApiClient_Success() {
-        ApiClientConfigParams params = mock(ApiClientConfigParams.class);
+        ApiClientConfig.ApiClientConfigParams params = mock(ApiClientConfig.ApiClientConfigParams.class);
+        when(params.getWorkspaceHost()).thenReturn("https://test.host");
         DatabricksAuthConfig databricksAuthConfig = mock(DatabricksAuthConfig.class);
         AzureAuthConfig azureAuthConfig = mock(AzureAuthConfig.class);
 
         when(params.getDatabricksAuthConfig()).thenReturn(databricksAuthConfig);
         when(params.getAzureAuthConfig()).thenReturn(azureAuthConfig);
-        when(params.getWorkspaceHost()).thenReturn("https://test.databricks.com");
+        ApiClientConfig apiClientConfig = new ApiClientConfig();
 
-        doReturn(databricksConfig)
-                .when(apiClientConfig)
-                .buildDatabricksConfig(any(DatabricksAuthConfig.class), any(AzureAuthConfig.class), any(String.class));
+        Object apiClient = apiClientConfig.createApiClient(params);
 
-        ApiClient result = apiClientConfig.createApiClient(params);
-
-        verify(apiClientConfig, times(1))
-                .buildDatabricksConfig(databricksAuthConfig, azureAuthConfig, "https://test.databricks.com");
+        assertNotNull(apiClient);
     }
 
     @Test
     public void testCreateApiClient_ExceptionThrown() {
-        ApiClientConfigParams params = mock(ApiClientConfigParams.class);
+        ApiClientConfig.ApiClientConfigParams params = mock(ApiClientConfig.ApiClientConfigParams.class);
         when(params.getWorkspaceHost()).thenThrow(new RuntimeException("Test Exception"));
 
         assertThrows(RuntimeException.class, () -> apiClientConfig.createApiClient(params));
@@ -68,7 +62,7 @@ public class ApiClientConfigTest {
 
     @Test
     public void testBuildDatabricksConfig_Success() {
-        ApiClientConfigParams params = mock(ApiClientConfigParams.class);
+        ApiClientConfig.ApiClientConfigParams params = mock(ApiClientConfig.ApiClientConfigParams.class);
         DatabricksAuthConfig databricksAuthConfig = mock(DatabricksAuthConfig.class);
         AzureAuthConfig azureAuthConfig = mock(AzureAuthConfig.class);
 

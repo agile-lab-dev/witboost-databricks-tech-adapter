@@ -14,7 +14,7 @@ import com.databricks.sdk.service.catalog.TableExistsResponse;
 import com.databricks.sdk.service.catalog.TableInfo;
 import com.databricks.sdk.service.catalog.TablesAPI;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
-import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.bean.ApiClientConfig;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.config.WorkloadTemplatesConfig;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
@@ -43,7 +43,7 @@ public class ValidationServiceTest {
     private WorkloadTemplatesConfig workloadTemplatesConfig;
 
     @MockBean
-    private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
+    private Function<ApiClientConfig.ApiClientConfigParams, ApiClient> apiClientFactory;
 
     @Mock
     ApiClient apiClientMock;
@@ -247,7 +247,8 @@ public class ValidationServiceTest {
 
         ApiClient apiClientMock = mock(ApiClient.class);
 
-        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfig.ApiClientConfigParams.class)))
+                .thenReturn(apiClientMock);
 
         when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
 
@@ -294,7 +295,8 @@ public class ValidationServiceTest {
 
         ApiClient apiClientMock = mock(ApiClient.class);
 
-        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfig.ApiClientConfigParams.class)))
+                .thenReturn(apiClientMock);
 
         when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
 

@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Class to manage Databricks jobs.
+ * Class responsible for managing Databricks jobs.
  */
 public class JobManager {
     private final Logger logger = LoggerFactory.getLogger(JobManager.class);
@@ -37,22 +37,24 @@ public class JobManager {
     /**
      * Creates or updates a Databricks job with a new dedicated cluster.
      * If a job with the specified name does not exist, a new job is created.
-     * If the job exists and is unique, the existing job is updated.
-     * Returns an error if more than one job with the same name exists.
+     * If exactly one job exists with the specified name, that job is updated.
+     * If multiple jobs exist with the specified name, an error is returned.
      *
-     * @param jobName            The name of the job.
-     * @param description        The description of the job.
-     * @param taskKey            The task key.
-     * @param jobClusterSpecific The cluster configuration details.
-     * @param schedulingSpecific The scheduling parameters.
-     * @param jobGitSpecific     The Git-related parameters for the task.
+     * @param jobName            The name of the job
+     * @param description        The description of the job
+     * @param taskKey            The task key that uniquely identifies the task within the job
+     * @param runAs              The service principal name to run the job as. If null or empty, defaults to the tech adapter's service principal used for the job creation or update
+     * @param jobClusterSpecific The cluster configuration details for the new cluster
+     * @param schedulingSpecific The scheduling parameters for the job
+     * @param jobGitSpecific     The Git-related parameters for the job source
      * @param environment        The Witboost environment
-     * @return Either a Long representing the job ID if successful, or a FailedOperation if an error occurs.
+     * @return Either a Long representing the job ID if successful, or a FailedOperation if an error occurs
      */
     public Either<FailedOperation, Long> createOrUpdateJobWithNewCluster(
             String jobName,
             String description,
             String taskKey,
+            String runAs,
             JobClusterSpecific jobClusterSpecific,
             DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
             DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific,
@@ -68,7 +70,14 @@ public class JobManager {
 
         if (jobList.isEmpty())
             return createJobWithNewCluster(
-                    jobName, description, taskKey, jobClusterSpecific, schedulingSpecific, jobGitSpecific, environment);
+                    jobName,
+                    description,
+                    taskKey,
+                    runAs,
+                    jobClusterSpecific,
+                    schedulingSpecific,
+                    jobGitSpecific,
+                    environment);
 
         if (jobList.size() != 1) {
             String errorMessage = String.format(
@@ -84,6 +93,7 @@ public class JobManager {
                 jobName,
                 description,
                 taskKey,
+                runAs,
                 jobClusterSpecific,
                 schedulingSpecific,
                 jobGitSpecific,
@@ -91,21 +101,23 @@ public class JobManager {
     }
 
     /**
-     * Creates a Databricks job with a new dedicated cluster.
+     * Creates a new Databricks job with a dedicated cluster.
      *
-     * @param jobName            The name of the job to be created.
-     * @param description        The description of the job.
-     * @param taskKey            The task key.
-     * @param jobClusterSpecific    The parameters for creating a new cluster.
-     * @param schedulingSpecific The parameters for scheduling the job.
-     * @param jobGitSpecific        The parameters including the git details for the task.
+     * @param jobName            The name of the job to be created
+     * @param description        The description of the job
+     * @param taskKey            The task key that uniquely identifies the task within the job
+     * @param runAs              The service principal name to run the job as. If null or empty, defaults to the tech adapter's service principal used for the job creation
+     * @param jobClusterSpecific The cluster configuration details for the new cluster
+     * @param schedulingSpecific The scheduling parameters for the job
+     * @param jobGitSpecific     The Git repository details and reference information
      * @param environment        The Witboost environment
-     * @return Either a Long representing the job ID if successful, or a FailedOperation.
+     * @return Either a Long representing the job ID if successful, or a FailedOperation
      */
     private Either<FailedOperation, Long> createJobWithNewCluster(
             String jobName,
             String description,
             String taskKey,
+            String runAs,
             JobClusterSpecific jobClusterSpecific,
             DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
             DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific,
@@ -141,6 +153,8 @@ public class JobManager {
                     .setParameters(jobParameterDefinitions)
                     .setGitSource(gitLabSource);
 
+            if (runAs != null && !runAs.isEmpty()) createJob.setRunAs(new JobRunAs().setServicePrincipalName(runAs));
+
             if (schedulingSpecific != null)
                 createJob.setSchedule(new CronSchedule()
                         .setTimezoneId(schedulingSpecific.getJavaTimezoneId())
@@ -162,23 +176,25 @@ public class JobManager {
     }
 
     /**
-     * Updates an existing Databricks job with a new dedicated cluster.
+     * Updates an existing Databricks job with a new dedicated cluster configuration.
      *
-     * @param jobId              The ID of the job to update.
-     * @param jobName            The new name of the job.
-     * @param description        The updated description of the job.
-     * @param taskKey            The task key.
-     * @param jobClusterSpecific The updated cluster configuration details.
-     * @param schedulingSpecific The updated scheduling parameters.
-     * @param jobGitSpecific     The updated Git-related parameters for the task
+     * @param jobId              The ID of the job to update
+     * @param jobName            The new name for the job
+     * @param description        The updated description for the job
+     * @param taskKey            The task key that uniquely identifies the task within the job
+     * @param runAs              The service principal name to run the job as. If null or empty, defaults to the tech adapter's service principal used for the job update
+     * @param jobClusterSpecific The updated cluster configuration details
+     * @param schedulingSpecific The updated scheduling parameters
+     * @param jobGitSpecific     The updated Git repository details and reference information
      * @param environment        The Witboost environment
-     * @return Either a Long representing the job ID if successful, or a FailedOperation if an error occurs.
+     * @return Either a Long representing the job ID if successful, or a FailedOperation if an error occurs
      */
     private Either<FailedOperation, Long> updateJobWithNewCluster(
             Long jobId,
             String jobName,
             String description,
             String taskKey,
+            String runAs,
             JobClusterSpecific jobClusterSpecific,
             DatabricksJobWorkloadSpecific.SchedulingSpecific schedulingSpecific,
             DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific,
@@ -212,6 +228,8 @@ public class JobManager {
                     .setParameters(jobParameterDefinitions)
                     .setGitSource(gitLabSource);
 
+            if (runAs != null && !runAs.isEmpty()) jobSettings.setRunAs(new JobRunAs().setServicePrincipalName(runAs));
+
             if (schedulingSpecific != null)
                 jobSettings.setSchedule(new CronSchedule()
                         .setTimezoneId(schedulingSpecific.getJavaTimezoneId())
@@ -233,10 +251,10 @@ public class JobManager {
     }
 
     /**
-     * Exports a job given its ID.
+     * Exports a Databricks job configuration by its ID.
      *
-     * @param jobId The ID of the job to export.
-     * @return Either the exported Job if successful, or a FailedOperation.
+     * @param jobId The unique identifier of the job to export
+     * @return Either the Job configuration if successful, or a FailedOperation if an error occurs
      */
     public Either<FailedOperation, Job> exportJob(Long jobId) {
         try {
@@ -252,10 +270,10 @@ public class JobManager {
     }
 
     /**
-     * Deletes a job given its ID.
+     * Deletes a Databricks job by its ID.
      *
-     * @param jobId The ID of the job to delete.
-     * @return Either Void if successful, or a FailedOperation.
+     * @param jobId The unique identifier of the job to delete
+     * @return Either Void if successful, or a FailedOperation if the deletion fails
      */
     public Either<FailedOperation, Void> deleteJob(Long jobId) {
         try {
@@ -272,10 +290,10 @@ public class JobManager {
     }
 
     /**
-     * Lists all jobs with a given name.
+     * Lists all Databricks jobs matching a given name.
      *
-     * @param jobName The name of the job(s) to list.
-     * @return Either an Iterable of BaseJob if successful, or a FailedOperation.
+     * @param jobName The name of the jobs to search for
+     * @return Either an Iterable of BaseJob containing matching jobs if successful, or a FailedOperation if an error occurs
      */
     public Either<FailedOperation, Iterable<BaseJob>> listJobsWithGivenName(String jobName) {
         try {
@@ -291,14 +309,14 @@ public class JobManager {
     }
 
     /**
-     * Creates a Databricks job using an existing cluster.
+     * Creates a new Databricks job that runs on an existing cluster.
      *
-     * @param jobName           The name of the job to be created.
-     * @param description       The description of the job.
-     * @param existingClusterId The ID of the existing cluster to run the job on.
-     * @param notebookPath      The path to the notebook to be executed by the job.
-     * @param taskKey           The task key.
-     * @return Either a Long representing the job ID if successful, or a FailedOperation.
+     * @param jobName           The name of the job to create
+     * @param description       A description of the job's purpose
+     * @param existingClusterId The ID of the existing cluster to use for running the job
+     * @param notebookPath      The path to the notebook that will be executed by the job
+     * @param taskKey           The task key that uniquely identifies the task within the job
+     * @return Either a Long representing the job ID if successful, or a FailedOperation if creation fails
      */
     public Either<FailedOperation, Long> createJobWithExistingCluster(
             String jobName, String description, String existingClusterId, String notebookPath, String taskKey) {
@@ -323,7 +341,11 @@ public class JobManager {
                     .jobs()
                     .create(new CreateJob().setName(jobName).setTasks(tasks));
 
-            logger.info("Created new job in {} with name: {} and ID: {}.", workspaceName, jobName, j.getJobId());
+            logger.info(
+                    "Successfully created new job in {} with name: {} and ID: {}.",
+                    workspaceName,
+                    jobName,
+                    j.getJobId());
             return right(j.getJobId());
         } catch (Exception e) {
             String errorMessage = String.format(
@@ -335,11 +357,11 @@ public class JobManager {
     }
 
     /**
-     * Converts the provided JobGitSpecific object into a corresponding GitSource instance.
-     * This method maps the Git repository URL and its reference type (branch or tag) into a GitSource object.
+     * Converts a JobGitSpecific object into a Databricks GitSource configuration.
+     * This method handles both branch and tag reference types.
      *
-     * @param jobGitSpecific The Git-related parameters containing repository URL and reference type (branch or tag).
-     * @return A GitSource object that encapsulates the Git repository details and reference information.
+     * @param jobGitSpecific The Git configuration containing repository URL and reference information
+     * @return A GitSource object configured with the provided Git repository details
      */
     private GitSource getGitSourceFromSpecific(DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific) {
         GitSource gitLabSource =
@@ -361,13 +383,11 @@ public class JobManager {
     }
 
     /**
-     * Creates a ClusterSpec object based on the provided job-cluster-specific configuration
-     * and Spark environment variables.
+     * Creates a Databricks cluster specification from job-specific cluster configuration.
      *
-     * @param jobClusterSpecific The configuration details for the job cluster, including Spark version,
-     *                           node types, number of workers, and other cluster-specific attributes.
-     * @param sparkEnvVars       A map of Spark environment variables to be applied to the cluster.
-     * @return A ClusterSpec object containing the final cluster configuration.
+     * @param jobClusterSpecific The cluster configuration including Spark version, node types, and other settings
+     * @param sparkEnvVars       A map of Spark environment variables to be set on the cluster
+     * @return A ClusterSpec configured with the provided specifications
      */
     private com.databricks.sdk.service.compute.ClusterSpec getClusterSpecFromSpecific(
             JobClusterSpecific jobClusterSpecific, Map<String, String> sparkEnvVars) {
@@ -390,13 +410,11 @@ public class JobManager {
     }
 
     /**
-     * Retrieves the job ID associated with the specified job name from the Databricks workspace.
-     * If no job with the given name exists, or if multiple jobs with the same name are found,
-     * an error is returned.
+     * Retrieves a job's ID by searching for a job with the specified name.
      *
-     * @param jobName The name of the job to search for.
-     * @return Either a String representing the job ID if the operation is successful,
-     *         or a FailedOperation if an error occurs (e.g., no job found, multiple jobs found, or an exception occurs).
+     * @param jobName The name of the job to search for
+     * @return Either a String containing the job ID if exactly one matching job is found,
+     * or a FailedOperation if no jobs or multiple jobs are found with the given name
      */
     public Either<FailedOperation, String> retrieveJobIdFromName(String jobName) {
         try {
@@ -431,10 +449,10 @@ public class JobManager {
     }
 
     /**
-     * Converts the provided Spark configuration list into a map.
+     * Converts a List of Spark configuration into a Map format.
      *
-     * @param inputSparkConf A list of Spark configuration objects containing key-value pairs.
-     * @return A map where the key is the configuration name, and the value is the configuration value.
+     * @param inputSparkConf List of Spark configuration entries
+     * @return Map containing Spark configuration name-value pairs
      */
     private Map<String, String> getSparkConfFromSpecific(List<SparkConf> inputSparkConf) {
 
@@ -446,10 +464,10 @@ public class JobManager {
     }
 
     /**
-     * Retrieves Spark environment variables from the provided list.
+     * Converts a list of Spark environment variables into a map format.
      *
-     * @param inputSparkEnvVars A list of Spark environment variables to process.
-     * @return A map where the key is the variable name and the value is the variable value.
+     * @param inputSparkEnvVars List of Spark environment variable entries
+     * @return Map containing environment variable name-value pairs
      */
     private Map<String, String> getSparkEnvVars(List<SparkEnvVar> inputSparkEnvVars) {
         Map<String, String> envVarNew = new HashMap<>();
@@ -460,16 +478,12 @@ public class JobManager {
     }
 
     /**
-     * Retrieves Spark environment variables based on the specified environment.
-     * Validates the environment and returns the corresponding Spark environment variables for the job.
-     * If the environment is invalid, it returns a failed operation.
+     * Retrieves and validates environment-specific Spark environment variables.
      *
-     * @param environment The target environment, which can be one of DEVELOPMENT, QA, or PRODUCTION.
-     * @param jobClusterSpecific The cluster configuration details, which include environment-specific
-     *                           Spark settings for job clusters.
-     * @param jobName The name of the job for which environment variables are being retrieved.
-     *
-     * @return Either a failed operation indicating an error, or a map of Spark environment variables for the specified environment.
+     * @param environment        The Witboost environment
+     * @param jobClusterSpecific Cluster configuration containing environment-specific variables
+     * @param jobName            Name of the job requesting the environment variables
+     * @return Either a map of environment variables if successful, or a FailedOperation if validation fails
      */
     protected Either<FailedOperation, Map<String, String>> getSparkEnvVarsForEnvironment(
             String environment, JobClusterSpecific jobClusterSpecific, String jobName) {
@@ -495,10 +509,10 @@ public class JobManager {
     }
 
     /**
-     * Converts a list of Spark environment variables into job parameter definitions.
+     * Converts Spark environment variables into Databricks job parameters.
      *
-     * @param sparkEnvVars A map of Spark environment variable names and their corresponding values.
-     * @return A collection of `JobParameterDefinition`, each representing a Spark environment variable as a parameter.
+     * @param sparkEnvVars Map of environment variable names and values
+     * @return Collection of JobParameterDefinition objects representing the environment variables
      */
     private Collection<JobParameterDefinition> getJobParameters(Map<String, String> sparkEnvVars) {
 

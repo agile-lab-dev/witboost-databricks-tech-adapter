@@ -20,8 +20,8 @@ import com.databricks.sdk.service.workspace.WorkspaceAPI;
 import com.witboost.provisioning.model.Column;
 import com.witboost.provisioning.model.DataContract;
 import io.vavr.control.Either;
-import it.agilelab.witboost.provisioning.databricks.bean.params.ApiClientConfigParams;
-import it.agilelab.witboost.provisioning.databricks.bean.params.WorkspaceClientConfigParams;
+import it.agilelab.witboost.provisioning.databricks.bean.ApiClientConfig;
+import it.agilelab.witboost.provisioning.databricks.bean.WorkspaceClientConfig;
 import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
@@ -60,13 +60,13 @@ class OutputPortHandlerTest {
     private OutputPortHandler outputPortHandler;
 
     @MockBean
-    private Function<ApiClientConfigParams, ApiClient> apiClientFactory;
+    private Function<ApiClientConfig.ApiClientConfigParams, ApiClient> apiClientFactory;
 
     @Mock
     ApiClient apiClientMock;
 
     @MockBean
-    private Function<WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
+    private Function<WorkspaceClientConfig.WorkspaceClientConfigParams, WorkspaceClient> workspaceClientFactory;
 
     @Mock
     WorkspaceClient workspaceClient;
@@ -658,7 +658,8 @@ class OutputPortHandlerTest {
         when(workspaceClient.schemas().list("catalog_op")).thenReturn(schemaInfoList);
 
         // Mock the search of sqlWareHouseId
-        when(apiClientFactory.apply(any(ApiClientConfigParams.class))).thenReturn(apiClientMock);
+        when(apiClientFactory.apply(any(ApiClientConfig.ApiClientConfigParams.class)))
+                .thenReturn(apiClientMock);
 
         List<DataSource> dataSourceList =
                 Collections.singletonList(new DataSource().setName("sql_fake").setWarehouseId("sql_wh_id_fake"));
