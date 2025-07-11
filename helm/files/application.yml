@@ -41,7 +41,9 @@ databricks:
 git:
   username: ${GIT_USERNAME}
   token: ${GIT_TOKEN}
-  provider: GITLAB
+  # Currently there is a bug on Databricks which removes case-insensitive from the field:
+  # https://github.com/databricks/cli/issues/3207
+  provider: gitLab
 
 forkjoin:
   parallelism: 16

@@ -152,7 +152,7 @@ public class WorkspaceLevelManager {
                             credentialInfo -> { // If credentials already exist, update them
                                 log.warn(
                                         "Credentials for {} already exist in workspace '{}'. Updating them with the ones provided",
-                                        gitCredentialsConfig.getProvider().toUpperCase(),
+                                        gitCredentialsConfig.getProvider(),
                                         workspaceName);
                                 workspaceClient
                                         .gitCredentials()
@@ -160,9 +160,7 @@ public class WorkspaceLevelManager {
                                                 .setCredentialId(credentialInfo.getCredentialId())
                                                 .setGitUsername(gitCredentialsConfig.getUsername())
                                                 .setPersonalAccessToken(gitCredentialsConfig.getToken())
-                                                .setGitProvider(gitCredentialsConfig
-                                                        .getProvider()
-                                                        .toUpperCase()));
+                                                .setGitProvider(gitCredentialsConfig.getProvider()));
                             },
                             () -> { // If credentials don't exist or gitCredentials().list() is null, create new ones
                                 workspaceClient

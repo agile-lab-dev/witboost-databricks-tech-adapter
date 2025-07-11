@@ -118,13 +118,13 @@ This section is used for configure the Git integration with the Databricks works
 git:
   username: ${GIT_USERNAME}
   token: ${GIT_TOKEN}
-  provider: GITLAB
+  provider: gitLab
 
 ```
 
 * **git.username**: The username for Git authentication, provided via `${GIT_USERNAME}`.
 * **git.token**: The access token for Git, provided via `${GIT_TOKEN}`.
-* **git.provider**: The Git provider, in this case set to `GITLAB`.
+* **git.provider**: The Git provider, in this case set to `gitLab`. The allowed values are: `gitHub`, `bitbucketCloud`, `gitLab`, `azureDevOpsServices`, `gitHubEnterprise`, `bitbucketServer`, `gitLabEnterpriseEdition` and `awsCodeCommit`
 
 
 ## `forkjoin` Section
