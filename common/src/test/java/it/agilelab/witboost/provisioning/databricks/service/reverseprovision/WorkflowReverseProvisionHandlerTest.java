@@ -1,6 +1,5 @@
 package it.agilelab.witboost.provisioning.databricks.service.reverseprovision;
 
-import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
@@ -17,6 +16,7 @@ import it.agilelab.witboost.provisioning.databricks.model.reverseprovisioningreq
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ReverseProvisioningRequest;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import java.util.*;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,13 +38,11 @@ public class WorkflowReverseProvisionHandlerTest {
     private final DatabricksWorkspaceInfo workspaceInfo = new DatabricksWorkspaceInfo(
             "workspaceName", "123", "https://example.com", "abc", "test", ProvisioningState.SUCCEEDED);
 
-    private final String useCaseTemplateId = "urn:dmb:utm:databricks-workload-workflow-template:0.0.0";
     private final String workspaceName = "workspaceName";
 
     private ReverseProvisioningRequest createRequest() {
-        ReverseProvisioningRequest request = new ReverseProvisioningRequest();
-        request.setEnvironment("qa");
-        request.setUseCaseTemplateId(useCaseTemplateId);
+        String useCaseTemplateId = "urn:dmb:utm:databricks-workload-workflow-template:0.0.0";
+        ReverseProvisioningRequest request = new ReverseProvisioningRequest(useCaseTemplateId, "qa");
 
         CatalogInfo catalogInfo = new CatalogInfo();
         CatalogInfo.Spec.Mesh mesh = new CatalogInfo.Spec.Mesh();
@@ -227,7 +225,7 @@ public class WorkflowReverseProvisionHandlerTest {
         assert (result.isRight());
         LinkedHashMap<Object, Object> updates = result.get();
         List<?> workflowTasksInfoList = (List<?>) updates.get("spec.mesh.specific.workflowTasksInfoList");
-        assertEquals(0, workflowTasksInfoList.size());
+        Assertions.assertEquals(0, workflowTasksInfoList.size());
     }
 
     @Test

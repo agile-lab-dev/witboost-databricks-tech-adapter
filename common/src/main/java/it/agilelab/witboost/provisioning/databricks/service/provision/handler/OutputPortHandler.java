@@ -115,16 +115,6 @@ public class OutputPortHandler {
                     databricksOutputPortSpecific.getSchemaName(),
                     databricksOutputPortSpecific.getTableName());
 
-            // If the workspace is set to not be managed by the tech adapter, we don't attach the metastore ourselves
-            if (databricksWorkspaceInfo.isManaged()) {
-                Either<FailedOperation, Void> eitherAttachedMetastore =
-                        unityCatalogManager.attachMetastore(databricksOutputPortSpecific.getMetastore());
-
-                if (eitherAttachedMetastore.isLeft()) return left(eitherAttachedMetastore.getLeft());
-            } else {
-                logger.info("Skipping metastore attachment as workspace is not managed by Tech Adapter");
-            }
-
             // Catalog
             Either<FailedOperation, Void> eitherCreatedCatalog =
                     unityCatalogManager.createCatalogIfNotExists(catalogNameOP);

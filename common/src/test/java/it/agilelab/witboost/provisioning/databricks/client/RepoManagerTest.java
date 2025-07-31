@@ -42,7 +42,7 @@ public class RepoManagerTest {
         when(reposAPI.create(any(CreateRepoRequest.class))).thenReturn(repoInfo);
         when(repoInfo.getId()).thenReturn(123L);
 
-        var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
+        var result = repoManager.createRepo("gitUrl", "gitLab", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isRight();
         assertEquals(Right(123L), result);
@@ -64,7 +64,7 @@ public class RepoManagerTest {
                         .setId(123L));
 
         when(workspaceClient.workspace().list(anyString())).thenReturn(objectInfoIterable);
-        var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
+        var result = repoManager.createRepo("gitUrl", "gitLab", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isRight();
         assertEquals(Right(123L), result);
@@ -87,7 +87,7 @@ public class RepoManagerTest {
                         .setId(123L));
 
         when(workspaceClient.workspace().list(anyString())).thenReturn(objectInfoIterable);
-        var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
+        var result = repoManager.createRepo("gitUrl", "gitLab", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isRight();
         assertEquals(Right(123L), result);
@@ -100,7 +100,7 @@ public class RepoManagerTest {
         when(reposAPI.create(any(CreateRepoRequest.class))).thenThrow(new ResourceAlreadyExists("error", null));
         when(workspaceClient.workspace()).thenReturn(mock(WorkspaceAPI.class));
 
-        var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
+        var result = repoManager.createRepo("gitUrl", "gitLab", "/Users/testaccount/testfolder/testcomponent");
         assert result.isLeft();
         assert result.getLeft()
                 .problems()
@@ -126,7 +126,7 @@ public class RepoManagerTest {
                         .setId(123L));
 
         when(workspaceClient.workspace().list(anyString())).thenReturn(objectInfoIterable);
-        var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
+        var result = repoManager.createRepo("gitUrl", "gitLab", "/Users/testaccount/testfolder/testcomponent");
 
         assert result.isLeft();
         String errorMessage = "An error occurred while creating the repo with URL gitUrl in workspace.";
@@ -138,7 +138,7 @@ public class RepoManagerTest {
         String errorMessage = "This is an exception ";
         when(reposAPI.create(any(CreateRepoRequest.class))).thenThrow(new RuntimeException(errorMessage));
 
-        var result = repoManager.createRepo("gitUrl", "GITLAB", "/Users/testaccount/testfolder/testcomponent");
+        var result = repoManager.createRepo("gitUrl", "gitLab", "/Users/testaccount/testfolder/testcomponent");
         assert result.isLeft();
         assertTrue(result.getLeft().problems().get(0).description().contains(errorMessage));
     }

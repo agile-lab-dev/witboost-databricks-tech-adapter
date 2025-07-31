@@ -85,7 +85,7 @@ The provisioner uses a service principal to authenticate against Microsoft Graph
 
 ## `databricks` Section
 
-This section handles authentication and permissions for Databricks. 
+This section handles authentication and permissions for Databricks.
 
 The Tech Adapter is configured to create a Workspace as part of its deployment process, unless it receives as input in the `specific.workspace` field a [Databricks Workspace URL](https://learn.microsoft.com/en-us/azure/databricks/workspace/workspace-details#per-workspace-url) rather than the Workspace name.
 
@@ -124,7 +124,7 @@ git:
 
 * **git.username**: The username for Git authentication, provided via `${GIT_USERNAME}`.
 * **git.token**: The access token for Git, provided via `${GIT_TOKEN}`.
-* **git.provider**: The Git provider, in this case set to `gitLab`. The allowed values are: `gitHub`, `bitbucketCloud`, `gitLab`, `azureDevOpsServices`, `gitHubEnterprise`, `bitbucketServer`, `gitLabEnterpriseEdition` and `awsCodeCommit`
+* **git.provider**: The Git provider, in this case set to `gitLab`. The allowed values are: `gitHub`, `bitbucketCloud`, `gitLab`, `azureDevOpsServices`, `gitHubEnterprise`, `bitbucketServer`, `gitLabEnterpriseEdition` and `awsCodeCommit`.
 
 
 ## `forkjoin` Section

@@ -9,10 +9,12 @@ import com.databricks.sdk.service.catalog.TableInfo;
 import com.databricks.sdk.service.jobs.*;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.client.JobManager;
+import it.agilelab.witboost.provisioning.databricks.client.UnityCatalogManager;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
 import it.agilelab.witboost.provisioning.databricks.model.Component;
+import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.outputport.DatabricksOutputPortSpecific;
@@ -25,49 +27,36 @@ import it.agilelab.witboost.provisioning.databricks.service.provision.handler.DL
 import it.agilelab.witboost.provisioning.databricks.service.provision.handler.JobWorkloadHandler;
 import it.agilelab.witboost.provisioning.databricks.service.provision.handler.OutputPortHandler;
 import it.agilelab.witboost.provisioning.databricks.service.provision.handler.WorkflowWorkloadHandler;
+import it.agilelab.witboost.provisioning.databricks.service.validation.OutputPortValidation;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
+@AllArgsConstructor
 public class ProvisionServiceImpl implements ProvisionService {
 
-    private final ConcurrentHashMap<String, ProvisioningStatus> statusMap = new ConcurrentHashMap<>();
-    private final ForkJoinPool forkJoinPool;
     private final ValidationService validationService;
     private final JobWorkloadHandler jobWorkloadHandler;
     private final DLTWorkloadHandler dltWorkloadHandler;
     private final WorkflowWorkloadHandler workflowWorkloadHandler;
     private final WorkspaceHandler workspaceHandler;
     private final OutputPortHandler outputPortHandler;
+    private final ForkJoinPool forkJoinPool;
+    private final MiscConfig miscConfig;
+    private final OutputPortValidation outputPortValidation;
+
+    private final ConcurrentHashMap<String, ProvisioningStatus> statusMap = new ConcurrentHashMap<>();
+
     private final String WORKLOAD_KIND = "workload";
     private final String OUTPUTPORT_KIND = "outputport";
     private final Logger logger = LoggerFactory.getLogger(ProvisionServiceImpl.class);
-    private final MiscConfig miscConfig;
-
-    public ProvisionServiceImpl(
-            ValidationService validationService,
-            JobWorkloadHandler jobWorkloadHandler,
-            DLTWorkloadHandler dltWorkloadHandler,
-            WorkflowWorkloadHandler workflowWorkloadHandler,
-            WorkspaceHandler workspaceHandler,
-            OutputPortHandler outputPortHandler,
-            ForkJoinPool forkJoinPool,
-            MiscConfig miscConfig) {
-        this.validationService = validationService;
-        this.jobWorkloadHandler = jobWorkloadHandler;
-        this.workspaceHandler = workspaceHandler;
-        this.forkJoinPool = forkJoinPool;
-        this.dltWorkloadHandler = dltWorkloadHandler;
-        this.outputPortHandler = outputPortHandler;
-        this.workflowWorkloadHandler = workflowWorkloadHandler;
-        this.miscConfig = miscConfig;
-    }
 
     @Override
     public ValidationResult validate(ProvisioningRequest provisioningRequest) {
@@ -193,9 +182,10 @@ public class ProvisionServiceImpl implements ProvisionService {
         var workspaceInfoOpt = eitherDatabricksWorkspaceInfo.get();
         if (workspaceInfoOpt.isEmpty()) {
             var specific = provisionRequest.component().getSpecific();
-            logger.info(String.format(
-                    "Unprovision skipped for component %s. Workspace %s not found.",
-                    provisionRequest.component().getName(), specific.getWorkspace()));
+            logger.info(
+                    "Unprovision skipped for component {}. Workspace {} not found.",
+                    provisionRequest.component().getName(),
+                    specific.getWorkspace());
             updateStatus(
                     token,
                     ProvisioningStatus.StatusEnum.COMPLETED,
@@ -230,8 +220,8 @@ public class ProvisionServiceImpl implements ProvisionService {
             return;
         }
 
-        logger.info(String.format(
-                "Unprovisioning of %s completed", provisionRequest.component().getName()));
+        logger.info(
+                "Unprovisioning of {} completed", provisionRequest.component().getName());
         updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "");
     }
 
@@ -252,7 +242,7 @@ public class ProvisionServiceImpl implements ProvisionService {
         }
 
         var databricksWorkspaceInfo = eitherCreatedWorkspace.get();
-        if (!checkWorkspaceState(databricksWorkspaceInfo, token, provisionRequest)) return;
+        if (!isWorkspaceActive(databricksWorkspaceInfo, token, provisionRequest)) return;
 
         var eitherWorkspaceClient = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
         if (eitherWorkspaceClient.isLeft()) {
@@ -269,8 +259,7 @@ public class ProvisionServiceImpl implements ProvisionService {
 
         String wfUrl = "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/jobs/" + eitherNewWf.get();
 
-        logger.info(String.format(
-                "Provisioning of %s completed", provisionRequest.component().getName()));
+        logger.info("Provisioning of {} completed", provisionRequest.component().getName());
 
         var info = Map.of(
                 "workspaceURL",
@@ -305,7 +294,7 @@ public class ProvisionServiceImpl implements ProvisionService {
 
         Optional<DatabricksWorkspaceInfo> databricksWorkspaceInfoOptional = eitherWorkspaceExists.get();
         if (databricksWorkspaceInfoOptional.isEmpty()) {
-            // If the workspace does not exist no workflow will be overwritten. The workspace will be created in the
+            // If the workspace does not exist, no workflow will be overwritten. The workspace will be created in the
             // following steps
             message = String.format(
                     "Validation for deployment of %s succeeded. Workspace '%s' not found.",
@@ -334,7 +323,7 @@ public class ProvisionServiceImpl implements ProvisionService {
 
         if (workflowList.isEmpty()) {
             // No workflow with the same name
-            logger.info(String.format("Validation for deployment of %s succeeded.", component.getName()));
+            logger.info("Validation for deployment of {} succeeded.", component.getName());
             return right(null);
         } else if (workflowList.size() > 1) {
             // More than one workflow with the same name
@@ -357,7 +346,7 @@ public class ProvisionServiceImpl implements ProvisionService {
         // Is the request workflow equals to the one in the Databricks workspace?
         if (!existingWorkflow.equals(requestWorkflow)) {
             if (specific.isOverride()) {
-                logger.info(String.format("Validation for deployment of %s succeeded.", component.getName()));
+                logger.info("Validation for deployment of {} succeeded.", component.getName());
                 return right(null);
             }
 
@@ -372,20 +361,20 @@ public class ProvisionServiceImpl implements ProvisionService {
             }
 
             // Is it trying to override a NON-empty workflow with an empty one?
-            Job emptyWorflow = new Job();
-            emptyWorflow.setCreatedTime(requestWorkflow.getCreatedTime());
-            emptyWorflow.setCreatorUserName(requestWorkflow.getCreatorUserName());
-            emptyWorflow.setJobId(requestWorkflow.getJobId());
-            emptyWorflow.setRunAsUserName(requestWorkflow.getRunAsUserName());
-            emptyWorflow.setSettings(new JobSettings()
+            Job emptyWorkflow = new Job();
+            emptyWorkflow.setCreatedTime(requestWorkflow.getCreatedTime());
+            emptyWorkflow.setCreatorUserName(requestWorkflow.getCreatorUserName());
+            emptyWorkflow.setJobId(requestWorkflow.getJobId());
+            emptyWorkflow.setRunAsUserName(requestWorkflow.getRunAsUserName());
+            emptyWorkflow.setSettings(new JobSettings()
                     .setName(requestWorkflow.getSettings().getName())
                     .setEmailNotifications(new JobEmailNotifications())
                     .setWebhookNotifications(new WebhookNotifications())
                     .setFormat(Format.MULTI_TASK)
-                    .setTimeoutSeconds(0l)
-                    .setMaxConcurrentRuns(1l));
+                    .setTimeoutSeconds(0L)
+                    .setMaxConcurrentRuns(1L));
 
-            if (requestWorkflow.equals(emptyWorflow)) {
+            if (requestWorkflow.equals(emptyWorkflow)) {
                 // Override a NON-empty workflow with an empty one is not allowed. Reverse provisioning required
                 String errorMessage = String.format(
                         "An error occurred during the validation process for the deployment of %s. "
@@ -397,7 +386,7 @@ public class ProvisionServiceImpl implements ProvisionService {
             }
         }
 
-        logger.info(String.format("Validation for deployment of %s succeeded.", component.getName()));
+        logger.info("Validation for deployment of {} succeeded.", component.getName());
         return right(null);
     }
 
@@ -424,7 +413,7 @@ public class ProvisionServiceImpl implements ProvisionService {
         }
 
         var databricksWorkspaceInfo = eitherCreatedWorkspace.get();
-        if (!checkWorkspaceState(databricksWorkspaceInfo, token, provisionRequest)) return;
+        if (!isWorkspaceActive(databricksWorkspaceInfo, token, provisionRequest)) return;
 
         var eitherWorkspaceClient = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
         if (eitherWorkspaceClient.isLeft()) {
@@ -441,8 +430,7 @@ public class ProvisionServiceImpl implements ProvisionService {
 
         String jobUrl = "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/jobs/" + eitherNewJob.get();
 
-        logger.info(String.format(
-                "Provisioning of %s completed", provisionRequest.component().getName()));
+        logger.info("Provisioning of {} completed", provisionRequest.component().getName());
 
         var info = Map.of(
                 "workspaceURL",
@@ -470,7 +458,7 @@ public class ProvisionServiceImpl implements ProvisionService {
         }
 
         var databricksWorkspaceInfo = eitherCreatedWorkspace.get();
-        if (!checkWorkspaceState(databricksWorkspaceInfo, token, provisionRequest)) return;
+        if (!isWorkspaceActive(databricksWorkspaceInfo, token, provisionRequest)) return;
 
         var eitherWorkspaceClient = workspaceHandler.getWorkspaceClient(databricksWorkspaceInfo);
         if (eitherWorkspaceClient.isLeft()) {
@@ -502,8 +490,7 @@ public class ProvisionServiceImpl implements ProvisionService {
                         "value", "Open pipeline details in Databricks",
                         "href", pipelineUrl));
 
-        logger.info(String.format(
-                "Provisioning of %s completed", provisionRequest.component().getName()));
+        logger.info("Provisioning of {} completed", provisionRequest.component().getName());
         updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "", new Info(info, info));
     }
 
@@ -525,9 +512,10 @@ public class ProvisionServiceImpl implements ProvisionService {
         if (workspaceInfoOpt.isEmpty()) {
             var specific =
                     (DatabricksJobWorkloadSpecific) provisionRequest.component().getSpecific();
-            logger.info(String.format(
-                    "Unprovision skipped for component %s. Workspace %s not found.",
-                    provisionRequest.component().getName(), specific.getWorkspace()));
+            logger.info(
+                    "Unprovision skipped for component {}. Workspace {} not found.",
+                    provisionRequest.component().getName(),
+                    specific.getWorkspace());
             updateStatus(
                     token,
                     ProvisioningStatus.StatusEnum.COMPLETED,
@@ -562,8 +550,8 @@ public class ProvisionServiceImpl implements ProvisionService {
             return;
         }
 
-        logger.info(String.format(
-                "Unprovisioning of %s completed", provisionRequest.component().getName()));
+        logger.info(
+                "Unprovisioning of {} completed", provisionRequest.component().getName());
         updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "");
     }
 
@@ -579,9 +567,10 @@ public class ProvisionServiceImpl implements ProvisionService {
         if (workspaceInfoOpt.isEmpty()) {
             var specific =
                     (DatabricksDLTWorkloadSpecific) provisionRequest.component().getSpecific();
-            logger.info(String.format(
-                    "Unprovision skipped for component %s. Workspace %s not found.",
-                    provisionRequest.component().getName(), specific.getWorkspace()));
+            logger.info(
+                    "Unprovision skipped for component {}. Workspace {} not found.",
+                    provisionRequest.component().getName(),
+                    specific.getWorkspace());
             updateStatus(
                     token,
                     ProvisioningStatus.StatusEnum.COMPLETED,
@@ -616,8 +605,8 @@ public class ProvisionServiceImpl implements ProvisionService {
             return;
         }
 
-        logger.info(String.format(
-                "Unprovisioning of %s completed", provisionRequest.component().getName()));
+        logger.info(
+                "Unprovisioning of {} completed", provisionRequest.component().getName());
         updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "");
     }
 
@@ -653,9 +642,13 @@ public class ProvisionServiceImpl implements ProvisionService {
     }
 
     private void provisionOutputPort(ProvisionRequest provisionRequest, String token) {
-        String componentId = provisionRequest.component().getId();
-        String componentName = provisionRequest.component().getName();
-        logger.info(String.format("Start the provision of Output Port Component (id: %s)", componentId));
+
+        // Casting is ok, checked in the validation step
+        OutputPort<DatabricksOutputPortSpecific> outputPort =
+                (OutputPort<DatabricksOutputPortSpecific>) provisionRequest.component();
+        DatabricksOutputPortSpecific databricksOutputPortSpecific = outputPort.getSpecific();
+
+        logger.info("Start the provision of Output Port Component (id: {})", outputPort.getId());
 
         // Check if workspace exists or creates it.
         Either<FailedOperation, DatabricksWorkspaceInfo> eitherCreatedWorkspace =
@@ -673,6 +666,29 @@ public class ProvisionServiceImpl implements ProvisionService {
             return;
         }
 
+        WorkspaceClient workspaceClient = eitherWorkspaceClient.get();
+        var unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
+
+        // If the workspace is set to not be managed by the tech adapter, we don't attach the metastore ourselves
+        if (databricksWorkspaceInfo.isManaged()) {
+            Either<FailedOperation, Void> eitherAttachedMetastore =
+                    unityCatalogManager.attachMetastore(databricksOutputPortSpecific.getMetastore());
+
+            if (eitherAttachedMetastore.isLeft()) {
+                handleFailure(token, eitherAttachedMetastore.getLeft());
+                return;
+            }
+        } else {
+            logger.info("Skipping metastore attachment as workspace is not managed by Tech Adapter");
+        }
+
+        Either<FailedOperation, Void> validateSourceTable = outputPortValidation.validateTableExistenceAndSchema(
+                workspaceClient, outputPort, provisionRequest.dataProduct().getEnvironment(), databricksWorkspaceInfo);
+        if (validateSourceTable.isLeft()) {
+            handleFailure(token, validateSourceTable.getLeft());
+            return;
+        }
+
         Either<FailedOperation, TableInfo> eitherNewOutputPort = outputPortHandler.provisionOutputPort(
                 provisionRequest, eitherWorkspaceClient.get(), databricksWorkspaceInfo);
         if (eitherNewOutputPort.isLeft()) {
@@ -685,8 +701,7 @@ public class ProvisionServiceImpl implements ProvisionService {
         String tableUrl = "https://" + databricksWorkspaceInfo.getDatabricksHost() + "/explore/data/"
                 + tableInfo.getCatalogName() + "/" + tableInfo.getSchemaName() + "/" + tableInfo.getName();
 
-        logger.info(String.format(
-                "Provisioning of %s completed", provisionRequest.component().getName()));
+        logger.info("Provisioning of {} completed", provisionRequest.component().getName());
 
         var info = Map.of(
                 "tableID",
@@ -722,9 +737,10 @@ public class ProvisionServiceImpl implements ProvisionService {
         if (workspaceInfoOpt.isEmpty()) {
             var specific =
                     (DatabricksOutputPortSpecific) provisionRequest.component().getSpecific();
-            logger.info(String.format(
-                    "Unprovision skipped for component %s. Workspace %s not found.",
-                    provisionRequest.component().getName(), specific.getWorkspace()));
+            logger.info(
+                    "Unprovision skipped for component {}. Workspace {} not found.",
+                    provisionRequest.component().getName(),
+                    specific.getWorkspace());
             updateStatus(
                     token,
                     ProvisioningStatus.StatusEnum.COMPLETED,
@@ -749,12 +765,12 @@ public class ProvisionServiceImpl implements ProvisionService {
             return;
         }
 
-        logger.info(String.format(
-                "Unprovisioning of %s completed", provisionRequest.component().getName()));
+        logger.info(
+                "Unprovisioning of {} completed", provisionRequest.component().getName());
         updateStatus(token, ProvisioningStatus.StatusEnum.COMPLETED, "");
     }
 
-    private boolean checkWorkspaceState(
+    private boolean isWorkspaceActive(
             DatabricksWorkspaceInfo workspaceInfo, String token, ProvisionRequest provisionRequest) {
         if (!workspaceInfo.getProvisioningState().equals(ProvisioningState.SUCCEEDED)) {
 

@@ -4,6 +4,7 @@ import com.databricks.sdk.service.jobs.GitProvider;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import it.agilelab.witboost.provisioning.databricks.model.MandatoryFields;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.workload.DatabricksWorkloadSpecific;
+import jakarta.annotation.Nullable;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -31,6 +32,10 @@ public class DatabricksJobWorkloadSpecific extends DatabricksWorkloadSpecific {
     @Valid
     @NotNull
     private JobClusterSpecific cluster;
+
+    // Can be null when the workspace creation is disabled
+    @Nullable
+    private String metastore;
 
     /**
      * Represents Git-specific configurations for a Databricks job.

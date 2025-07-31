@@ -9,10 +9,7 @@ import com.databricks.sdk.service.iam.ServicePrincipal;
 import com.databricks.sdk.service.jobs.BaseJob;
 import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.bean.WorkspaceClientConfig;
-import it.agilelab.witboost.provisioning.databricks.client.JobManager;
-import it.agilelab.witboost.provisioning.databricks.client.RepoManager;
-import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManager;
-import it.agilelab.witboost.provisioning.databricks.client.WorkspaceLevelManagerFactory;
+import it.agilelab.witboost.provisioning.databricks.client.*;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
 import it.agilelab.witboost.provisioning.databricks.config.AzureAuthConfig;
@@ -64,6 +61,22 @@ public class JobWorkloadHandler extends BaseWorkloadHandler {
             DatabricksWorkspaceInfo databricksWorkspaceInfo) {
 
         try {
+
+            DatabricksJobWorkloadSpecific databricksJobWorkloadSpecific =
+                    provisionRequest.component().getSpecific();
+
+            var unityCatalogManager = new UnityCatalogManager(workspaceClient, databricksWorkspaceInfo);
+
+            // If the workspace is set to not be managed by the tech adapter, we don't attach the metastore ourselves
+            if (databricksWorkspaceInfo.isManaged()) {
+                Either<FailedOperation, Void> eitherAttachedMetastore =
+                        unityCatalogManager.attachMetastore(databricksJobWorkloadSpecific.getMetastore());
+
+                if (eitherAttachedMetastore.isLeft()) return left(eitherAttachedMetastore.getLeft());
+            } else {
+                logger.info("Skipping metastore attachment as workspace is not managed by Tech Adapter");
+            }
+
             Either<FailedOperation, Map<String, String>> eitherPrincipalsMapping = mapPrincipals(provisionRequest);
             if (eitherPrincipalsMapping.isLeft()) return Either.left(eitherPrincipalsMapping.getLeft());
 

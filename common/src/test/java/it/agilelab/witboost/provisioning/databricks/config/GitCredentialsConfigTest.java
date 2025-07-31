@@ -27,7 +27,7 @@ public class GitCredentialsConfigTest {
             GitCredentialsConfig config = new GitCredentialsConfig();
             config.setUsername("testUsername");
             config.setToken("testToken");
-            config.setProvider("GITLAB");
+            config.setProvider("gitLab");
             return config;
         }
     }

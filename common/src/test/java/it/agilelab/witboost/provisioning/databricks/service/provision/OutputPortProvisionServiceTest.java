@@ -4,14 +4,19 @@ import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.service.catalog.MetastoreInfo;
+import com.databricks.sdk.service.catalog.MetastoresAPI;
 import com.databricks.sdk.service.catalog.TableInfo;
+import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
 import it.agilelab.witboost.provisioning.databricks.common.Problem;
+import it.agilelab.witboost.provisioning.databricks.model.DataProduct;
 import it.agilelab.witboost.provisioning.databricks.model.OutputPort;
 import it.agilelab.witboost.provisioning.databricks.model.ProvisionRequest;
 import it.agilelab.witboost.provisioning.databricks.model.databricks.DatabricksWorkspaceInfo;
@@ -22,8 +27,10 @@ import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningRe
 import it.agilelab.witboost.provisioning.databricks.openapi.model.ProvisioningStatus;
 import it.agilelab.witboost.provisioning.databricks.service.WorkspaceHandler;
 import it.agilelab.witboost.provisioning.databricks.service.provision.handler.OutputPortHandler;
+import it.agilelab.witboost.provisioning.databricks.service.validation.OutputPortValidation;
 import it.agilelab.witboost.provisioning.databricks.service.validation.ValidationService;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
@@ -49,6 +56,9 @@ public class OutputPortProvisionServiceTest {
 
     @Mock
     private WorkspaceHandler workspaceHandler;
+
+    @Mock
+    private OutputPortValidation outputPortValidation;
 
     @Mock
     ForkJoinPool forkJoinPool;
@@ -92,13 +102,25 @@ public class OutputPortProvisionServiceTest {
 
         OutputPort<DatabricksOutputPortSpecific> outputPort1 = new OutputPort<>();
         outputPort1.setKind("outputport");
+        databricksOutputPortSpecific.setMetastore("metastore");
         outputPort1.setSpecific(databricksOutputPortSpecific);
 
-        var provisionRequest = new ProvisionRequest<>(null, outputPort1, false);
+        DataProduct dataProduct = new DataProduct();
+        dataProduct.setEnvironment("test");
+        var provisionRequest = new ProvisionRequest<>(dataProduct, outputPort1, false);
 
         when(validationService.validate(provisioningRequest)).thenReturn(right(provisionRequest));
         when(workspaceHandler.provisionWorkspace(any())).thenReturn(right(workspaceInfo));
         when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
+        when(workspaceClient.metastores()).thenReturn(mock(MetastoresAPI.class));
+        when(workspaceClient.metastores().list())
+                .thenReturn(List.of(new MetastoreInfo().setName("metastore").setMetastoreId("metastoreId")));
+        when(outputPortValidation.validateTableExistenceAndSchema(
+                        any(WorkspaceClient.class),
+                        any(OutputPort.class),
+                        anyString(),
+                        any(DatabricksWorkspaceInfo.class)))
+                .thenReturn(Either.right(null));
 
         TableInfo tableInfoMock = mock(TableInfo.class);
         when(tableInfoMock.getTableId()).thenReturn("tableId");

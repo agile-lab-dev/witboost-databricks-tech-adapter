@@ -8,6 +8,8 @@ import com.azure.resourcemanager.databricks.models.ProvisioningState;
 import com.databricks.sdk.AccountClient;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.service.catalog.MetastoreInfo;
+import com.databricks.sdk.service.catalog.MetastoresAPI;
 import com.databricks.sdk.service.compute.AzureAvailability;
 import com.databricks.sdk.service.compute.RuntimeEngine;
 import com.databricks.sdk.service.iam.*;
@@ -60,7 +62,7 @@ public class JobWorkloadHandlerTest {
     @MockBean
     AccountClient accountClient;
 
-    @Mock
+    @MockBean
     WorkspaceClient workspaceClient;
 
     @Autowired
@@ -83,6 +85,10 @@ public class JobWorkloadHandlerTest {
 
     private final String workspaceName = "testWorkspace";
     private final String runAsSPDisplayName = "service-principal-name";
+    private final String metastoreName = "test-metastore";
+
+    @MockBean
+    private MetastoresAPI metastoresAPI;
 
     @BeforeEach
     public void setUp() {
@@ -92,8 +98,12 @@ public class JobWorkloadHandlerTest {
         dataProduct.setEnvironment("development");
 
         setUpWorkload();
-
         workspaceInfo.setManaged(true);
+
+        when(workspaceClient.metastores()).thenReturn(metastoresAPI);
+        when(metastoresAPI.list())
+                .thenReturn(Arrays.asList(
+                        new MetastoreInfo().setName("test-metastore").setMetastoreId("test-id")));
     }
 
     private void setUpWorkload() {
@@ -105,6 +115,7 @@ public class JobWorkloadHandlerTest {
         databricksJobWorkloadSpecific.setJobName("jobName");
         databricksJobWorkloadSpecific.setRepoPath("dataproduct/component");
         databricksJobWorkloadSpecific.setRunAsPrincipalName(runAsSPDisplayName);
+        databricksJobWorkloadSpecific.setMetastore(metastoreName);
 
         DatabricksJobWorkloadSpecific.JobGitSpecific jobGitSpecific =
                 new DatabricksJobWorkloadSpecific.JobGitSpecific();

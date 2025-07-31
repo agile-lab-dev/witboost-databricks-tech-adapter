@@ -9,10 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
-import com.databricks.sdk.service.catalog.ColumnInfo;
-import com.databricks.sdk.service.catalog.TableExistsResponse;
-import com.databricks.sdk.service.catalog.TableInfo;
-import com.databricks.sdk.service.catalog.TablesAPI;
+import com.databricks.sdk.service.catalog.*;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.bean.ApiClientConfig;
 import it.agilelab.witboost.provisioning.databricks.config.MiscConfig;
@@ -44,6 +41,9 @@ public class ValidationServiceTest {
 
     @MockBean
     private Function<ApiClientConfig.ApiClientConfigParams, ApiClient> apiClientFactory;
+
+    @MockBean
+    WorkspaceClient workspaceClient;
 
     @Mock
     ApiClient apiClientMock;
@@ -236,11 +236,13 @@ public class ValidationServiceTest {
 
         WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
 
-        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
-
         when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
                 .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
-        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
+        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
+
+        when(workspaceClient.metastores()).thenReturn(mock(MetastoresAPI.class));
+        when(workspaceClient.metastores().current())
+                .thenReturn(new MetastoreAssignment().setMetastoreId("metastoreID"));
 
         TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
         when(tableExistsResponseMock.getTableExists()).thenReturn(true);
@@ -250,14 +252,14 @@ public class ValidationServiceTest {
         when(apiClientFactory.apply(any(ApiClientConfig.ApiClientConfigParams.class)))
                 .thenReturn(apiClientMock);
 
-        when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
+        when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
 
-        when(workspaceClientMock.tables().exists("catalog_name.schema_name.table_name"))
+        when(workspaceClient.tables().exists("catalog_name.schema_name.table_name"))
                 .thenReturn(tableExistsResponseMock);
 
         TableInfo tableInfoMock = mock(TableInfo.class);
 
-        when(workspaceClientMock.tables().get("catalog_name.schema_name.table_name"))
+        when(workspaceClient.tables().get("catalog_name.schema_name.table_name"))
                 .thenReturn(tableInfoMock);
 
         // Mock columns of original table.
@@ -271,7 +273,7 @@ public class ValidationServiceTest {
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
         ValidationService service =
-                new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock, workloadTemplatesConfig);
+                new ValidationServiceImpl(miscConfig, workspaceHandlerMock, workloadTemplatesConfig);
 
         var actualRes = service.validate(provisioningRequest);
 
@@ -283,12 +285,13 @@ public class ValidationServiceTest {
         String ymlDescriptor = ResourceUtils.getContentFromResource("/descriptors/databricks/outputport_missing.yml");
 
         WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
-
-        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
-
         when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
                 .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
-        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
+        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
+
+        when(workspaceClient.metastores()).thenReturn(mock(MetastoresAPI.class));
+        when(workspaceClient.metastores().current())
+                .thenReturn(new MetastoreAssignment().setMetastoreId("metastoreID"));
 
         TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
         when(tableExistsResponseMock.getTableExists()).thenReturn(true);
@@ -298,14 +301,14 @@ public class ValidationServiceTest {
         when(apiClientFactory.apply(any(ApiClientConfig.ApiClientConfigParams.class)))
                 .thenReturn(apiClientMock);
 
-        when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
+        when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
 
-        when(workspaceClientMock.tables().exists("catalog_name.schema_name.table_name"))
+        when(workspaceClient.tables().exists("catalog_name.schema_name.table_name"))
                 .thenReturn(tableExistsResponseMock);
 
         TableInfo tableInfoMock = mock(TableInfo.class);
 
-        when(workspaceClientMock.tables().get("catalog_name.schema_name.table_name"))
+        when(workspaceClient.tables().get("catalog_name.schema_name.table_name"))
                 .thenReturn(tableInfoMock);
 
         // Mock columns of original table.
@@ -319,7 +322,7 @@ public class ValidationServiceTest {
                 new ProvisioningRequest(DescriptorKind.COMPONENT_DESCRIPTOR, ymlDescriptor, false);
 
         ValidationService service =
-                new ValidationServiceImpl(apiClientFactory, miscConfig, workspaceHandlerMock, workloadTemplatesConfig);
+                new ValidationServiceImpl(miscConfig, workspaceHandlerMock, workloadTemplatesConfig);
 
         var actualRes = service.validate(provisioningRequest);
 

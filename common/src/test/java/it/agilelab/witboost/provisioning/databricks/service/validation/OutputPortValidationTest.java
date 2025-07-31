@@ -4,18 +4,15 @@ import static io.vavr.control.Either.left;
 import static io.vavr.control.Either.right;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
-import com.databricks.sdk.service.catalog.ColumnInfo;
-import com.databricks.sdk.service.catalog.TableExistsResponse;
-import com.databricks.sdk.service.catalog.TableInfo;
-import com.databricks.sdk.service.catalog.TablesAPI;
+import com.databricks.sdk.core.error.platform.NotFound;
+import com.databricks.sdk.service.catalog.*;
 import com.witboost.provisioning.model.Column;
 import com.witboost.provisioning.model.DataContract;
-import io.vavr.control.Either;
 import it.agilelab.witboost.provisioning.databricks.TestConfig;
 import it.agilelab.witboost.provisioning.databricks.bean.ApiClientConfig;
 import it.agilelab.witboost.provisioning.databricks.common.FailedOperation;
@@ -48,182 +45,187 @@ public class OutputPortValidationTest {
     private WorkspaceHandler workspaceHandler;
 
     @Mock
+    private WorkspaceClient workspaceClient;
+
+    @Mock
     private Function<ApiClientConfig.ApiClientConfigParams, ApiClient> apiClientFactory;
 
     private OutputPortValidation outputPortValidation;
-
     private OutputPort<DatabricksOutputPortSpecific> outputPort;
+    private static final String TABLE_FULL_NAME = "catalog.schema.table_1";
 
     @BeforeEach
-    public void setUp() throws Exception {
+    public void setUp() {
+        setupCommonMocks();
+        setupOutputPort();
+        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandler);
+    }
 
+    private void setupCommonMocks() {
+        when(workspaceClient.metastores()).thenReturn(mock(MetastoresAPI.class));
+        lenient()
+                .when(workspaceClient.metastores().current())
+                .thenReturn(new MetastoreAssignment().setMetastoreId("metastoreID"));
+        lenient().when(workspaceHandler.getWorkspaceClient(any())).thenReturn(right(workspaceClient));
+        lenient().when(workspaceClient.tables()).thenReturn(mock(TablesAPI.class));
+        lenient()
+                .when(workspaceHandler.getWorkspaceInfo(any(String.class)))
+                .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
+    }
+
+    private void setupOutputPort() {
         outputPort = new OutputPort<>();
+        outputPort.setSpecific(prepareDatabricksOPSpecific());
+        outputPort.setDataContract(prepareDataContract());
+        outputPort.setName("op_name");
+    }
+
+    private void mockTableExists(boolean exists) {
+        TableExistsResponse tableExistsResponse = mock(TableExistsResponse.class);
+        when(tableExistsResponse.getTableExists()).thenReturn(exists);
+        when(workspaceClient.tables().exists(TABLE_FULL_NAME)).thenReturn(tableExistsResponse);
+    }
+
+    private void mockTableColumns(Collection<ColumnInfo> columns) {
+        TableInfo tableInfo = mock(TableInfo.class);
+        when(workspaceClient.tables().get(TABLE_FULL_NAME)).thenReturn(tableInfo);
+        when(tableInfo.getColumns()).thenReturn(columns);
     }
 
     @Test
     public void testValidate_success() {
-        DatabricksOutputPortSpecific databricksOutputPortSpecific = prepareDatabricksOPSpecific();
-        outputPort.setSpecific(databricksOutputPortSpecific);
+        mockTableExists(true);
 
-        DataContract dataContract = prepareDataContract();
-        outputPort.setDataContract(dataContract);
-
-        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
-
-        WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
-
-        when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
-                .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
-        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
-
-        when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
-
-        TableExistsResponse tableExistsResponseMock = mock(TableExistsResponse.class);
-        when(tableExistsResponseMock.getTableExists()).thenReturn(true);
-
-        when(workspaceClientMock.tables().exists("catalog.schema.table_1")).thenReturn(tableExistsResponseMock);
-
-        TableInfo tableInfoMock = mock(TableInfo.class);
-
-        when(workspaceClientMock.tables().get("catalog.schema.table_1")).thenReturn(tableInfoMock);
-
-        Collection<ColumnInfo> columnInfos = new ArrayList<>();
-        columnInfos.add(new ColumnInfo().setName("col_1"));
-        columnInfos.add(new ColumnInfo().setName("col_2"));
-
-        when(tableInfoMock.getColumns()).thenReturn(columnInfos);
-
-        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, apiClientFactory);
+        Collection<ColumnInfo> columnInfos =
+                Arrays.asList(new ColumnInfo().setName("col_1"), new ColumnInfo().setName("col_2"));
+        mockTableColumns(columnInfos);
 
         var responseActual = outputPortValidation.validate(outputPort, "development");
-
-        Either<FailedOperation, Void> responseExpected = right(null);
-        assertEquals(responseExpected, responseActual);
+        assertEquals(right(null), responseActual);
     }
 
     @Test
     public void testValidateFailForTableDoesNotExistDevelopEnv() {
-        DatabricksOutputPortSpecific databricksOutputPortSpecific = prepareDatabricksOPSpecific();
-        outputPort.setSpecific(databricksOutputPortSpecific);
+        mockTableExists(false);
 
-        DataContract dataContract = prepareDataContract();
-        outputPort.setDataContract(dataContract);
-        outputPort.setName("op_name");
-
-        WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
-        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
-
-        when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
-                .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
-        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
-
-        TableExistsResponse tableExistsResponse = mock(TableExistsResponse.class);
-        when(tableExistsResponse.getTableExists()).thenReturn(false);
-
-        when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
-
-        when(workspaceClientMock.tables().exists("catalog.schema.table_1")).thenReturn(tableExistsResponse);
-
-        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, apiClientFactory);
         var responseActual = outputPortValidation.validate(outputPort, "development");
 
-        String errorMessage =
-                "The table 'catalog.schema.table_1', provided in Output Port op_name, does not exist. Be sure that the table exists by either running the DLT Workload that creates it or creating the table manually.";
-        Either<FailedOperation, Object> responseExpected =
-                left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
-        assertEquals(responseExpected, responseActual);
+        String errorMessage = "The table '" + TABLE_FULL_NAME + "', provided in Output Port op_name, "
+                + "does not exist. Be sure that the table exists by either running the DLT Workload "
+                + "that creates it or creating the table manually.";
+        assertEquals(left(new FailedOperation(List.of(new Problem(errorMessage)))), responseActual);
     }
 
     @Test
     public void testValidateFailForTableDoesNotExistProdEnv() {
-        DatabricksOutputPortSpecific databricksOutputPortSpecific = prepareDatabricksOPSpecific();
-        outputPort.setSpecific(databricksOutputPortSpecific);
+        mockTableExists(false);
 
-        DataContract dataContract = prepareDataContract();
-        outputPort.setDataContract(dataContract);
-
-        outputPort.setName("op_name");
-
-        WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
-        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
-
-        when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
-                .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
-        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
-
-        TableExistsResponse tableExistsResponse = mock(TableExistsResponse.class);
-        when(tableExistsResponse.getTableExists()).thenReturn(false);
-
-        when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
-        when(workspaceClientMock.tables().exists("catalog.schema.table_1")).thenReturn(tableExistsResponse);
-
-        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, apiClientFactory);
         var responseActual = outputPortValidation.validate(outputPort, "prod");
 
-        String errorMessage =
-                "The table 'catalog.schema.table_1', provided in Output Port op_name, does not exist. Be sure that the DLT Workload is being deployed correctly and that the table name is correct.";
-        Either<FailedOperation, Object> responseExpected =
-                left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
-        assertEquals(responseExpected, responseActual);
+        String errorMessage = "The table '" + TABLE_FULL_NAME + "', provided in Output Port op_name, "
+                + "does not exist. Be sure that the DLT Workload that creates it is being deployed "
+                + "correctly and that the table name is correct.";
+        assertEquals(left(new FailedOperation(List.of(new Problem(errorMessage)))), responseActual);
     }
 
     @Test
     public void testValidateFailForDataContractFailure() {
+        mockTableExists(true);
+        mockTableColumns(List.of(new ColumnInfo().setName("col_1")));
 
-        DatabricksOutputPortSpecific databricksOutputPortSpecific = prepareDatabricksOPSpecific();
-        outputPort.setSpecific(databricksOutputPortSpecific);
+        var responseActual = outputPortValidation.validate(outputPort, "development");
 
-        DataContract dataContract = prepareDataContract();
-        outputPort.setDataContract(dataContract);
+        String errorMessage = "Check for Output Port op_name: the column 'col_2' cannot be found in the table '"
+                + TABLE_FULL_NAME + "'.";
+        assertEquals(left(new FailedOperation(List.of(new Problem(errorMessage)))), responseActual);
+    }
 
-        outputPort.setName("op_name");
+    @Test
+    public void testValidateWorkspaceClientError() {
+        when(workspaceHandler.getWorkspaceClient(any()))
+                .thenReturn(left(new FailedOperation(List.of(new Problem("This is an error")))));
 
-        WorkspaceHandler workspaceHandlerMock = mock(WorkspaceHandler.class);
-        WorkspaceClient workspaceClientMock = mock(WorkspaceClient.class);
+        var responseActual = outputPortValidation.validate(outputPort, "development");
 
-        when(workspaceHandlerMock.getWorkspaceInfo(any(String.class)))
-                .thenReturn(right(Optional.of(mock(DatabricksWorkspaceInfo.class))));
-        when(workspaceHandlerMock.getWorkspaceClient(any())).thenReturn(right(workspaceClientMock));
+        assert (responseActual.isLeft());
+        assert (responseActual.getLeft().problems().get(0).getMessage().contains("This is an error"));
+    }
 
-        TableExistsResponse tableExistsResponse = mock(TableExistsResponse.class);
-        when(tableExistsResponse.getTableExists()).thenReturn(true);
+    @Test
+    public void testValidateMetastoreError() {
+        when(workspaceClient.metastores())
+                .thenThrow(new NotFound("NOT_FOUND", "Metastore error", Collections.emptyList()));
 
-        when(workspaceClientMock.tables()).thenReturn(mock(TablesAPI.class));
-
-        when(workspaceClientMock.tables().exists("catalog.schema.table_1")).thenReturn(tableExistsResponse);
-
-        TableInfo tableInfo = mock(TableInfo.class);
-
-        when(workspaceClientMock.tables().get("catalog.schema.table_1")).thenReturn(tableInfo);
-
-        Collection<ColumnInfo> columnInfos = new ArrayList<>();
-        columnInfos.add(new ColumnInfo().setName("col_1")); // Just col_1 in the original table. Test must fail
-
-        when(tableInfo.getColumns()).thenReturn(columnInfos);
-
-        outputPortValidation = new OutputPortValidation(miscConfig, workspaceHandlerMock, apiClientFactory);
         var responseActual = outputPortValidation.validate(outputPort, "development");
 
         String errorMessage =
-                "Check for Output Port op_name: the column 'col_2' cannot be found in the table 'catalog.schema.table_1'.";
-        Either<FailedOperation, Object> responseExpected =
-                left(new FailedOperation(Collections.singletonList(new Problem(errorMessage))));
-        assertEquals(responseExpected, responseActual);
+                "An error occurred while retrieving current metastore for workspace ws. Please try again and if the error persists contact the platform team. Details: Metastore error";
+
+        assert (responseActual.isLeft());
+        assert (responseActual.getLeft().problems().get(0).getMessage().contains(errorMessage));
+    }
+
+    @Test
+    public void testValidateMetastoreDoesNotExistManagedWorkspace() {
+        DatabricksWorkspaceInfo workspaceInfo = mock(DatabricksWorkspaceInfo.class);
+        when(workspaceInfo.isManaged()).thenReturn(true);
+        when(workspaceHandler.getWorkspaceInfo(anyString())).thenReturn(right(Optional.of(workspaceInfo)));
+
+        when(workspaceClient.metastores())
+                .thenThrow(new NotFound("METASTORE_DOES_NOT_EXIST", "Metastore error", Collections.emptyList()));
+
+        var responseActual = outputPortValidation.validate(outputPort, "development");
+
+        assertEquals(right(null), responseActual);
+    }
+
+    @Test
+    public void testValidateMetastoreDoesNotExistUnmanagedWorkspace() {
+        DatabricksWorkspaceInfo workspaceInfo = mock(DatabricksWorkspaceInfo.class);
+        when(workspaceInfo.isManaged()).thenReturn(false);
+        when(workspaceHandler.getWorkspaceInfo(anyString())).thenReturn(right(Optional.of(workspaceInfo)));
+
+        when(workspaceClient.metastores())
+                .thenThrow(new NotFound("METASTORE_DOES_NOT_EXIST", "Metastore error", Collections.emptyList()));
+
+        var responseActual = outputPortValidation.validate(outputPort, "development");
+
+        String errorMessage =
+                "Validation of Output Port op_name (id: null) failed. No metastore assigned for the current workspace";
+
+        assert (responseActual.isLeft());
+        assert (responseActual.getLeft().problems().get(0).getMessage().contains(errorMessage));
+    }
+
+    @Test
+    public void testValidateWorkspaceDoesNotExist() {
+        when(workspaceHandler.getWorkspaceInfo(anyString())).thenReturn(right(Optional.empty()));
+
+        var responseActual = outputPortValidation.validate(outputPort, "development");
+
+        assertEquals(right(null), responseActual);
+    }
+
+    @Test
+    public void testValidateWorkspaceInfoError() {
+        when(workspaceHandler.getWorkspaceInfo(anyString()))
+                .thenReturn(left(new FailedOperation(List.of(new Problem("This is an error")))));
+
+        var responseActual = outputPortValidation.validate(outputPort, "development");
+
+        assertEquals(left(new FailedOperation(List.of(new Problem("This is an error")))), responseActual);
     }
 
     private DatabricksOutputPortSpecific prepareDatabricksOPSpecific() {
-
         DatabricksOutputPortSpecific databricksOutputPortSpecific = new DatabricksOutputPortSpecific();
         databricksOutputPortSpecific.setWorkspace("ws");
         databricksOutputPortSpecific.setTableName("table_1");
         databricksOutputPortSpecific.setCatalogName("catalog");
         databricksOutputPortSpecific.setSchemaName("schema");
-
         return databricksOutputPortSpecific;
     }
 
     private DataContract prepareDataContract() {
-
         Column dataColumn1 = new Column();
         dataColumn1.setName("col_1");
         dataColumn1.setDataType("TEXT");
@@ -233,7 +235,6 @@ public class OutputPortValidationTest {
 
         DataContract dataContract = new DataContract();
         dataContract.setSchema(List.of(dataColumn1, dataColumn2));
-
         return dataContract;
     }
 }
